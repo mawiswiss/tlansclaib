@@ -1,0 +1,57 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      # A CI machine may have AVX-512, a colleague's laptop usually not. Keep the baseline at AVX2.
+      GGML_NATIVE: "OFF"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Stand in for the engine sidecar
+        # tauri-build refuses to compile without it. No test starts it.
+        shell: bash
+        run: |
+          triple=$(rustc -vV | sed -n 's/^host: //p')
+          ext=""
+          if [[ $triple == *windows* ]]; then ext=".exe"; fi
+          mkdir -p src-tauri/binaries
+          touch "src-tauri/binaries/tlansclaib-engine-$triple$ext"
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - name: Cache the tiny model
+        id: tiny
+        uses: actions/cache@v4
+        with:
+          path: ggml-tiny.bin
+          key: ggml-tiny-be07e048
+      - if: steps.tiny.outputs.cache-hit != 'true'
+        run: curl -sSL -o ggml-tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
+        shell: bash
+      - name: Transcribe the English fixture
+        run: cargo test -p tlansclaib-engine --test english
+        env:
+          TLANSCLAIB_TINY_MODEL: ${{ github.workspace }}/ggml-tiny.bin

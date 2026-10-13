@@ -1,0 +1,20 @@
+[workspace]
+resolver = "3"
+members = ["engine", "src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Marc Wieland <mail@marcwieland.name>"]
+repository = "https://github.com/mawiswiss/tlansclaib"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
