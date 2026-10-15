@@ -1,3 +1,4 @@
+mod detection;
 mod guard;
 mod models;
 mod run;
@@ -124,6 +125,27 @@ async fn measure_speed() -> Result<f64, String> {
 }
 
 #[tauri::command]
+fn speaker_detection(detection: State<detection::Detection>) -> detection::Status {
+    detection.status()
+}
+
+#[tauri::command]
+async fn download_speaker_detection(app: AppHandle) -> Result<(), String> {
+    let detection = app.state::<detection::Detection>();
+    detection.download(&app).await.map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+fn cancel_speaker_detection(detection: State<detection::Detection>) {
+    detection.cancel();
+}
+
+#[tauri::command]
+fn remove_speaker_detection(app: AppHandle, detection: State<detection::Detection>) -> Result<(), String> {
+    detection.remove(&app).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
 fn cancel_run(app: AppHandle) {
     run::cancel(&app);
 }
@@ -163,6 +185,7 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?.join("models");
             std::fs::create_dir_all(&dir)?;
+            app.manage(detection::Detection::new(&dir));
             app.manage(Models::new(dir));
             let monitor = Monitor::new();
             app.manage(monitor.clone());
@@ -187,6 +210,10 @@ pub fn run() {
             autorun,
             disk_space,
             measure_speed,
+            speaker_detection,
+            download_speaker_detection,
+            cancel_speaker_detection,
+            remove_speaker_detection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
