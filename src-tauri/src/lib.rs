@@ -6,7 +6,7 @@ mod validate;
 
 use std::path::PathBuf;
 
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_shell::ShellExt;
 
 use models::{ModelStatus, Models};
@@ -53,7 +53,23 @@ async fn add_model_file(app: AppHandle, id: Option<String>, path: String) -> Res
 
 #[tauri::command]
 fn delete_model(app: AppHandle, models: State<Models>, id: String) -> Result<(), String> {
-    models.delete(&app, &id).map_err(|e| format!("{e:#}"))
+    models.delete(&id).map_err(|e| format!("{e:#}"))?;
+    let _ = app.emit("models-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+fn unlink_model(app: AppHandle, models: State<Models>, id: String) -> Result<(), String> {
+    models.unlink(&id).map_err(|e| format!("{e:#}"))?;
+    let _ = app.emit("models-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+fn rename_model(app: AppHandle, models: State<Models>, id: String, name: String) -> Result<(), String> {
+    models.rename(&id, &name).map_err(|e| format!("{e:#}"))?;
+    let _ = app.emit("models-changed", ());
+    Ok(())
 }
 
 #[tauri::command]
@@ -140,6 +156,8 @@ pub fn run() {
             cancel_download,
             add_model_file,
             delete_model,
+            unlink_model,
+            rename_model,
             reveal,
             list_languages,
             start_run,

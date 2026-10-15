@@ -15,14 +15,30 @@ use crate::guard;
 use crate::validate;
 
 const BUNDLED: &str = include_str!("../resources/models.json");
+const LINKS: &str = "custom-models.json";
+
+/// A model file added by the user, used where it lies and never deleted by the app.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct Link {
+    pub id: String,
+    pub name: String,
+    pub path: PathBuf,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct ModelEntry {
     pub id: String,
     pub name: String,
+    /// The card title in the models dialog, without the language its chip already shows.
+    #[serde(default)]
+    pub title: Option<String>,
     pub languages: Vec<String>,
     #[serde(default)]
+    pub language_name: Option<String>,
+    #[serde(default)]
     pub recommended: String,
+    #[serde(default)]
+    pub featured: bool,
     pub file: String,
     #[serde(default)]
     pub size_bytes: u64,
@@ -56,6 +72,7 @@ pub struct ModelStatus {
     pub path: Option<String>,
     pub label: Option<String>,
     pub custom: bool,
+    pub linked: bool,
 }
 
 pub struct Models {
@@ -64,10 +81,10 @@ pub struct Models {
 }
 
 #[derive(Clone, Serialize)]
-struct DownloadProgress {
-    id: String,
-    bytes: u64,
-    total: u64,
+pub struct DownloadProgress {
+    pub id: String,
+    pub bytes: u64,
+    pub total: u64,
 }
 
 impl Models {
@@ -106,6 +123,7 @@ impl Models {
                     path: installed.then(|| path.to_string_lossy().into_owned()),
                     entry: entry.clone(),
                     custom: false,
+                    linked: false,
                 }
             })
             .collect();
@@ -116,12 +134,63 @@ impl Models {
                 .map(|f| f.path())
                 .filter(|p| p.extension().is_some_and(|e| e == "bin"))
                 .filter(|p| !known.contains(&p.file_name().unwrap_or_default().to_string_lossy().as_ref()))
-                .filter_map(|path| custom_entry(&path))
+                .filter_map(|path| custom_entry(&path, &registry))
                 .collect();
             custom.sort_by(|a, b| a.entry.name.cmp(&b.entry.name));
             list.extend(custom);
         }
+        list.extend(self.links().iter().map(|link| linked_entry(link, &registry)));
         list
+    }
+
+    pub fn links(&self) -> Vec<Link> {
+        std::fs::read_to_string(self.dir.join(LINKS))
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default()
+    }
+
+    fn save_links(&self, links: &[Link]) -> Result<()> {
+        std::fs::create_dir_all(&self.dir)?;
+        let part = self.dir.join(format!("{LINKS}.part"));
+        std::fs::write(&part, serde_json::to_vec_pretty(links)?)?;
+        std::fs::rename(&part, self.dir.join(LINKS))?;
+        Ok(())
+    }
+
+    pub fn link(&self, source: &Path) -> Result<ModelStatus> {
+        let info = validate::check(source, None).map_err(|reason| anyhow!(reason))?;
+        let path = source.canonicalize().with_context(|| format!("cannot read {}", source.display()))?;
+        let id = format!("linked:{}", &crate::validate::hex(&Sha256::digest(path.to_string_lossy().as_bytes()))[..12]);
+        let mut links = self.links();
+        if !links.iter().any(|l| l.id == id) {
+            let file = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            links.push(Link { id: id.clone(), name: default_name(&file), path: path.clone() });
+            self.save_links(&links)?;
+            log::info!("linked model {} ({})", file, info.label());
+        }
+        self.find(&id)
+    }
+
+    pub fn unlink(&self, id: &str) -> Result<()> {
+        let mut links = self.links();
+        let before = links.len();
+        links.retain(|l| l.id != id);
+        if links.len() == before {
+            return Err(anyhow!("This model is not a linked file."));
+        }
+        self.save_links(&links)
+    }
+
+    pub fn rename(&self, id: &str, name: &str) -> Result<()> {
+        let name = name.trim();
+        if name.is_empty() || name.chars().count() > 60 {
+            return Err(anyhow!("A model name needs 1 to 60 characters."));
+        }
+        let mut links = self.links();
+        let link = links.iter_mut().find(|l| l.id == id).ok_or_else(|| anyhow!("Only a model added from a file can be renamed."))?;
+        link.name = name.to_string();
+        self.save_links(&links)
     }
 
     pub fn find(&self, id: &str) -> Result<ModelStatus> {
@@ -133,6 +202,9 @@ impl Models {
 
     pub fn installed_path(&self, id: &str) -> Result<(ModelEntry, PathBuf)> {
         let status = self.find(id)?;
+        if status.linked && !status.installed {
+            return Err(anyhow!("The file of {} is no longer at {}.", status.entry.name, status.entry.file));
+        }
         let path = status
             .path
             .ok_or_else(|| anyhow!("{} is not installed", status.entry.name))?;
@@ -158,7 +230,7 @@ impl Models {
         }
         let part = self.dir.join(format!("{}.part", entry.file));
         let id_for_progress = id.to_string();
-        let result = fetch(&entry, &url, &part, &cancel, |bytes, total| {
+        let result = fetch(&entry.name, &url, &part, entry.size_bytes, entry.sha256.as_deref(), &cancel, |bytes, total| {
             let _ = app.emit(
                 "download-progress",
                 DownloadProgress {
@@ -200,7 +272,11 @@ impl Models {
     pub fn add_file(&self, app: &AppHandle, id: Option<&str>, source: &Path) -> Result<ModelStatus> {
         let entry = match id {
             Some(id) => Some(self.find(id)?.entry),
-            None => None,
+            None => {
+                let status = self.link(source)?;
+                let _ = app.emit("models-changed", ());
+                return Ok(status);
+            }
         };
         let info = validate::check(source, entry.as_ref()).map_err(|reason| anyhow!(reason))?;
         std::fs::create_dir_all(&self.dir)?;
@@ -213,6 +289,8 @@ impl Models {
         };
         let target = self.dir.join(&file_name);
         if source != target {
+            let size = source.metadata()?.len();
+            guard::can_download(free_disk(&self.dir), size).map_err(|e| anyhow!(e))?;
             let part = self.dir.join(format!("{file_name}.part"));
             std::fs::copy(source, &part).with_context(|| format!("cannot copy into {}", self.dir.display()))?;
             std::fs::rename(&part, &target)?;
@@ -223,10 +301,12 @@ impl Models {
         self.find(&id)
     }
 
-    pub fn delete(&self, app: &AppHandle, id: &str) -> Result<()> {
+    pub fn delete(&self, id: &str) -> Result<()> {
+        if self.links().iter().any(|l| l.id == id) {
+            return Err(anyhow!("A model added from a file is unlinked, not deleted. Its file stays where it is."));
+        }
         let (_, path) = self.installed_path(id)?;
         std::fs::remove_file(&path)?;
-        let _ = app.emit("models-changed", ());
         Ok(())
     }
 }
@@ -242,7 +322,55 @@ fn merge(bundled: Vec<ModelEntry>, extra: Vec<ModelEntry>) -> Vec<ModelEntry> {
     merged
 }
 
-fn custom_entry(path: &Path) -> Option<ModelStatus> {
+fn default_name(file: &str) -> String {
+    let stem = file.strip_suffix(".bin").unwrap_or(file);
+    stem.strip_prefix("ggml-").unwrap_or(stem).to_string()
+}
+
+/// The memory need of a listed model with the same architecture and quantization, else a guess from the size.
+fn estimated_ram(size: u64, architecture: &str, quantization: &str, registry: &[ModelEntry]) -> f32 {
+    registry
+        .iter()
+        .find(|e| e.architecture.as_deref() == Some(architecture) && e.quantization.as_deref() == Some(quantization) && e.ram_gb > 0.0)
+        .map(|e| e.ram_gb)
+        .unwrap_or(((size as f64 * 1.2 / (1u64 << 30) as f64) + 1.0) as f32)
+}
+
+fn linked_entry(link: &Link, registry: &[ModelEntry]) -> ModelStatus {
+    let info = engine::model_file::inspect(&link.path).ok();
+    let size = link.path.metadata().map(|m| m.len()).unwrap_or(0);
+    let installed = info.is_some();
+    ModelStatus {
+        entry: ModelEntry {
+            id: link.id.clone(),
+            name: link.name.clone(),
+            title: None,
+            languages: vec![if info.as_ref().is_none_or(|i| i.multilingual) { "all" } else { "en" }.to_string()],
+            language_name: None,
+            recommended: String::new(),
+            featured: false,
+            file: link.path.to_string_lossy().into_owned(),
+            size_bytes: size,
+            sha256: None,
+            ram_gb: info
+                .as_ref()
+                .map(|i| estimated_ram(size, &i.architecture, &i.quantization, registry))
+                .unwrap_or(0.0),
+            url: None,
+            architecture: info.as_ref().map(|i| i.architecture.clone()),
+            quantization: info.as_ref().map(|i| i.quantization.clone()),
+            source: None,
+            license: None,
+        },
+        installed,
+        path: installed.then(|| link.path.to_string_lossy().into_owned()),
+        label: info.map(|i| i.label()),
+        custom: true,
+        linked: true,
+    }
+}
+
+fn custom_entry(path: &Path, registry: &[ModelEntry]) -> Option<ModelStatus> {
     let info = engine::model_file::inspect(path).ok()?;
     let file = path.file_name()?.to_string_lossy().into_owned();
     let size = path.metadata().ok()?.len();
@@ -250,12 +378,15 @@ fn custom_entry(path: &Path) -> Option<ModelStatus> {
         entry: ModelEntry {
             id: format!("custom:{file}"),
             name: file.trim_end_matches(".bin").trim_start_matches("ggml-").to_string(),
+            title: None,
             languages: vec![if info.multilingual { "all" } else { "en" }.to_string()],
+            language_name: None,
             recommended: "Added from a file".into(),
+            featured: false,
             file,
             size_bytes: size,
             sha256: None,
-            ram_gb: ((size as f64 * 1.2 / (1u64 << 30) as f64) + 1.0) as f32,
+            ram_gb: estimated_ram(size, &info.architecture, &info.quantization, registry),
             url: None,
             architecture: Some(info.architecture.clone()),
             quantization: Some(info.quantization.clone()),
@@ -266,6 +397,7 @@ fn custom_entry(path: &Path) -> Option<ModelStatus> {
         path: Some(path.to_string_lossy().into_owned()),
         label: Some(info.label()),
         custom: true,
+        linked: false,
     })
 }
 
@@ -279,10 +411,12 @@ fn free_disk(dir: &Path) -> u64 {
         .unwrap_or(u64::MAX)
 }
 
-async fn fetch(
-    entry: &ModelEntry,
+pub async fn fetch(
+    name: &str,
     url: &str,
     part: &Path,
+    size: u64,
+    sha256: Option<&str>,
     cancel: &AtomicBool,
     mut progress: impl FnMut(u64, u64),
 ) -> Result<()> {
@@ -290,8 +424,8 @@ async fn fetch(
         .await
         .with_context(|| format!("cannot reach {url}"))?
         .error_for_status()
-        .with_context(|| format!("the download of {} failed", entry.name))?;
-    let total = response.content_length().unwrap_or(entry.size_bytes);
+        .with_context(|| format!("the download of {name} failed"))?;
+    let total = response.content_length().unwrap_or(size);
     let mut file = tokio::fs::File::create(part).await?;
     let mut stream = response.bytes_stream();
     let mut bytes = 0u64;
@@ -312,7 +446,7 @@ async fn fetch(
     }
     file.flush().await?;
     drop(file);
-    if let Some(expected) = &entry.sha256 {
+    if let Some(expected) = sha256 {
         let digest = crate::validate::hex(&hasher.finalize());
         if !digest.eq_ignore_ascii_case(expected) {
             return Err(anyhow!(
@@ -332,6 +466,42 @@ mod tests {
             "id": id, "name": name, "languages": ["all"], "file": format!("ggml-{id}.bin")
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn links_a_model_file_where_it_lies_and_unlinks_it_without_deleting() {
+        let dir = std::env::temp_dir().join(format!("tlansclaib-links-{}", std::process::id()));
+        let elsewhere = dir.join("elsewhere");
+        std::fs::create_dir_all(&elsewhere).unwrap();
+        let file = elsewhere.join("ggml-my-thai-q8_0.bin");
+        let header: Vec<u8> = [0x67676d6cu32, 51866, 1500, 1280, 20, 32, 448, 1280, 4, 4, 128, 7]
+            .iter()
+            .flat_map(|w| w.to_le_bytes())
+            .collect();
+        std::fs::write(&file, &header).unwrap();
+        let models = Models::new(dir.join("models"));
+
+        let linked = models.link(&file).unwrap();
+        assert!(linked.linked && linked.custom && linked.installed);
+        assert_eq!(linked.entry.name, "my-thai-q8_0");
+        assert_eq!(models.link(&file).unwrap().entry.id, linked.entry.id);
+        assert_eq!(models.links().len(), 1);
+        assert!(models.delete(&linked.entry.id).unwrap_err().to_string().contains("unlinked, not deleted"));
+        assert!(file.is_file());
+
+        models.rename(&linked.entry.id, "  My Thai  ").unwrap();
+        assert_eq!(models.find(&linked.entry.id).unwrap().entry.name, "My Thai");
+        assert!(models.rename(&linked.entry.id, " ").is_err());
+
+        std::fs::rename(&file, elsewhere.join("moved.bin")).unwrap();
+        let missing = models.find(&linked.entry.id).unwrap();
+        assert!(!missing.installed);
+        assert!(models.installed_path(&linked.entry.id).unwrap_err().to_string().contains("no longer at"));
+
+        models.unlink(&linked.entry.id).unwrap();
+        assert!(models.find(&linked.entry.id).is_err());
+        assert!(elsewhere.join("moved.bin").is_file());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
@@ -358,7 +528,7 @@ mod tests {
         let mut reports = 0;
         let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime
-            .block_on(fetch(&entry, entry.url.as_ref().unwrap(), &part, &AtomicBool::new(false), |_, _| reports += 1))
+            .block_on(fetch(&entry.name, entry.url.as_ref().unwrap(), &part, entry.size_bytes, entry.sha256.as_deref(), &AtomicBool::new(false), |_, _| reports += 1))
             .unwrap();
         assert!(reports >= 2);
         assert_eq!(part.metadata().unwrap().len(), entry.size_bytes);
