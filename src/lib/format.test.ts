@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bytes, clock, duration, fileName, folderOf, remaining, speed } from "./format";
+import { bytes, clock, duration, fileName, folderOf, remaining, sourceLabel, speed, stamp, titleOf, transcriptText, wholeGb } from "./format";
 
 describe("format", () => {
   it("prints clocks like the transcript files", () => {
@@ -41,5 +41,52 @@ describe("format", () => {
     expect(fileName("C:\\Users\\x\\meeting.m4a")).toBe("meeting.m4a");
     expect(folderOf("/a/b/meeting.m4a")).toBe("/a/b");
     expect(folderOf("C:\\Users\\x\\meeting.m4a")).toBe("C:\\Users\\x");
+  });
+
+  it("describes the source by its container, video and tracks", () => {
+    expect(sourceLabel("/a/call.mp4", true, 2)).toBe("MP4 video, 2 tracks");
+    expect(sourceLabel("C:\\x\\memo.m4a", false, 1)).toBe("M4A audio");
+    expect(sourceLabel("/a/old.mp3", null, 1)).toBe("MP3");
+  });
+
+  it("names a transcript after its file, without the suffix", () => {
+    expect(titleOf("/a/b/Weekly sync_transcript.txt")).toBe("Weekly sync");
+    expect(titleOf("C:\\x\\meeting_transcript.txt")).toBe("meeting");
+    expect(titleOf("/a/notes.TXT")).toBe("notes");
+    expect(titleOf("/a/_transcript.txt")).toBe("_transcript");
+  });
+
+  it("writes time stamps like the engine", () => {
+    expect(stamp(0)).toBe("00:00:00.00");
+    expect(stamp(17.25)).toBe("00:00:17.25");
+    expect(stamp(3661.5)).toBe("01:01:01.50");
+  });
+
+  it("builds the transcript text with or without timecodes", () => {
+    const lines = [
+      { start: 0, end: 17, text: "first line" },
+      { start: 17, end: 35, text: "" },
+      { start: 35, end: 50, text: "third line" },
+    ];
+    expect(transcriptText(lines, true)).toBe("[00:00:00.00 --> 00:00:17.00] first line\n[00:00:35.00 --> 00:00:50.00] third line\n");
+    expect(transcriptText(lines, false)).toBe("first line\nthird line\n");
+  });
+
+  it("writes the speaker in front of each line like the engine", () => {
+    const lines = [
+      { start: 0, end: 4, text: "Hello", speaker: 0 },
+      { start: 4.5, end: 9, text: "Hi there", speaker: 1 },
+    ];
+    expect(transcriptText(lines, true, ["Marc", "Client"])).toBe(
+      "[00:00:00.00 --> 00:00:04.00] Marc: Hello\n[00:00:04.50 --> 00:00:09.00] Client: Hi there\n",
+    );
+    expect(transcriptText(lines, false, ["Marc", "Client"])).toBe("Marc: Hello\nClient: Hi there\n");
+  });
+
+  it("rounds to whole gigabytes, and to tens of megabytes below one", () => {
+    expect(wholeGb(9.7 * 2 ** 30)).toBe("10 GB");
+    expect(wholeGb(16 * 2 ** 30)).toBe("16 GB");
+    expect(wholeGb(1.4 * 2 ** 30)).toBe("1 GB");
+    expect(wholeGb(0.43 * 2 ** 30)).toBe("440 MB");
   });
 });

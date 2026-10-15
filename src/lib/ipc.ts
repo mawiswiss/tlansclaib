@@ -1,4 +1,5 @@
-import type { DownloadProgress, EngineEvent, Language, ModelStatus, Stats } from "./types";
+import type { Line } from "./run";
+import type { DiskSpace, DownloadProgress, EngineEvent, FileKind, HistoryEntry, Language, Match, ModelStatus, Opened, SpeakerDetection, Stats } from "./types";
 
 export type Unlisten = () => void;
 
@@ -9,19 +10,52 @@ export type Backend = {
   cancelDownload(id: string): Promise<void>;
   addModelFile(id: string | null, path: string): Promise<ModelStatus>;
   deleteModel(id: string): Promise<void>;
+  unlinkModel(id: string): Promise<void>;
+  renameModel(id: string, name: string): Promise<void>;
   reveal(path: string): Promise<void>;
   listLanguages(): Promise<Language[]>;
-  startRun(audio: string, modelId: string, language: string, outputDir: string | null): Promise<void>;
+  startRun(
+    audio: string,
+    modelId: string,
+    language: string,
+    timestamps: boolean,
+    outputDir: string | null,
+    speakers: string | null,
+    speakerPrecision: string | null,
+    outputFile?: string | null,
+  ): Promise<void>;
+  speakerDetection(): Promise<SpeakerDetection>;
+  downloadSpeakerDetection(): Promise<void>;
+  cancelSpeakerDetection(): Promise<void>;
+  removeSpeakerDetection(): Promise<void>;
   cancelRun(): Promise<void>;
   readTextFile(path: string): Promise<string>;
+  listHistory(): Promise<HistoryEntry[]>;
+  removeHistory(id: number): Promise<void>;
+  setTranscriptTimestamps(file: string, lines: Line[], timestamps: boolean, speakers: string[]): Promise<string>;
+  saveTranscript(file: string, expected: string, lines: Line[], timestamps: boolean, speakers: string[]): Promise<string>;
+  transcriptHash(file: string): Promise<string>;
+  renameTranscript(file: string, title: string): Promise<string>;
+  openHistory(id: number): Promise<Opened>;
+  checkCandidate(id: number, kind: FileKind, path: string): Promise<Match>;
+  relocateHistory(id: number, kind: FileKind, path: string): Promise<void>;
+  audioUrl(path: string): Promise<string>;
+  confirm(message: string, ok: string): Promise<boolean>;
+  log(level: "info" | "warn", message: string): void;
+  openUrl(url: string): Promise<void>;
+  appVersion(): Promise<string>;
+  diskSpace(): Promise<DiskSpace>;
+  measureSpeed(): Promise<number>;
   autorun(): Promise<string | null>;
   pickAudioFile(): Promise<string | null>;
   pickModelFile(): Promise<string | null>;
   pickFolder(): Promise<string | null>;
+  pickTranscriptFile(): Promise<string | null>;
   onEngineEvent(handler: (event: EngineEvent) => void): Promise<Unlisten>;
   onStats(handler: (stats: Stats) => void): Promise<Unlisten>;
   onDownloadProgress(handler: (progress: DownloadProgress) => void): Promise<Unlisten>;
   onModelsChanged(handler: () => void): Promise<Unlisten>;
+  onHistoryChanged(handler: () => void): Promise<Unlisten>;
   onDrop(handler: (state: "over" | "leave" | string[]) => void): Promise<Unlisten>;
 };
 
@@ -40,12 +74,43 @@ async function tauriBackend(): Promise<Backend> {
     cancelDownload: (id) => invoke("cancel_download", { id }),
     addModelFile: (id, path) => invoke("add_model_file", { id, path }),
     deleteModel: (id) => invoke("delete_model", { id }),
+    unlinkModel: (id) => invoke("unlink_model", { id }),
+    renameModel: (id, name) => invoke("rename_model", { id, name }),
     reveal: (path) => invoke("reveal", { path }),
     listLanguages: () => invoke("list_languages"),
-    startRun: (audio, modelId, language, outputDir) =>
-      invoke("start_run", { audio, modelId, language, outputDir }),
+    startRun: (audio, modelId, language, timestamps, outputDir, speakers, speakerPrecision, outputFile) =>
+      invoke("start_run", { audio, modelId, language, timestamps, outputDir, speakers, speakerPrecision, outputFile: outputFile ?? null }),
+    speakerDetection: () => invoke("speaker_detection"),
+    downloadSpeakerDetection: () => invoke("download_speaker_detection"),
+    cancelSpeakerDetection: () => invoke("cancel_speaker_detection"),
+    removeSpeakerDetection: () => invoke("remove_speaker_detection"),
     cancelRun: () => invoke("cancel_run"),
     readTextFile: (path) => invoke("read_text_file", { path }),
+    listHistory: () => invoke("list_history"),
+    removeHistory: (id) => invoke("remove_history", { id }),
+    setTranscriptTimestamps: (file, lines, timestamps, speakers) => invoke("set_transcript_timestamps", { file, lines, timestamps, speakers }),
+    saveTranscript: (file, expected, lines, timestamps, speakers) => invoke("save_transcript", { file, expected, lines, timestamps, speakers }),
+    transcriptHash: (file) => invoke("transcript_hash", { file }),
+    renameTranscript: (file, title) => invoke("rename_transcript", { file, title }),
+    openHistory: (id) => invoke("open_history", { id }),
+    checkCandidate: (id, kind, path) => invoke("check_candidate", { id, kind, path }),
+    relocateHistory: (id, kind, path) => invoke("relocate_history", { id, kind, path }),
+    audioUrl: async (path) => {
+      await invoke("audio_source", { path });
+      const { convertFileSrc } = await import("@tauri-apps/api/core");
+      return convertFileSrc(path);
+    },
+    confirm: async (message, ok) => {
+      const { ask } = await import("@tauri-apps/plugin-dialog");
+      return ask(message, { title: "tlansclaib", kind: "warning", okLabel: ok, cancelLabel: "Cancel" });
+    },
+    log: (level, message) => {
+      import("@tauri-apps/plugin-log").then((l) => (level === "warn" ? l.warn(message) : l.info(message))).catch(() => {});
+    },
+    openUrl: (url) => invoke("open_url", { url }),
+    appVersion: async () => (await import("@tauri-apps/api/app")).getVersion(),
+    diskSpace: () => invoke("disk_space"),
+    measureSpeed: () => invoke("measure_speed"),
     autorun: () => invoke("autorun"),
     pickAudioFile: async () => {
       const picked = await open({ multiple: false, filters: [{ name: "Audio", extensions: AUDIO }] });
@@ -59,10 +124,15 @@ async function tauriBackend(): Promise<Backend> {
       const picked = await open({ directory: true, multiple: false });
       return typeof picked === "string" ? picked : null;
     },
+    pickTranscriptFile: async () => {
+      const picked = await open({ multiple: false, filters: [{ name: "Transcript", extensions: ["txt"] }] });
+      return typeof picked === "string" ? picked : null;
+    },
     onEngineEvent: (handler) => listen<EngineEvent>("engine-event", (e) => handler(e.payload)),
     onStats: (handler) => listen<Stats>("system-stats", (e) => handler(e.payload)),
     onDownloadProgress: (handler) => listen<DownloadProgress>("download-progress", (e) => handler(e.payload)),
     onModelsChanged: (handler) => listen("models-changed", () => handler()),
+    onHistoryChanged: (handler) => listen("history-changed", () => handler()),
     onDrop: (handler) =>
       getCurrentWebview().onDragDropEvent((event) => {
         if (event.payload.type === "drop") handler(event.payload.paths);

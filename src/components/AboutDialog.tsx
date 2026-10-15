@@ -1,0 +1,121 @@
+import { useEffect, useState } from "react";
+import { AUTHOR, GITHUB, WEBSITE, YEAR } from "../lib/about";
+import { Check, Close, Code, Globe, Heart, Lock, Logo, Monitor, User } from "./icons";
+
+type Props = {
+  version: () => Promise<string>;
+  onOpenUrl: (url: string) => void;
+  onSupport: () => void;
+  onClose: () => void;
+};
+
+const FEATURES = [
+  "Runs on the Apple GPU or the processor",
+  "About 100 languages, with special models for Thai, Swiss German, German, English and French",
+  "Timecodes on or off, saved wherever you want",
+  "A history of every transcript",
+  "Stops before the computer runs out of RAM",
+  "Free, with no ads, no tracking and no subscription",
+];
+
+export function AboutDialog({ version, onOpenUrl, onSupport, onClose }: Props) {
+  const [v, setV] = useState("");
+  useEffect(() => {
+    version().then(setV).catch(() => setV(""));
+  }, [version]);
+  return (
+    <div className="overlay" onClick={onClose}>
+      <section className="modal about" role="dialog" aria-modal="true" aria-labelledby="about-title" onClick={(e) => e.stopPropagation()}>
+        <header className="modal-head about-head">
+          <Logo size={44} />
+          <div>
+            <h2 id="about-title">tlansclaib</h2>
+            <p className="muted">Offline transcription for Mac and Windows</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
+            <Close />
+          </button>
+        </header>
+        <div className="modal-body about-body">
+          <section className="about-part">
+            <h3>Features</h3>
+            <div className="privacy">
+              <span className="fact-icon">
+                <Lock size={20} />
+              </span>
+              <div>
+                <strong>Your recordings never leave this computer</strong>
+                <p>No uploads, no analytics, no account. Once a model is installed, no internet is needed.</p>
+              </div>
+            </div>
+            <ul className="feature-list">
+              {FEATURES.map((f) => (
+                <li key={f}>
+                  <Check size={15} strokeWidth={2.2} />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section className="about-part">
+            <h3>About the app</h3>
+            <div className="fact">
+              <span className="fact-icon">
+                <User size={18} />
+              </span>
+              <div>
+                <strong>Made by an indie developer</strong>
+                <p>{AUTHOR} builds and maintains tlansclaib independently.</p>
+                <div className="actions">
+                  <button type="button" className="small" onClick={() => onOpenUrl(WEBSITE)}>
+                    <Globe size={15} /> Website
+                  </button>
+                  <button type="button" className="small" onClick={() => onOpenUrl(GITHUB)}>
+                    <Code size={15} /> GitHub
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="fact">
+              <span className="fact-icon">
+                <Code size={18} />
+              </span>
+              <div>
+                <strong>Open source</strong>
+                <p>MIT license. Built on whisper.cpp and open-weight speech models from their authors.</p>
+              </div>
+            </div>
+            <div className="fact">
+              <span className="fact-icon">
+                <Monitor size={18} />
+              </span>
+              <div>
+                <strong>For macOS and Windows</strong>
+                <p>macOS 13 or newer on Apple silicon or Intel, Windows 10 and 11.</p>
+              </div>
+            </div>
+            <div className="fact">
+              <span className="fact-icon">
+                <Heart size={18} />
+              </span>
+              <div>
+                <strong>Keep tlansclaib going</strong>
+                <p>If it saves you time, a contribution helps me keep it maintained and improving.</p>
+                <div className="actions">
+                  <button type="button" className="primary small" onClick={onSupport}>
+                    <Heart size={15} /> Support my work
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <footer className="modal-foot about-foot">
+          <span className="muted">
+            © {YEAR} {AUTHOR} · MIT License{v && ` · Version ${v}`}
+          </span>
+        </footer>
+      </section>
+    </div>
+  );
+}

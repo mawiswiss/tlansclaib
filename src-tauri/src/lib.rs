@@ -96,44 +96,35 @@ async fn list_languages(app: AppHandle) -> Result<Vec<Language>, String> {
 }
 
 #[tauri::command]
-fn start_run(app: AppHandle, audio: String, model_id: String, language: String, output_dir: Option<String>) -> Result<(), String> {
+#[allow(clippy::too_many_arguments)]
+fn start_run(
+    app: AppHandle,
+    audio: String,
+    model_id: String,
+    language: String,
+    timestamps: bool,
+    output_dir: Option<String>,
+    speakers: Option<String>,
+    speaker_precision: Option<String>,
+    output_file: Option<String>,
+) -> Result<(), String> {
     let audio = PathBuf::from(audio);
     let output_dir = output_dir.map(PathBuf::from);
+    let output_file = output_file.map(PathBuf::from);
     run::start(
         &app,
         run::Request {
             audio: &audio,
             model_id: &model_id,
             language: &language,
-            timestamps: true,
+            timestamps,
             output_dir: output_dir.as_deref(),
-            speakers: None,
-            speaker_precision: None,
-            transcript: None,
+            speakers: speakers.as_deref(),
+            speaker_precision: speaker_precision.as_deref(),
+            transcript: output_file.as_deref(),
         },
     )
     .map_err(|e| format!("{e:#}"))
-}
-
-#[derive(serde::Serialize)]
-struct DiskSpace {
-    free: u64,
-    minimum: u64,
-    reserve: u64,
-}
-
-#[tauri::command]
-fn disk_space(models: State<Models>) -> DiskSpace {
-    DiskSpace {
-        free: models::free_disk(&models.dir),
-        minimum: guard::DISK_MINIMUM,
-        reserve: guard::DISK_RESERVE,
-    }
-}
-
-#[tauri::command]
-async fn measure_speed() -> Result<f64, String> {
-    models::measure_speed().await.map_err(|e| format!("{e:#}"))
 }
 
 #[tauri::command]
@@ -225,6 +216,35 @@ fn remember_write(app: &AppHandle, history: &History, file: &Path, timestamps: b
 }
 
 #[derive(serde::Serialize)]
+struct DiskSpace {
+    free: u64,
+    minimum: u64,
+    reserve: u64,
+}
+
+#[tauri::command]
+fn disk_space(models: State<Models>) -> DiskSpace {
+    DiskSpace {
+        free: models::free_disk(&models.dir),
+        minimum: guard::DISK_MINIMUM,
+        reserve: guard::DISK_RESERVE,
+    }
+}
+
+#[tauri::command]
+async fn measure_speed() -> Result<f64, String> {
+    models::measure_speed().await.map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    if !url.starts_with("https://") {
+        return Err(format!("not opening {url}: only https links are allowed"));
+    }
+    tauri_plugin_opener::open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
+#[derive(serde::Serialize)]
 struct Opened {
     text: String,
     hash: String,
@@ -260,6 +280,15 @@ fn relocate_history(app: AppHandle, history: State<History>, id: u64, kind: hist
     history.relocate(id, kind, Path::new(&path)).map_err(|e| format!("{e:#}"))?;
     let _ = app.emit("history-changed", ());
     Ok(())
+}
+
+#[tauri::command]
+fn audio_source(app: AppHandle, path: String) -> Result<(), String> {
+    let path = PathBuf::from(path);
+    if !path.is_file() {
+        return Err(format!("{} is not there", path.display()));
+    }
+    app.asset_protocol_scope().allow_file(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -327,21 +356,23 @@ pub fn run() {
             cancel_run,
             read_text_file,
             autorun,
-            disk_space,
-            measure_speed,
+            list_history,
+            remove_history,
+            set_transcript_timestamps,
+            relocate_history,
+            open_history,
+            save_transcript,
+            transcript_hash,
+            rename_transcript,
             speaker_detection,
             download_speaker_detection,
             cancel_speaker_detection,
             remove_speaker_detection,
-            list_history,
-            remove_history,
-            open_history,
             check_candidate,
-            relocate_history,
-            set_transcript_timestamps,
-            save_transcript,
-            transcript_hash,
-            rename_transcript,
+            audio_source,
+            open_url,
+            disk_space,
+            measure_speed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
