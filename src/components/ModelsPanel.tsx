@@ -252,7 +252,7 @@ export function ModelsPanel(props: Props) {
               Download
             </button>
           ) : (
-            <Tooltip content={`Choose ${m.file} (${bytes(m.size_bytes)}) from the handover folder.`}>
+            <Tooltip content={`Choose ${m.file} (${bytes(m.size_bytes)}) on this computer.`}>
               <button type="button" className="primary small" onClick={() => onAddFile(m.id)} disabled={!fits}>
                 Add file…
               </button>
