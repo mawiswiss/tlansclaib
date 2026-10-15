@@ -5,6 +5,7 @@ mod history;
 mod models;
 mod run;
 mod system;
+mod transcript;
 mod validate;
 
 use std::path::{Path, PathBuf};
@@ -168,6 +169,61 @@ fn remove_history(app: AppHandle, history: State<History>, id: u64) -> Result<()
     Ok(())
 }
 
+#[tauri::command]
+fn set_transcript_timestamps(
+    app: AppHandle,
+    history: State<History>,
+    file: String,
+    lines: Vec<transcript::Line>,
+    timestamps: bool,
+    speakers: Vec<String>,
+) -> Result<String, String> {
+    let file = Path::new(&file);
+    transcript::set_timestamps(file, &lines, timestamps, &speakers).map_err(|e| format!("{e:#}"))?;
+    remember_write(&app, &history, file, timestamps, &speakers)
+}
+
+#[tauri::command]
+fn save_transcript(
+    app: AppHandle,
+    history: State<History>,
+    file: String,
+    expected: String,
+    lines: Vec<transcript::Line>,
+    timestamps: bool,
+    speakers: Vec<String>,
+) -> Result<String, String> {
+    let file = Path::new(&file);
+    transcript::save(file, &expected, &lines, timestamps, &speakers).map_err(|e| format!("{e:#}"))?;
+    remember_write(&app, &history, file, timestamps, &speakers)
+}
+
+#[tauri::command]
+fn rename_transcript(app: AppHandle, history: State<History>, file: String, title: String) -> Result<String, String> {
+    let from = PathBuf::from(file);
+    let to = transcript::rename(&from, &title).map_err(|e| format!("{e:#}"))?;
+    if to != from {
+        if let Err(error) = history.renamed(&from, &to) {
+            log::warn!("cannot save the history: {error:#}");
+        }
+        let _ = app.emit("history-changed", ());
+    }
+    Ok(to.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn transcript_hash(file: String) -> Result<String, String> {
+    fingerprint::transcript(Path::new(&file)).map_err(|e| e.to_string())
+}
+
+fn remember_write(app: &AppHandle, history: &History, file: &Path, timestamps: bool, speakers: &[String]) -> Result<String, String> {
+    if let Err(error) = history.written(file, timestamps, speakers) {
+        log::warn!("cannot save the history: {error:#}");
+    }
+    let _ = app.emit("history-changed", ());
+    fingerprint::transcript(file).map_err(|e| e.to_string())
+}
+
 #[derive(serde::Serialize)]
 struct Opened {
     text: String,
@@ -282,6 +338,10 @@ pub fn run() {
             open_history,
             check_candidate,
             relocate_history,
+            set_transcript_timestamps,
+            save_transcript,
+            transcript_hash,
+            rename_transcript,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

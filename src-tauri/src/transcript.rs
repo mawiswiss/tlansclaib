@@ -1,0 +1,220 @@
+use std::path::Path;
+
+use anyhow::{Context, Result, anyhow};
+use engine::output::render;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+pub struct Line {
+    pub start: f64,
+    pub end: f64,
+    pub text: String,
+    #[serde(default)]
+    pub speaker: Option<usize>,
+}
+
+fn rendered(lines: &[Line], timestamps: bool, speakers: &[String]) -> String {
+    let speaker = |l: &Line| l.speaker.and_then(|s| speakers.get(s)).map(String::as_str);
+    render(lines.iter().map(|l| (l.start, l.end, speaker(l), l.text.as_str())), timestamps)
+}
+
+pub fn check_speakers(speakers: &[String]) -> Result<()> {
+    for (i, name) in speakers.iter().enumerate() {
+        if name.trim().is_empty() || name.trim() != name {
+            return Err(anyhow!("A speaker name cannot be empty or start or end with a space."));
+        }
+        if name.chars().count() > 40 {
+            return Err(anyhow!("Keep a speaker name under 40 characters."));
+        }
+        if name.contains(':') || name.chars().any(char::is_control) {
+            return Err(anyhow!("A speaker name cannot contain a colon, because the colon ends the name in the transcript."));
+        }
+        if speakers[..i].iter().any(|other| other.to_lowercase() == name.to_lowercase()) {
+            return Err(anyhow!("Two speakers cannot both be called {name}."));
+        }
+    }
+    Ok(())
+}
+
+pub fn set_timestamps(file: &Path, lines: &[Line], timestamps: bool, speakers: &[String]) -> Result<()> {
+    let current = std::fs::read_to_string(file).with_context(|| format!("cannot read {}", file.display()))?;
+    let wanted = rendered(lines, timestamps, speakers);
+    if current == wanted {
+        return Ok(());
+    }
+    if current != rendered(lines, !timestamps, speakers) {
+        return Err(anyhow!(
+            "{} was changed after the transcription, so it was left as it is.",
+            file.display()
+        ));
+    }
+    write(file, &wanted)
+}
+
+pub fn save(file: &Path, expected: &str, lines: &[Line], timestamps: bool, speakers: &[String]) -> Result<String> {
+    check_speakers(speakers)?;
+    let current = crate::fingerprint::transcript(file).with_context(|| format!("cannot read {}", file.display()))?;
+    if current != expected {
+        return Err(anyhow!(
+            "{} was changed outside tlansclaib since it was opened, so the edit was not saved. Open it again from History to see the current text.",
+            file.display()
+        ));
+    }
+    write(file, &rendered(lines, timestamps, speakers))?;
+    crate::fingerprint::transcript(file)
+}
+
+pub const SUFFIX: &str = "_transcript.txt";
+
+pub fn rename(file: &Path, title: &str) -> Result<std::path::PathBuf> {
+    let title = title.trim().trim_matches(['.', ' ']);
+    if title.is_empty() {
+        return Err(anyhow!("The title cannot be empty."));
+    }
+    if title.chars().count() > 120 {
+        return Err(anyhow!("The title is too long. Keep it under 120 characters."));
+    }
+    if let Some(c) = title.chars().find(|c| r#"<>:"/\|?*"#.contains(*c) || c.is_control()) {
+        return Err(anyhow!("The title cannot contain {c:?}, because file names cannot."));
+    }
+    if !file.is_file() {
+        return Err(anyhow!("The transcript is no longer at {}.", file.display()));
+    }
+    let target = file.with_file_name(format!("{title}{SUFFIX}"));
+    if target == file {
+        return Ok(target);
+    }
+    if target.exists() && !same_file(file, &target) {
+        return Err(anyhow!("{} already exists in this folder.", target.file_name().unwrap_or_default().to_string_lossy()));
+    }
+    std::fs::rename(file, &target).with_context(|| format!("cannot rename {}", file.display()))?;
+    Ok(target)
+}
+
+#[cfg(unix)]
+fn same_file(a: &Path, b: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    match (std::fs::metadata(a), std::fs::metadata(b)) {
+        (Ok(x), Ok(y)) => x.dev() == y.dev() && x.ino() == y.ino(),
+        _ => false,
+    }
+}
+
+#[cfg(not(unix))]
+fn same_file(a: &Path, b: &Path) -> bool {
+    a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase()
+}
+
+fn write(file: &Path, text: &str) -> Result<()> {
+    let part = file.with_extension("txt.part");
+    std::fs::write(&part, text).with_context(|| format!("cannot write {}", part.display()))?;
+    std::fs::rename(&part, file).with_context(|| format!("cannot write {}", file.display()))?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn lines() -> Vec<Line> {
+        vec![
+            Line { start: 0.0, end: 12.75, text: "first".into(), speaker: None },
+            Line { start: 12.75, end: 24.35, text: String::new(), speaker: None },
+            Line { start: 24.35, end: 39.25, text: "second".into(), speaker: None },
+        ]
+    }
+
+    #[test]
+    fn switches_the_file_between_both_forms_and_leaves_edited_files_alone() {
+        let dir = std::env::temp_dir().join(format!("tlansclaib-transcript-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("meeting_transcript.txt");
+        std::fs::write(&file, "[00:00:00.00 --> 00:00:12.75] first\n[00:00:24.35 --> 00:00:39.25] second\n").unwrap();
+
+        set_timestamps(&file, &lines(), false, &[]).unwrap();
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "first\nsecond\n");
+        set_timestamps(&file, &lines(), false, &[]).unwrap();
+        set_timestamps(&file, &lines(), true, &[]).unwrap();
+        assert!(std::fs::read_to_string(&file).unwrap().starts_with("[00:00:00.00 --> 00:00:12.75] first"));
+
+        std::fs::write(&file, "edited by hand\n").unwrap();
+        let refused = set_timestamps(&file, &lines(), false, &[]).unwrap_err().to_string();
+        assert!(refused.contains("was changed after the transcription"), "{refused}");
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "edited by hand\n");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn names_each_line_after_its_speaker_and_renames_speakers_through_a_save() {
+        let dir = std::env::temp_dir().join(format!("tlansclaib-speakers-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("call_transcript.txt");
+        std::fs::write(&file, "[00:00:00.00 --> 00:00:04.00] Speaker 1: Hello\n[00:00:04.50 --> 00:00:09.00] Speaker 2: Hi\n").unwrap();
+        let lines = vec![
+            Line { start: 0.0, end: 4.0, text: "Hello".into(), speaker: Some(0) },
+            Line { start: 4.5, end: 9.0, text: "Hi".into(), speaker: Some(1) },
+        ];
+        let defaults = engine::output::speakers(2);
+        set_timestamps(&file, &lines, false, &defaults).unwrap();
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "Speaker 1: Hello\nSpeaker 2: Hi\n");
+
+        let named = vec!["Marc".to_string(), "Client".to_string()];
+        let hash = crate::fingerprint::transcript(&file).unwrap();
+        save(&file, &hash, &lines, false, &named).unwrap();
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "Marc: Hello\nClient: Hi\n");
+
+        let hash = crate::fingerprint::transcript(&file).unwrap();
+        for bad in [vec!["Marc".to_string(), "marc".to_string()], vec!["Dr: X".to_string()], vec![" ".to_string()]] {
+            assert!(save(&file, &hash, &lines, false, &bad).is_err(), "{bad:?}");
+        }
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "Marc: Hello\nClient: Hi\n");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn renames_the_file_after_the_title_and_refuses_bad_names_and_overwrites() {
+        let dir = std::env::temp_dir().join(format!("tlansclaib-rename-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("team call_transcript.txt");
+        std::fs::write(&file, "text\n").unwrap();
+
+        let renamed = rename(&file, "  Weekly sync. ").unwrap();
+        assert_eq!(renamed, dir.join("Weekly sync_transcript.txt"));
+        assert!(renamed.is_file() && !file.exists());
+        assert_eq!(rename(&renamed, "Weekly sync").unwrap(), renamed);
+        let lower = rename(&renamed, "weekly sync").unwrap();
+        assert_eq!(lower.file_name().unwrap(), "weekly sync_transcript.txt");
+        let renamed = rename(&lower, "Weekly sync").unwrap();
+
+        assert!(rename(&renamed, "").is_err());
+        assert!(rename(&renamed, "a/b").unwrap_err().to_string().contains("cannot contain"));
+        std::fs::write(dir.join("Other_transcript.txt"), "x\n").unwrap();
+        assert!(rename(&renamed, "Other").unwrap_err().to_string().contains("already exists"));
+        assert!(renamed.is_file());
+        assert!(rename(&dir.join("gone_transcript.txt"), "x").unwrap_err().to_string().contains("no longer"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn saves_an_edit_only_over_the_version_it_started_from() {
+        let dir = std::env::temp_dir().join(format!("tlansclaib-save-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("meeting_transcript.txt");
+        std::fs::write(&file, "[00:00:00.00 --> 00:00:12.75] first\n[00:00:24.35 --> 00:00:39.25] second\n").unwrap();
+        let opened = crate::fingerprint::transcript(&file).unwrap();
+
+        let mut edited = lines();
+        edited[0].text = "first, corrected".into();
+        let saved = save(&file, &opened, &edited, true, &[]).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&file).unwrap(),
+            "[00:00:00.00 --> 00:00:12.75] first, corrected\n[00:00:24.35 --> 00:00:39.25] second\n"
+        );
+        assert_eq!(saved, crate::fingerprint::transcript(&file).unwrap());
+
+        let refused = save(&file, &opened, &lines(), true, &[]).unwrap_err().to_string();
+        assert!(refused.contains("changed outside"), "{refused}");
+        assert!(std::fs::read_to_string(&file).unwrap().contains("corrected"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}

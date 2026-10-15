@@ -140,6 +140,27 @@ impl History {
         })
     }
 
+    pub fn renamed(&self, from: &Path, to: &Path) -> Result<()> {
+        self.change(|mut entries| {
+            for entry in entries.iter_mut().filter(|e| e.file == from) {
+                entry.file = to.to_path_buf();
+            }
+            entries
+        })
+    }
+
+    pub fn written(&self, file: &Path, timestamps: bool, speakers: &[String]) -> Result<()> {
+        let hash = crate::fingerprint::transcript(file).ok();
+        self.change(|mut entries| {
+            for entry in entries.iter_mut().filter(|e| e.file == file) {
+                entry.timestamps = timestamps;
+                entry.speakers = speakers.to_vec();
+                entry.file_sha256 = hash.clone();
+            }
+            entries
+        })
+    }
+
     fn change(&self, f: impl FnOnce(Vec<Entry>) -> Vec<Entry>) -> Result<()> {
         let _guard = self.lock.lock().unwrap();
         let before = self.load();
@@ -229,9 +250,12 @@ mod tests {
         let history = History::new(dir.join("history.json"));
         history.add(entry(1, "/a.txt")).unwrap();
         history.add(entry(2, "/b.txt")).unwrap();
+        history.written(Path::new("/a.txt"), false, &["Marc".into(), "Client".into()]).unwrap();
         history.remove(2).unwrap();
         let listed = history.list();
         assert_eq!(listed.len(), 1);
+        assert!(!listed[0].entry.timestamps);
+        assert_eq!(listed[0].entry.speakers, vec!["Marc", "Client"]);
         assert!(!listed[0].exists);
 
         let moved = dir.join("moved_transcript.txt");
@@ -251,6 +275,14 @@ mod tests {
         assert!(entry.audio_fingerprint.is_some());
         assert!(history.list()[0].audio_exists);
 
+        let hash = history.get(1).unwrap().file_sha256;
+        let renamed = crate::transcript::rename(&moved, "Weekly sync").unwrap();
+        history.renamed(&moved, &renamed).unwrap();
+        let listed = history.list();
+        assert_eq!(listed[0].entry.file, renamed);
+        assert!(listed[0].exists);
+        assert_eq!(listed[0].entry.file_sha256, hash);
+
         history.save_times(1, &[(0.0, 4.5), (5.0, 9.0)]).unwrap();
         assert_eq!(history.times(1), Some(vec![(0.0, 4.5), (5.0, 9.0)]));
         history.remove(1).unwrap();
@@ -259,6 +291,32 @@ mod tests {
         std::fs::write(dir.join("history.json"), "not json").unwrap();
         assert!(history.list().is_empty());
         assert!(dir.join("history.broken.json").is_file());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn an_edit_in_the_app_keeps_the_fingerprint_in_step_and_an_outside_edit_does_not() {
+        use crate::fingerprint::{self, Match};
+        use crate::transcript::{self, Line};
+
+        let dir = std::env::temp_dir().join(format!("tlansclaib-edit-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("meeting_transcript.txt");
+        std::fs::write(&file, "[00:00:00.00 --> 00:00:12.75] first\n").unwrap();
+        let history = History::new(dir.join("history.json"));
+        let mut saved = entry(1, file.to_str().unwrap());
+        saved.file_sha256 = Some(fingerprint::transcript(&file).unwrap());
+        history.add(saved).unwrap();
+        let stored = || history.get(1).unwrap().file_sha256;
+
+        let opened = fingerprint::transcript(&file).unwrap();
+        let lines = vec![Line { start: 0.0, end: 12.75, text: "first, corrected".into(), speaker: None }];
+        transcript::save(&file, &opened, &lines, true, &[]).unwrap();
+        history.written(&file, true, &[]).unwrap();
+        assert_eq!(fingerprint::compare(stored().as_deref(), &file, fingerprint::transcript), Match::Same);
+
+        std::fs::write(&file, "changed in another editor\n").unwrap();
+        assert_eq!(fingerprint::compare(stored().as_deref(), &file, fingerprint::transcript), Match::Different);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
