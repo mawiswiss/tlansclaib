@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3f8ff7"/>
+      <stop offset="1" stop-color="#1846a8"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.16"/>
+      <stop offset="0.55" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#tile)" filter="url(#shadow)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#shine)"/>
+  <g fill="#fff">
+    <rect x="232" y="452" width="48" height="120" rx="24"/>
+    <rect x="308" y="362" width="48" height="300" rx="24"/>
+    <rect x="384" y="292" width="48" height="440" rx="24"/>
+    <rect x="460" y="392" width="48" height="240" rx="24"/>
+    <rect x="560" y="364" width="232" height="48" rx="24"/>
+    <rect x="560" y="488" width="232" height="48" rx="24"/>
+    <rect x="560" y="612" width="148" height="48" rx="24"/>
+  </g>
+</svg>
