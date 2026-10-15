@@ -15,8 +15,10 @@ jobs:
         include:
           - os: macos-latest
             args: --target universal-apple-darwin
+            assets: tlansclaib-mac[ext]
           - os: windows-latest
             args: ""
+            assets: tlansclaib-windows[setup][ext]
     runs-on: ${{ matrix.os }}
     env:
       GGML_NATIVE: "OFF"
@@ -65,6 +67,13 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: tlansclaib ${{ github.ref_name }}
           releaseDraft: true
+          releaseBody: |
+            Mac, macOS 13 or newer, Apple silicon and Intel: download `tlansclaib-mac.dmg`, open it and drag tlansclaib into Applications.
+
+            Windows 10 or 11: download `tlansclaib-windows-setup.exe` and run it. SmartScreen asks once: click "More info", then "Run anyway".
+
+            On the first start, open Models and download one for your language.
+          assetNamePattern: ${{ matrix.assets }}
           args: ${{ matrix.args }}
       - name: Notarise the disk image too, and check both with Gatekeeper
         if: matrix.os == 'macos-latest' && env.APPLE_CERTIFICATE != ''
@@ -79,4 +88,11 @@ jobs:
           xcrun stapler staple "$dmg"
           spctl --assess --type execute -vv "$bundle/macos/tlansclaib.app"
           spctl --assess --type open --context context:primary-signature -vv "$dmg"
-          gh release upload "$GITHUB_REF_NAME" "$dmg" --clobber
+          cp "$dmg" tlansclaib-mac.dmg
+          gh release upload "$GITHUB_REF_NAME" tlansclaib-mac.dmg --clobber
+      - name: Keep only the installers on the release
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name | select(endswith(".app.tar.gz"))' | xargs -r -n1 gh release delete-asset "$GITHUB_REF_NAME" --yes

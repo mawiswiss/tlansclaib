@@ -30,7 +30,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["app", "dmg", "nsis"],
     "externalBin": ["binaries/tlansclaib-engine"],
     "icon": [
       "icons/32x32.png",
