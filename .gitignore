@@ -29,6 +29,9 @@ target
 # Sidecar binaries copied in by the build
 src-tauri/binaries
 
+# Plans that stay on this computer
+/docs/*-plan.md
+
 # Local model files and conversions
 /models
 /scratch
