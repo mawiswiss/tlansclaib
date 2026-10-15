@@ -28,11 +28,11 @@ export function ResultView({ run, onOpenFolder, onCopy, onAnother }: Props) {
           {run.audioSeconds !== null && <>, {speed(run.audioSeconds, result.elapsed)}</>}
         </p>
         <p className="muted">
-          Saved as {fileName(result.txt)} and {fileName(result.timestamps)}
+          Saved as {fileName(result.file)}
         </p>
       </header>
       <div className="actions">
-        <button type="button" className="primary" onClick={() => onOpenFolder(result.txt)}>
+        <button type="button" className="primary" onClick={() => onOpenFolder(result.file)}>
           Show in folder
         </button>
         <button type="button" onClick={() => onCopy().then(() => setCopied(true))}>

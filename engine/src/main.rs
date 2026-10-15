@@ -24,9 +24,12 @@ enum Command {
         /// Any audio file: m4a, mp3, wav, mp4, flac, ...
         #[arg(long)]
         audio: PathBuf,
-        /// Output name without extension; writes <output>.txt and <output>_timestamps.txt
+        /// The text file to write, one line per stretch of speech
         #[arg(long)]
         output: PathBuf,
+        /// Leave out the time stamps in front of each line
+        #[arg(long)]
+        no_timestamps: bool,
         /// Language code such as th or en, or auto
         #[arg(long, default_value = "auto")]
         language: String,
@@ -36,7 +39,7 @@ enum Command {
         /// Run on the CPU even when a GPU is available
         #[arg(long)]
         cpu: bool,
-        /// Window length in seconds as MIN-MAX, default 17-23, or 11-15 for Thai, Chinese, Japanese and other dense scripts
+        /// Line length in seconds as MIN-MAX: a line ends at the first pause after MIN, at the latest at MAX. Default 5-23, or 5-15 for Thai, Chinese, Japanese and other dense scripts
         #[arg(long, value_parser = parse_window)]
         window: Option<(f32, f32)>,
         /// Beams to keep while decoding, 1 is greedy and fastest
@@ -58,6 +61,16 @@ enum Command {
     Decode { audio: PathBuf, output: PathBuf },
     /// Print the languages whisper supports as JSON
     Languages,
+    /// Print how a recording would be cut into lines, and why each line ends
+    Split {
+        audio: PathBuf,
+        /// Language code, which sets the line length unless --window is given
+        #[arg(long, default_value = "en")]
+        language: String,
+        /// Line length in seconds as MIN-MAX
+        #[arg(long, value_parser = parse_window)]
+        window: Option<(f32, f32)>,
+    },
 }
 
 fn main() {
@@ -75,6 +88,7 @@ fn main() {
             model,
             audio,
             output,
+            no_timestamps,
             language,
             threads,
             cpu,
@@ -89,6 +103,7 @@ fn main() {
                 &model,
                 &audio,
                 &output,
+                !no_timestamps,
                 &language,
                 threads.unwrap_or_else(transcribe::default_threads),
                 !cpu,
@@ -113,6 +128,32 @@ fn main() {
             std::fs::write(&output, bytes)?;
             println!("{} samples", samples.len());
             Ok(())
+        }),
+        Command::Split { audio, language, window } => audio::load_tracks(&audio).map(|source| {
+            let tracks = source.tracks;
+            let (min, max) = window.unwrap_or_else(|| windows::bounds_for(&language));
+            let mut explained: Vec<(usize, windows::Window, windows::Cut)> = tracks
+                .iter()
+                .enumerate()
+                .flat_map(|(track, samples)| {
+                    windows::split_explained(samples, min, max).into_iter().map(move |(w, cut)| (track, w, cut))
+                })
+                .collect();
+            explained.sort_by_key(|(track, w, _)| (w.start, *track));
+            for (track, w, cut) in &explained {
+                println!("{}", json!({ "track": track, "start": w.start_seconds(), "end": w.end_seconds(), "cut": cut }));
+            }
+            let count = |c: windows::Cut| explained.iter().filter(|(_, _, cut)| *cut == c).count();
+            println!(
+                "{}",
+                json!({
+                    "tracks": tracks.len(),
+                    "lines": explained.len(),
+                    "pause": count(windows::Cut::Pause),
+                    "breath": count(windows::Cut::Breath),
+                    "forced": count(windows::Cut::Forced),
+                })
+            );
         }),
         Command::Languages => {
             let list: Vec<_> = transcribe::languages()
@@ -147,6 +188,7 @@ fn run(
     model: &Path,
     audio_path: &Path,
     output: &Path,
+    timestamps: bool,
     language: &str,
     threads: usize,
     use_gpu: bool,
@@ -160,9 +202,12 @@ fn run(
     model_file::inspect(model).map_err(|e| anyhow!("{} is {e}", model.display()))?;
 
     emit(&Event::Step { step: Step::Decode });
-    let audio = audio::load(audio_path)?;
+    let audio::Source { tracks, video } = audio::load_tracks(audio_path)?;
+    let speakers = output::speakers(tracks.len());
     emit(&Event::Audio {
-        seconds: audio.len() as f64 / engine::RATE as f64,
+        seconds: tracks.iter().map(Vec::len).max().unwrap_or(0) as f64 / engine::RATE as f64,
+        speakers: speakers.clone(),
+        video,
     });
 
     emit(&Event::Step { step: Step::Load });
@@ -172,13 +217,16 @@ fn run(
     let language = if !engine.is_multilingual() {
         "en".to_string()
     } else if language == "auto" {
-        let probe = windows::split(&audio, windows::DEFAULT_MIN_SECONDS, windows::DEFAULT_MAX_SECONDS);
-        detect(&engine, &mut state, &audio, &probe)?
+        let probe = windows::split_tracks(&tracks, windows::PROBE_MIN_SECONDS, windows::PROBE_MAX_SECONDS);
+        detect(&engine, &mut state, &tracks, &probe)?
     } else {
         language.to_string()
     };
     let (min_window, max_window) = window.unwrap_or_else(|| windows::bounds_for(&language));
-    let segments = windows::split(&audio, min_window, max_window);
+    let segments: Vec<(usize, Option<usize>, windows::Window)> = windows::split_tracks(&tracks, min_window, max_window)
+        .into_iter()
+        .map(|(track, w)| (track, (!speakers.is_empty()).then_some(track), w))
+        .collect();
     emit(&Event::Model {
         device: engine.device.to_string(),
         threads,
@@ -189,29 +237,31 @@ fn run(
     emit(&Event::Step {
         step: Step::Transcribe,
     });
-    let mut writer = output::Writer::create(output)?;
-    for (done, window) in segments.iter().enumerate() {
-        let text = engine.transcribe(&mut state, &audio[window.start..window.end], &language)?;
+    let mut writer = output::Writer::create(output, timestamps)?;
+    let mut position = 0.0f64;
+    for (done, (track, speaker, window)) in segments.iter().enumerate() {
+        let text = engine.transcribe(&mut state, &tracks[*track][window.start..window.end], &language)?;
         emit(&Event::Line {
             start: window.start_seconds(),
             end: window.end_seconds(),
             text: text.clone(),
+            speaker: *speaker,
         });
-        writer.append(window, &text)?;
+        writer.append(window, speaker.and_then(|s| speakers.get(s)).map(String::as_str), &text)?;
+        position = position.max(window.end_seconds());
         emit(&Event::Progress {
             done: done + 1,
             total: segments.len(),
-            position: window.end_seconds(),
+            position,
         });
     }
 
     emit(&Event::Step { step: Step::Write });
-    let (lines, txt, timestamps) = writer.finish()?;
+    let (lines, file) = writer.finish()?;
     emit(&Event::Done {
         lines,
         elapsed: started.elapsed().as_secs_f64(),
-        txt,
-        timestamps,
+        file,
     });
     Ok(())
 }
@@ -219,12 +269,12 @@ fn run(
 fn detect(
     engine: &transcribe::Engine,
     state: &mut whisper_rs::WhisperState,
-    audio: &[f32],
-    segments: &[windows::Window],
+    tracks: &[Vec<f32>],
+    segments: &[(usize, windows::Window)],
 ) -> Result<String> {
     let mut votes: Vec<String> = Vec::new();
-    for window in segments.iter().take(3) {
-        votes.push(engine.detect_language(state, &audio[window.start..window.end])?);
+    for (track, window) in segments.iter().take(3) {
+        votes.push(engine.detect_language(state, &tracks[*track][window.start..window.end])?);
     }
     let mut best = ("en".to_string(), 0);
     for code in &votes {

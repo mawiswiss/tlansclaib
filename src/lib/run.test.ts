@@ -26,9 +26,9 @@ describe("run reducer", () => {
     expect(e.remainingSeconds).toBeCloseTo(6, 5);
     expect(e.speed).toBeCloseTo(24, 5);
 
-    const done = reduce(state, { type: "engine", event: { event: "done", lines: 1, elapsed: 9, txt: "/x/meeting_transcript.txt", timestamps: "/x/meeting_transcript_timestamps.txt" }, now: 4000 });
+    const done = reduce(state, { type: "engine", event: { event: "done", lines: 1, elapsed: 9, file: "/x/meeting_transcript.txt" }, now: 4000 });
     expect(done.status).toBe("done");
-    expect(done.result?.txt).toBe("/x/meeting_transcript.txt");
+    expect(done.result?.file).toBe("/x/meeting_transcript.txt");
   });
 
   it("has no estimate before two windows are done", () => {

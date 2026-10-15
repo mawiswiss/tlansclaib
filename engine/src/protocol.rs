@@ -20,6 +20,10 @@ pub enum Event {
     },
     Audio {
         seconds: f64,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        speakers: Vec<String>,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        video: bool,
     },
     Model {
         device: String,
@@ -31,6 +35,8 @@ pub enum Event {
         start: f64,
         end: f64,
         text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        speaker: Option<usize>,
     },
     Progress {
         done: usize,
@@ -40,8 +46,7 @@ pub enum Event {
     Done {
         lines: usize,
         elapsed: f64,
-        txt: PathBuf,
-        timestamps: PathBuf,
+        file: PathBuf,
     },
     Error {
         message: String,
@@ -82,8 +87,17 @@ mod tests {
             start: 0.0,
             end: 17.2,
             text: "สวัสดี".into(),
+            speaker: None,
         };
         let json = serde_json::to_string(&event).unwrap();
+        assert!(!json.contains("speaker"));
         assert_eq!(serde_json::from_str::<Event>(&json).unwrap(), event);
+        let event = Event::Line {
+            start: 4.0,
+            end: 9.5,
+            text: "hello".into(),
+            speaker: Some(1),
+        };
+        assert_eq!(serde_json::from_str::<Event>(&serde_json::to_string(&event).unwrap()).unwrap(), event);
     }
 }

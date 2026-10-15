@@ -41,6 +41,6 @@ export type EngineEvent =
   | { event: "model"; device: string; threads: number; language: string; windows: number }
   | { event: "line"; start: number; end: number; text: string }
   | { event: "progress"; done: number; total: number; position: number }
-  | { event: "done"; lines: number; elapsed: number; txt: string; timestamps: string }
+  | { event: "done"; lines: number; elapsed: number; file: string }
   | { event: "error"; message: string }
   | { event: "cancelled" };

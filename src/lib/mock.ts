@@ -97,7 +97,7 @@ export function mockBackend(): Backend {
             clearInterval(timer!);
             timer = null;
             send({ event: "step", step: "write" });
-            send({ event: "done", lines: total - 2, elapsed: 9.4, txt: audio.replace(/\.[^.]+$/, "_transcript.txt"), timestamps: audio.replace(/\.[^.]+$/, "_transcript_timestamps.txt") });
+            send({ event: "done", lines: total - 2, elapsed: 9.4, file: audio.replace(/\.[^.]+$/, "_transcript.txt") });
           }
         }, 500);
       }, 2200);

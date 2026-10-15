@@ -15,7 +15,17 @@ use crate::RATE;
 
 const CHUNK: usize = 4096;
 
+pub struct Source {
+    /// Every audio track on its own, in file order, aligned to the track that starts first.
+    pub tracks: Vec<Vec<f32>>,
+    pub video: bool,
+}
+
 pub fn load(path: &Path) -> Result<Vec<f32>> {
+    Ok(mix(load_tracks(path)?.tracks))
+}
+
+pub fn load_tracks(path: &Path) -> Result<Source> {
     let file = File::open(path).with_context(|| format!("cannot open {}", path.display()))?;
     let stream = MediaSourceStream::new(Box::new(file), Default::default());
     let mut hint = Hint::new();
@@ -25,54 +35,145 @@ pub fn load(path: &Path) -> Result<Vec<f32>> {
     let mut format = symphonia::default::get_probe()
         .probe(&hint, stream, FormatOptions::default(), MetadataOptions::default())
         .map_err(|e| anyhow!("this is not an audio file symphonia can read: {e}"))?;
-    let track = format
-        .default_track(TrackType::Audio)
-        .ok_or_else(|| anyhow!("this file has no audio track"))?;
-    let track_id = track.id;
-    let params = track
-        .codec_params
-        .as_ref()
-        .and_then(|p| p.audio())
-        .cloned()
-        .ok_or_else(|| anyhow!("this file has no audio track"))?;
-    let codec = params.codec;
-    let rate = params
-        .sample_rate
-        .ok_or_else(|| anyhow!("the audio track has no sample rate"))? as usize;
-    let channels = params.channels.as_ref().map(|c| c.count()).unwrap_or(1).max(1);
-    let mut decoder = symphonia::default::get_codecs()
-        .make_audio_decoder(&params, &AudioDecoderOptions::default())
-        .map_err(|e| anyhow!("the audio codec {codec} is not supported ({e}). Convert the file to MP3 or WAV first."))?;
 
-    let mut resampler = Resampling::new(rate)?;
-    let mut interleaved = Vec::new();
-    let mut failed_packets = 0usize;
+    let video = format.tracks().iter().any(|t| t.track_type() == Some(TrackType::Video));
+    let mut tracks = Vec::new();
+    let mut first_error = None;
+    for track in format.tracks().iter().filter(|t| t.track_type() == Some(TrackType::Audio)) {
+        match TrackDecoder::new(track) {
+            Ok(decoder) => tracks.push(decoder),
+            Err(error) => {
+                log::warn!("skipping audio track {}: {error:#}", track.id);
+                first_error.get_or_insert(error);
+            }
+        }
+    }
+    if tracks.is_empty() {
+        return Err(first_error.unwrap_or_else(|| anyhow!("this file has no audio track")));
+    }
+
     loop {
         let packet = match format.next_packet() {
             Ok(Some(packet)) => packet,
             Ok(None) | Err(Error::ResetRequired) => break,
             Err(e) => bail!("cannot read the audio: {e}"),
         };
-        if packet.track_id != track_id {
-            continue;
+        if let Some(track) = tracks.iter_mut().find(|t| t.id == packet.track_id) {
+            track.decode(&packet)?;
         }
-        match decoder.decode(&packet) {
-            Ok(buffer) => {
-                interleaved.resize(buffer.samples_interleaved(), 0.0);
-                buffer.copy_to_slice_interleaved(&mut interleaved);
-                resampler.push(&downmix(&interleaved, channels))?;
+    }
+
+    let codec = tracks[0].codec.to_string();
+    let failed: usize = tracks.iter().map(|t| t.failed_packets).sum();
+    let mut decoded = Vec::new();
+    for track in tracks {
+        let (id, offset) = (track.id, track.offset);
+        let samples = track.resampler.finish()?;
+        if samples.is_empty() {
+            log::warn!("audio track {id} holds no audio");
+        } else {
+            decoded.push((offset, samples));
+        }
+    }
+    if decoded.is_empty() {
+        bail!("no audio could be decoded from this file (codec {codec}, {failed} unreadable packets). Convert it to MP3 or WAV first.");
+    }
+    let earliest = decoded.iter().map(|(offset, _)| *offset).fold(f64::INFINITY, f64::min);
+    let tracks = decoded
+        .into_iter()
+        .map(|(offset, samples)| {
+            let lead = ((offset - earliest) * RATE as f64).round() as usize;
+            if lead == 0 {
+                return samples;
             }
-            Err(Error::DecodeError(_)) | Err(Error::IoError(_)) => failed_packets += 1,
+            let mut aligned = vec![0.0; lead];
+            aligned.extend(samples);
+            aligned
+        })
+        .collect();
+    Ok(Source { tracks, video })
+}
+
+pub fn mix(mut tracks: Vec<Vec<f32>>) -> Vec<f32> {
+    if tracks.len() == 1 {
+        return tracks.pop().unwrap();
+    }
+    let length = tracks.iter().map(Vec::len).max().unwrap_or(0);
+    let mut mixed = vec![0.0f32; length];
+    for track in &tracks {
+        for (out, sample) in mixed.iter_mut().zip(track) {
+            *out += sample;
+        }
+    }
+    for sample in &mut mixed {
+        *sample = sample.clamp(-1.0, 1.0);
+    }
+    mixed
+}
+
+struct TrackDecoder {
+    id: u32,
+    codec: String,
+    channels: usize,
+    time_base: Option<symphonia::core::units::TimeBase>,
+    offset: f64,
+    started: bool,
+    decoder: Box<dyn symphonia::core::codecs::audio::AudioDecoder>,
+    resampler: Resampling,
+    interleaved: Vec<f32>,
+    failed_packets: usize,
+}
+
+impl TrackDecoder {
+    fn new(track: &symphonia::core::formats::Track) -> Result<TrackDecoder> {
+        let params = track
+            .codec_params
+            .as_ref()
+            .and_then(|p| p.audio())
+            .cloned()
+            .ok_or_else(|| anyhow!("this file has no audio track"))?;
+        let codec = params.codec;
+        let rate = params
+            .sample_rate
+            .ok_or_else(|| anyhow!("the audio track has no sample rate"))? as usize;
+        let channels = params.channels.as_ref().map(|c| c.count()).unwrap_or(1).max(1);
+        let decoder = symphonia::default::get_codecs()
+            .make_audio_decoder(&params, &AudioDecoderOptions::default())
+            .map_err(|e| anyhow!("the audio codec {codec} is not supported ({e}). Convert the file to MP3 or WAV first."))?;
+        Ok(TrackDecoder {
+            id: track.id,
+            codec: codec.to_string(),
+            channels,
+            time_base: track.time_base,
+            offset: 0.0,
+            started: false,
+            decoder,
+            resampler: Resampling::new(rate)?,
+            interleaved: Vec::new(),
+            failed_packets: 0,
+        })
+    }
+
+    fn decode(&mut self, packet: &symphonia::core::packet::Packet) -> Result<()> {
+        if !self.started {
+            self.started = true;
+            self.offset = self
+                .time_base
+                .and_then(|base| base.calc_time(packet.pts))
+                .map(|time| time.as_secs_f64().max(0.0))
+                .unwrap_or(0.0);
+        }
+        match self.decoder.decode(packet) {
+            Ok(buffer) => {
+                self.interleaved.resize(buffer.samples_interleaved(), 0.0);
+                buffer.copy_to_slice_interleaved(&mut self.interleaved);
+                self.resampler.push(&downmix(&self.interleaved, self.channels))?;
+            }
+            Err(Error::DecodeError(_)) | Err(Error::IoError(_)) => self.failed_packets += 1,
             Err(e) => bail!("cannot decode the audio: {e}"),
         }
+        Ok(())
     }
-    let samples = resampler.finish()?;
-    if samples.is_empty() {
-        bail!(
-            "no audio could be decoded from this file (codec {codec}, {failed_packets} unreadable packets). Convert it to MP3 or WAV first."
-        );
-    }
-    Ok(samples)
 }
 
 fn downmix(interleaved: &[f32], channels: usize) -> Vec<f32> {
@@ -168,6 +269,32 @@ impl Resampling {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn rms(samples: &[f32]) -> f32 {
+        (samples.iter().map(|s| s * s).sum::<f32>() / samples.len().max(1) as f32).sqrt()
+    }
+
+    #[test]
+    fn reads_every_audio_track_and_keeps_them_apart() {
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/two-tracks.m4a");
+        let source = load_tracks(&fixture).unwrap();
+        assert!(!source.video);
+        let tracks = source.tracks;
+        assert_eq!(tracks.len(), 2);
+        let (first, second) = (&tracks[0], &tracks[1]);
+        let early = 2_000..14_000;
+        let late = RATE + 2_000..RATE + 14_000;
+        assert!(rms(&first[early.clone()]) > 0.2 && rms(&first[late.clone()]) < 0.02);
+        assert!(rms(&second[early.clone()]) < 0.02 && rms(&second[late.clone()]) > 0.2);
+        let mixed = load(&fixture).unwrap();
+        assert!(rms(&mixed[early]) > 0.2 && rms(&mixed[late]) > 0.2);
+    }
+
+    #[test]
+    fn mixing_sums_the_tracks_and_keeps_the_longest() {
+        assert_eq!(mix(vec![vec![0.25, 0.5]]), vec![0.25, 0.5]);
+        assert_eq!(mix(vec![vec![0.25, 0.75, 0.1], vec![0.5, 0.5]]), vec![0.75, 1.0, 0.1]);
+    }
 
     #[test]
     fn downmix_averages_the_channels() {

@@ -18,7 +18,7 @@ export type RunState = {
   position: number;
   startedAt: number;
   transcribeStartedAt: number | null;
-  result: { lines: number; elapsed: number; txt: string; timestamps: string } | null;
+  result: { lines: number; elapsed: number; file: string } | null;
   error: string | null;
 };
 
@@ -75,7 +75,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
         case "progress":
           return { ...state, done: e.done, total: e.total, position: e.position };
         case "done":
-          return { ...state, status: "done", step: null, result: { lines: e.lines, elapsed: e.elapsed, txt: e.txt, timestamps: e.timestamps } };
+          return { ...state, status: "done", step: null, result: { lines: e.lines, elapsed: e.elapsed, file: e.file } };
         case "error":
           return { ...state, status: "error", error: e.message };
         case "cancelled":

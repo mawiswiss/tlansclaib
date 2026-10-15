@@ -168,7 +168,7 @@ export default function App() {
             run={run}
             onOpenFolder={(path) => backend.current?.reveal(path)}
             onCopy={async () => {
-              const text = await backend.current?.readTextFile(run.result!.txt).catch(() => null);
+              const text = await backend.current?.readTextFile(run.result!.file).catch(() => null);
               await copyText(text ?? run.lines.map((l) => l.text).filter(Boolean).join("\n"));
             }}
             onAnother={() => dispatch({ type: "reset" })}

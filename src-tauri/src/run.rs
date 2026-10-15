@@ -33,13 +33,13 @@ pub fn engine_pid(app: &AppHandle) -> Option<u32> {
     app.state::<RunState>().0.lock().unwrap().as_ref().map(|r| r.pid)
 }
 
-pub fn output_stem(audio: &Path, output_dir: Option<&Path>) -> PathBuf {
+pub fn output_file(audio: &Path, output_dir: Option<&Path>) -> PathBuf {
     let stem = audio.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "recording".into());
     let dir = output_dir
         .map(Path::to_path_buf)
         .or_else(|| audio.parent().map(Path::to_path_buf))
         .unwrap_or_default();
-    dir.join(format!("{stem}_transcript"))
+    dir.join(format!("{stem}_transcript.txt"))
 }
 
 pub fn start(app: &AppHandle, audio: &Path, model_id: &str, language: &str, output_dir: Option<&Path>) -> Result<()> {
@@ -55,7 +55,7 @@ pub fn start(app: &AppHandle, audio: &Path, model_id: &str, language: &str, outp
     let (available, swap_at_start) = monitor.memory();
     guard::can_start(available, entry.ram_bytes()).map_err(|e| anyhow!(e))?;
 
-    let stem = output_stem(audio, output_dir);
+    let output = output_file(audio, output_dir);
     let (mut events, child) = app
         .shell()
         .sidecar("tlansclaib-engine")?
@@ -66,7 +66,7 @@ pub fn start(app: &AppHandle, audio: &Path, model_id: &str, language: &str, outp
             "--audio",
             &audio.to_string_lossy(),
             "--output",
-            &stem.to_string_lossy(),
+            &output.to_string_lossy(),
             "--language",
             language,
         ])
@@ -102,8 +102,8 @@ pub fn start(app: &AppHandle, audio: &Path, model_id: &str, language: &str, outp
                                     run.saw_error = true;
                                 }
                             }
-                            Event::Done { lines, elapsed, txt, .. } => {
-                                log::info!("done: {lines} lines in {elapsed:.1} s, {}", txt.display());
+                            Event::Done { lines, elapsed, file } => {
+                                log::info!("done: {lines} lines in {elapsed:.1} s, {}", file.display());
                             }
                             Event::Model { device, threads, language, windows } => {
                                 log::info!("model loaded on {device} with {threads} threads, language {language}, {windows} windows");
@@ -175,12 +175,12 @@ mod tests {
     #[test]
     fn the_output_goes_next_to_the_audio_unless_a_folder_is_given() {
         assert_eq!(
-            output_stem(Path::new("/recordings/meeting.m4a"), None),
-            PathBuf::from("/recordings/meeting_transcript")
+            output_file(Path::new("/recordings/meeting.m4a"), None),
+            PathBuf::from("/recordings/meeting_transcript.txt")
         );
         assert_eq!(
-            output_stem(Path::new("/recordings/meeting.m4a"), Some(Path::new("/out"))),
-            PathBuf::from("/out/meeting_transcript")
+            output_file(Path::new("/recordings/meeting.m4a"), Some(Path::new("/out"))),
+            PathBuf::from("/out/meeting_transcript.txt")
         );
     }
 }

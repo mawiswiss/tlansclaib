@@ -10,23 +10,30 @@ fn transcribes_the_english_fixture_with_the_tiny_model() {
         return;
     };
     let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/english.wav");
-    let out = std::env::temp_dir().join(format!("tlansclaib-english-{}", std::process::id()));
-    let output = Command::new(env!("CARGO_BIN_EXE_tlansclaib-engine"))
-        .args(["transcribe", "--model", &model, "--language", "en", "--cpu"])
-        .arg("--audio")
-        .arg(&fixture)
-        .arg("--output")
-        .arg(&out)
-        .output()
-        .expect("the engine runs");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(output.status.success(), "engine failed: {stdout}\n{}", String::from_utf8_lossy(&output.stderr));
-    assert!(stdout.contains(r#"{"event":"step","step":"decode"}"#), "{stdout}");
-    assert!(stdout.contains(r#""event":"done""#), "{stdout}");
-    let text = std::fs::read_to_string(format!("{}.txt", out.display())).unwrap().to_lowercase();
-    assert!(text.contains("quick brown fox"), "{text}");
-    let stamped = std::fs::read_to_string(format!("{}_timestamps.txt", out.display())).unwrap();
+    let out = std::env::temp_dir().join(format!("tlansclaib-english-{}.txt", std::process::id()));
+    let transcribe = |extra: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_tlansclaib-engine"))
+            .args(["transcribe", "--model", &model, "--language", "en", "--cpu"])
+            .args(extra)
+            .arg("--audio")
+            .arg(&fixture)
+            .arg("--output")
+            .arg(&out)
+            .output()
+            .expect("the engine runs");
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        assert!(output.status.success(), "engine failed: {stdout}\n{}", String::from_utf8_lossy(&output.stderr));
+        assert!(stdout.contains(r#"{"event":"step","step":"decode"}"#), "{stdout}");
+        assert!(stdout.contains(r#""event":"done""#), "{stdout}");
+        std::fs::read_to_string(&out).unwrap()
+    };
+
+    let stamped = transcribe(&[]);
     assert!(stamped.starts_with("[00:00:00.00 --> 00:00:05."), "{stamped}");
-    let _ = std::fs::remove_file(format!("{}.txt", out.display()));
-    let _ = std::fs::remove_file(format!("{}_timestamps.txt", out.display()));
+    assert!(stamped.to_lowercase().contains("quick brown fox"), "{stamped}");
+
+    let plain = transcribe(&["--no-timestamps"]);
+    assert!(!plain.starts_with('['), "{plain}");
+    assert!(plain.to_lowercase().contains("quick brown fox"), "{plain}");
+    let _ = std::fs::remove_file(&out);
 }
