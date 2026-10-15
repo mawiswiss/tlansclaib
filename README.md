@@ -10,6 +10,23 @@ line by line, with the recording to play along.
 GPU of a Mac and on the processor under Windows. On my Mac it runs about 20
 times faster than the recording plays.
 
+## Download
+
+- [tlansclaib for Mac](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-mac.dmg),
+  macOS 13 or newer, Apple silicon and Intel
+- [tlansclaib for Windows](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-windows-setup.exe),
+  Windows 10 or 11
+
+On a Mac, open the disk image and drag tlansclaib into Applications. On
+Windows, run the installer. SmartScreen asks once, because the installer is
+not signed. Click "More info", then "Run anyway".
+
+The app comes without a speech model. On the first start, open Models and
+download one for your language. They range from 78 MB to 3.1 GB, and the
+recommended ones are listed first. The [user guide](docs/user-guide.md) walks
+through the rest. Every version is on the
+[releases page](https://github.com/mawiswiss/tlansclaib/releases).
+
 ## What it does
 
 - Reads m4a, mp3, wav, flac, mp4 and most other audio and video files.
@@ -48,34 +65,6 @@ It also stays out of your way. Before a run, the app checks that the model
 fits into the free memory. While it runs, it stops before the computer runs
 out instead of freezing it. The engine runs at a lower priority, so the
 computer stays usable.
-
-## Install
-
-On a Mac with macOS 13 or newer:
-
-1. Download the `.dmg` from the
-   [latest release](https://github.com/mawiswiss/tlansclaib/releases/latest).
-2. Open it and drag tlansclaib into Applications.
-3. Open tlansclaib. Apple hasn't notarised the app yet, so macOS says it
-   cannot verify it. Click Done.
-4. Open System Settings, then Privacy & Security, and scroll down to Security.
-   Next to the note that tlansclaib was blocked, click Open Anyway and confirm
-   with your password or Touch ID.
-
-After that it starts normally. In the Terminal, this does the same:
-
-```bash
-xattr -dr com.apple.quarantine /Applications/tlansclaib.app
-```
-
-On Windows 10 or 11, download the `setup.exe` from the same release and run
-it. SmartScreen shows "Windows protected your PC". Click "More info", then
-"Run anyway".
-
-The app comes without a speech model. On the first start, open Models and
-download one for your language. They range from 78 MB to 3.1 GB, and the
-recommended ones are listed first. [docs/handover.md](docs/handover.md) walks
-through the rest.
 
 ## Privacy
 
