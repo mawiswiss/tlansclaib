@@ -1,15 +1,18 @@
 mod detection;
+mod fingerprint;
 mod guard;
+mod history;
 mod models;
 mod run;
 mod system;
 mod validate;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_shell::ShellExt;
 
+use history::History;
 use models::{ModelStatus, Models};
 use system::Monitor;
 
@@ -93,12 +96,20 @@ async fn list_languages(app: AppHandle) -> Result<Vec<Language>, String> {
 
 #[tauri::command]
 fn start_run(app: AppHandle, audio: String, model_id: String, language: String, output_dir: Option<String>) -> Result<(), String> {
+    let audio = PathBuf::from(audio);
+    let output_dir = output_dir.map(PathBuf::from);
     run::start(
         &app,
-        &PathBuf::from(audio),
-        &model_id,
-        &language,
-        output_dir.map(PathBuf::from).as_deref(),
+        run::Request {
+            audio: &audio,
+            model_id: &model_id,
+            language: &language,
+            timestamps: true,
+            output_dir: output_dir.as_deref(),
+            speakers: None,
+            speaker_precision: None,
+            transcript: None,
+        },
     )
     .map_err(|e| format!("{e:#}"))
 }
@@ -146,6 +157,56 @@ fn remove_speaker_detection(app: AppHandle, detection: State<detection::Detectio
 }
 
 #[tauri::command]
+fn list_history(history: State<History>) -> Vec<history::Listed> {
+    history.list()
+}
+
+#[tauri::command]
+fn remove_history(app: AppHandle, history: State<History>, id: u64) -> Result<(), String> {
+    history.remove(id).map_err(|e| format!("{e:#}"))?;
+    let _ = app.emit("history-changed", ());
+    Ok(())
+}
+
+#[derive(serde::Serialize)]
+struct Opened {
+    text: String,
+    hash: String,
+    changed: bool,
+    audio: fingerprint::Match,
+    times: Option<Vec<(f64, f64)>>,
+}
+
+#[tauri::command]
+fn open_history(history: State<History>, id: u64) -> Result<Opened, String> {
+    let entry = history.get(id).ok_or("This transcript is no longer in the history.")?;
+    let text = std::fs::read_to_string(&entry.file).map_err(|e| format!("cannot read {}: {e}", entry.file.display()))?;
+    let file = fingerprint::compare(entry.file_sha256.as_deref(), &entry.file, fingerprint::transcript);
+    let changed = file == fingerprint::Match::Different;
+    let audio = fingerprint::compare(entry.audio_fingerprint.as_deref(), &entry.audio, fingerprint::audio);
+    let hash = fingerprint::transcript(&entry.file).map_err(|e| e.to_string())?;
+    let times = (file == fingerprint::Match::Same).then(|| history.times(id)).flatten();
+    Ok(Opened { text, hash, changed, audio, times })
+}
+
+#[tauri::command]
+fn check_candidate(history: State<History>, id: u64, kind: history::Kind, path: String) -> Result<fingerprint::Match, String> {
+    let entry = history.get(id).ok_or("This transcript is no longer in the history.")?;
+    let path = Path::new(&path);
+    Ok(match kind {
+        history::Kind::Transcript => fingerprint::compare(entry.file_sha256.as_deref(), path, fingerprint::transcript),
+        history::Kind::Audio => fingerprint::compare(entry.audio_fingerprint.as_deref(), path, fingerprint::audio),
+    })
+}
+
+#[tauri::command]
+fn relocate_history(app: AppHandle, history: State<History>, id: u64, kind: history::Kind, path: String) -> Result<(), String> {
+    history.relocate(id, kind, Path::new(&path)).map_err(|e| format!("{e:#}"))?;
+    let _ = app.emit("history-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
 fn cancel_run(app: AppHandle) {
     run::cancel(&app);
 }
@@ -183,10 +244,12 @@ pub fn run() {
         )
         .manage(run::RunState::default())
         .setup(|app| {
-            let dir = app.path().app_data_dir()?.join("models");
+            let data = app.path().app_data_dir()?;
+            let dir = data.join("models");
             std::fs::create_dir_all(&dir)?;
             app.manage(detection::Detection::new(&dir));
             app.manage(Models::new(dir));
+            app.manage(History::new(data.join("history.json")));
             let monitor = Monitor::new();
             app.manage(monitor.clone());
             let handle = app.handle().clone();
@@ -214,6 +277,11 @@ pub fn run() {
             download_speaker_detection,
             cancel_speaker_detection,
             remove_speaker_detection,
+            list_history,
+            remove_history,
+            open_history,
+            check_candidate,
+            relocate_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

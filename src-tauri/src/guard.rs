@@ -7,12 +7,15 @@ pub const DISK_RESERVE: u64 = 10 * GIB;
 pub const DEFAULT_MEMORY_FLOOR: u64 = 400 * MIB;
 pub const SWAP_GROWTH_LIMIT: u64 = 2 * GIB;
 
+/// Speaker detection peaked at 1.3 GB on a 107-minute recording. It runs before the model loads.
+pub const DETECTION_RAM: u64 = 3 << 29;
+
 pub fn can_start(free: u64, needed: u64) -> Result<(), String> {
     if free >= needed + RUN_HEADROOM {
         return Ok(());
     }
     Err(format!(
-        "This model needs about {} of free RAM and {} is free. Close other programs or choose a smaller model.",
+        "This transcription needs about {} of free RAM and {} is free. Close other programs or choose a smaller model.",
         gb(needed + RUN_HEADROOM),
         gb(free)
     ))
