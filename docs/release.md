@@ -43,21 +43,15 @@ place first, because tauri-build refuses to compile the app without either.
 
 ## Signing
 
-The Mac app and its engine are signed with the Developer ID from the
-repository's secrets, with the hardened runtime that notarisation requires.
-Speaker detection loads sherpa-onnx's libraries, downloaded after the install
-and signed by someone else, so `src-tauri/entitlements.plist` gives the app
-and the engine `com.apple.security.cs.disable-library-validation`. Without it
-the engine fails to load them.
+The release workflow signs the Mac app with a Developer ID and has Apple
+notarise it and the disk image. The credentials live in the repository's
+secrets. Without them, as in a fork, the app is signed ad hoc
+(`"signingIdentity": "-"`), and macOS blocks the first start until "Open
+Anyway" under Privacy & Security.
 
-Tauri notarises the app and signs the disk image around it. The workflow then
-notarises and staples the disk image as well, and has Gatekeeper assess both.
-A rejection fails the build.
-
-Without the secrets, as in a fork, the workflow skips all of this and the app
-is signed ad hoc, `"signingIdentity": "-"` in `tauri.conf.json`. macOS then
-blocks the first start until "Open Anyway" under Privacy & Security. The
-variable `APPLE_SIGNING_IDENTITY` overrides the `"-"`.
+Speaker detection loads sherpa-onnx's libraries, downloaded after the
+install, so `src-tauri/entitlements.plist` allows libraries signed by someone
+else. The hardened runtime that notarisation requires refuses them otherwise.
 
 The Windows installer is not signed. SmartScreen asks once.
 
