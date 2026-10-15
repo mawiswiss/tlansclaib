@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum Step {
     Decode,
+    Speakers,
     Load,
     Transcribe,
     Write,
@@ -37,6 +38,13 @@ pub enum Event {
         text: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         speaker: Option<usize>,
+    },
+    Speakers {
+        speakers: Vec<String>,
+    },
+    SpeakerProgress {
+        done: usize,
+        total: usize,
     },
     Progress {
         done: usize,
@@ -79,6 +87,14 @@ mod tests {
             json,
             r#"{"event":"progress","done":8,"total":323,"position":180.5}"#
         );
+    }
+
+    #[test]
+    fn speaker_events_are_tagged_in_snake_case() {
+        let json = serde_json::to_string(&Event::SpeakerProgress { done: 3, total: 40 }).unwrap();
+        assert_eq!(json, r#"{"event":"speaker_progress","done":3,"total":40}"#);
+        let json = serde_json::to_string(&Event::Step { step: Step::Speakers }).unwrap();
+        assert_eq!(json, r#"{"event":"step","step":"speakers"}"#);
     }
 
     #[test]

@@ -5134,6 +5134,7 @@ dependencies = [
  "clap",
  "env_logger",
  "libc",
+ "libloading 0.8.9",
  "log",
  "num_cpus",
  "rubato",

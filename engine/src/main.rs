@@ -4,7 +4,7 @@ use std::time::Instant;
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
 use engine::protocol::{Event, Step, emit};
-use engine::{audio, model_file, output, transcribe, windows};
+use engine::{audio, model_file, output, speakers, transcribe, windows};
 use serde_json::json;
 
 #[derive(Parser)]
@@ -42,6 +42,15 @@ enum Command {
         /// Line length in seconds as MIN-MAX: a line ends at the first pause after MIN, at the latest at MAX. Default 5-23, or 5-15 for Thai, Chinese, Japanese and other dense scripts
         #[arg(long, value_parser = parse_window)]
         window: Option<(f32, f32)>,
+        /// Name each line's speaker in a recording with one audio track: auto, or the number of people
+        #[arg(long, value_parser = parse_speakers, requires = "speaker_models")]
+        speakers: Option<SpeakerCount>,
+        /// Folder with the speaker detection files: lib/, segmentation.onnx and embedding.onnx
+        #[arg(long)]
+        speaker_models: Option<PathBuf>,
+        /// standard, or fast for about a third of the time with somewhat rougher speaker changes
+        #[arg(long, default_value = "standard", value_parser = ["standard", "fast"])]
+        speaker_precision: String,
         /// Beams to keep while decoding, 1 is greedy and fastest
         #[arg(long, default_value_t = transcribe::Decoding::default().beam_size)]
         beam_size: usize,
@@ -61,6 +70,31 @@ enum Command {
     Decode { audio: PathBuf, output: PathBuf },
     /// Print the languages whisper supports as JSON
     Languages,
+    /// Print who speaks when, using the speaker detection files in a folder
+    Speakers {
+        audio: PathBuf,
+        /// Folder with lib/, segmentation.onnx and embedding.onnx
+        #[arg(long)]
+        models: PathBuf,
+        /// Number of speakers, or leave out to detect it
+        #[arg(long)]
+        speakers: Option<usize>,
+        /// Distance below which two voices count as one, when the number is not given
+        #[arg(long, default_value_t = speakers::DEFAULT_THRESHOLD)]
+        threshold: f32,
+        /// Number of threads, default: physical cores minus one
+        #[arg(long)]
+        threads: Option<usize>,
+        /// Step of the 10 s analysis window as a share of it
+        #[arg(long, default_value_t = speakers::WINDOW_SHIFT)]
+        shift: f32,
+        /// Shortest speech in seconds a turn keeps
+        #[arg(long, default_value_t = speakers::MIN_ON)]
+        min_on: f32,
+        /// Shortest gap in seconds between two turns of one speaker
+        #[arg(long, default_value_t = speakers::MIN_OFF)]
+        min_off: f32,
+    },
     /// Print how a recording would be cut into lines, and why each line ends
     Split {
         audio: PathBuf,
@@ -93,6 +127,9 @@ fn main() {
             threads,
             cpu,
             window,
+            speakers,
+            speaker_models,
+            speaker_precision,
             beam_size,
             temperature_inc,
             entropy_thold,
@@ -108,6 +145,10 @@ fn main() {
                 threads.unwrap_or_else(transcribe::default_threads),
                 !cpu,
                 window,
+                speakers.zip(speaker_models.as_deref()).map(|(count, folder)| {
+                    let shift = if speaker_precision == "fast" { speakers::FAST_WINDOW_SHIFT } else { speakers::WINDOW_SHIFT };
+                    (count, folder, shift)
+                }),
                 transcribe::Decoding {
                     beam_size,
                     temperature_inc,
@@ -127,6 +168,28 @@ fn main() {
             let bytes: Vec<u8> = samples.iter().flat_map(|s| s.to_le_bytes()).collect();
             std::fs::write(&output, bytes)?;
             println!("{} samples", samples.len());
+            Ok(())
+        }),
+        Command::Speakers { audio, models, speakers: count, threshold, threads, shift, min_on, min_off } => audio::load(&audio).and_then(|samples| {
+            let started = Instant::now();
+            let detection = speakers::Detection {
+                folder: &models,
+                speakers: count,
+                threshold,
+                threads: threads.unwrap_or_else(transcribe::default_threads),
+                window_shift: shift,
+                min_on,
+                min_off,
+            };
+            let turns = speakers::detect(&samples, &detection, |_, _| {})?;
+            for t in &turns {
+                println!("{}", json!({ "start": t.start, "end": t.end, "speaker": t.speaker }));
+            }
+            let found = turns.iter().map(|t| t.speaker + 1).max().unwrap_or(0);
+            println!(
+                "{}",
+                json!({ "turns": turns.len(), "speakers": found, "seconds": samples.len() as f64 / engine::RATE as f64, "elapsed": started.elapsed().as_secs_f64() })
+            );
             Ok(())
         }),
         Command::Split { audio, language, window } => audio::load_tracks(&audio).map(|source| {
@@ -169,6 +232,19 @@ fn main() {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+struct SpeakerCount(Option<usize>);
+
+fn parse_speakers(text: &str) -> Result<SpeakerCount, String> {
+    if text == "auto" {
+        return Ok(SpeakerCount(None));
+    }
+    match text.parse::<usize>() {
+        Ok(n) if (2..=20).contains(&n) => Ok(SpeakerCount(Some(n))),
+        _ => Err("expected auto or a number of people from 2 to 20".into()),
+    }
+}
+
 fn parse_window(text: &str) -> Result<(f32, f32), String> {
     let (min, max) = text
         .split_once('-')
@@ -193,6 +269,7 @@ fn run(
     threads: usize,
     use_gpu: bool,
     window: Option<(f32, f32)>,
+    detection: Option<(SpeakerCount, &Path, f32)>,
     decoding: transcribe::Decoding,
 ) -> Result<()> {
     let started = Instant::now();
@@ -203,12 +280,41 @@ fn run(
 
     emit(&Event::Step { step: Step::Decode });
     let audio::Source { tracks, video } = audio::load_tracks(audio_path)?;
-    let speakers = output::speakers(tracks.len());
+    let mut speakers = output::speakers(tracks.len());
     emit(&Event::Audio {
         seconds: tracks.iter().map(Vec::len).max().unwrap_or(0) as f64 / engine::RATE as f64,
         speakers: speakers.clone(),
         video,
     });
+
+    let turns = match detection {
+        Some(_) if tracks.len() > 1 => {
+            log::info!("{} audio tracks name the speakers, so speaker detection is skipped", tracks.len());
+            None
+        }
+        Some((SpeakerCount(count), folder, window_shift)) => {
+            emit(&Event::Step { step: Step::Speakers });
+            let detection = speakers::Detection {
+                folder,
+                speakers: count,
+                threshold: speakers::DEFAULT_THRESHOLD,
+                threads,
+                window_shift,
+                min_on: speakers::MIN_ON,
+                min_off: speakers::MIN_OFF,
+            };
+            let mut reported = usize::MAX;
+            let turns = speakers::detect(&tracks[0], &detection, |done, total| {
+                let percent = done * 100 / total.max(1);
+                if percent != reported {
+                    reported = percent;
+                    emit(&Event::SpeakerProgress { done, total });
+                }
+            })?;
+            Some(turns)
+        }
+        None => None,
+    };
 
     emit(&Event::Step { step: Step::Load });
     let mut engine = transcribe::Engine::load(model, threads, use_gpu)?;
@@ -223,10 +329,19 @@ fn run(
         language.to_string()
     };
     let (min_window, max_window) = window.unwrap_or_else(|| windows::bounds_for(&language));
-    let segments: Vec<(usize, Option<usize>, windows::Window)> = windows::split_tracks(&tracks, min_window, max_window)
-        .into_iter()
-        .map(|(track, w)| (track, (!speakers.is_empty()).then_some(track), w))
-        .collect();
+    let segments: Vec<(usize, Option<usize>, windows::Window)> = match &turns {
+        Some(turns) => {
+            let lines: Vec<windows::Window> = windows::split_tracks(&tracks, min_window, max_window).into_iter().map(|(_, w)| w).collect();
+            let attributed = speakers::attribute(&lines, turns);
+            speakers = output::speakers(attributed.iter().map(|(_, s)| s + 1).max().unwrap_or(0));
+            emit(&Event::Speakers { speakers: speakers.clone() });
+            attributed.into_iter().map(|(w, s)| (0, (!speakers.is_empty()).then_some(s), w)).collect()
+        }
+        None => windows::split_tracks(&tracks, min_window, max_window)
+            .into_iter()
+            .map(|(track, w)| (track, (!speakers.is_empty()).then_some(track), w))
+            .collect(),
+    };
     emit(&Event::Model {
         device: engine.device.to_string(),
         threads,
