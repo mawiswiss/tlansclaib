@@ -1,46 +1,76 @@
 # tlansclaib
 
-Transcribe recordings on your own computer, for macOS and Windows.
+Transcribe recordings on your own computer, for macOS and Windows. Nothing is
+uploaded.
 
-I had a meeting in Thai on a recording, 107 minutes long, and needed it as
-text. A Python script on my Mac did that well. It also needed uv, Python,
-PyTorch, ffmpeg and a terminal. Fine for me. Not something I could hand to a
-colleague.
-
-tlansclaib is that script turned into an app. Drop a recording on the window,
-check the model and the language, press GO. The transcript lands as a text
-file next to the recording. [whisper.cpp](https://github.com/ggml-org/whisper.cpp)
-does the work, on the GPU of a Mac and on the processor under Windows. Nothing
-is uploaded anywhere.
-
-> The recording never leaves your computer.
+Drop a recording on the window, check the model and the language, press GO.
+The transcript lands as a text file next to the recording. The window shows it
+line by line, with the recording to play along.
+[whisper.cpp](https://github.com/ggml-org/whisper.cpp) does the work, on the
+GPU of a Mac and on the processor under Windows. On my Mac it runs about 20
+times faster than the recording plays.
 
 ## What it does
 
 - Reads m4a, mp3, wav, flac, mp4 and most other audio and video files.
-- Thai, Swiss German, German, English and French get their own models. About
-  100 more languages work with the general ones.
 - Plays the recording along with the text and highlights the line you hear.
+  Click a line and the recording jumps there.
 - Timecodes on every line, switched on or off at any time.
 - Lines can be corrected, speakers renamed and the text searched.
-- Tells who speaks when, with an optional download of 38 MB. A recording with
-  one track per person gets one speaker per track without it.
-- Keeps a history of every transcript.
-- Stops a transcription before the computer runs out of memory, instead of
-  freezing it.
+- Tells who speaks when, with an optional download of 38 MB.
+- Keeps a history of every transcript, and transcribes a recording again with
+  other settings when the first try was off.
+
+## What it does better
+
+Most transcription services upload your recording to their servers and charge
+a subscription for it. tlansclaib does everything on your computer. A model is
+downloaded once, and from then on the app works offline. No account, no
+tracking, nothing to pay.
+
+> The recording never leaves your computer.
+
+Whisper's general models cover about 100 languages at once. For some of them
+that shows. Thai is one. Swiss German isn't even on the list. tlansclaib
+offers models trained on exactly those languages, with a click: Thai from Mahidol University and from SCB 10X, Swiss
+German that writes Standard German, and dedicated models for German, English
+and French. Every download is checked against its checksum before the app uses
+it.
+
+Calls get their speakers right. A call recorded with one track per person
+gives every line the right speaker, with no guessing. For a meeting room on a
+single track, speaker detection tells the voices apart, offline as well.
+
+Corrections are safe. A save only writes when the file is still the one the
+app last saw, so an edit made in another program is never overwritten.
+
+It also stays out of your way. Before a run, the app checks that the model
+fits into the free memory. While it runs, it stops before the computer runs
+out instead of freezing it. The engine runs at a lower priority, so the
+computer stays usable.
 
 ## Install
 
-Download the installer from the
-[latest release](https://github.com/mawiswiss/tlansclaib/releases/latest).
+On a Mac with macOS 13 or newer:
 
-On macOS 13 or newer, open the `.dmg` and drag tlansclaib into Applications.
-The app is not signed with an Apple developer certificate, so macOS blocks the
-first start. Open System Settings, then Privacy & Security, scroll down and
-click Open Anyway. After that it starts normally.
+1. Download the `.dmg` from the
+   [latest release](https://github.com/mawiswiss/tlansclaib/releases/latest).
+2. Open it and drag tlansclaib into Applications.
+3. Open tlansclaib. Apple hasn't notarised the app yet, so macOS says it
+   cannot verify it. Click Done.
+4. Open System Settings, then Privacy & Security, and scroll down to Security.
+   Next to the note that tlansclaib was blocked, click Open Anyway and confirm
+   with your password or Touch ID.
 
-On Windows 10 or 11, run the `.exe`. SmartScreen shows "Windows protected your
-PC". Click "More info", then "Run anyway".
+After that it starts normally. In the Terminal, this does the same:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/tlansclaib.app
+```
+
+On Windows 10 or 11, download the `setup.exe` from the same release and run
+it. SmartScreen shows "Windows protected your PC". Click "More info", then
+"Run anyway".
 
 The app comes without a speech model. On the first start, open Models and
 download one for your language. They range from 78 MB to 3.1 GB, and the
@@ -49,11 +79,18 @@ through the rest.
 
 ## Privacy
 
-No account, no analytics, no tracking. The app goes online for the downloads
-you start, and for four seconds when you first open Models after a start, to
-measure how long a download would take. That's it.
+The app goes online for the downloads you start, and for four seconds when
+you first open Models after a start, to measure how long a download would
+take. That's it.
 
 > Once a model is there, the app works without internet.
+
+## How it started
+
+A friend came over and asked me to "tlansclaib" a company meeting in Thai.
+That's where the name comes from. A Python script on my Mac did the job well,
+but it needed uv, Python, PyTorch, ffmpeg and a terminal. Fine for me. Not something I could hand to a friend.
+tlansclaib is that script turned into an app anyone can install.
 
 ## Build it yourself
 
@@ -93,7 +130,10 @@ pnpm tauri dev
 MIT, see [LICENSE](LICENSE). Each model keeps its own licence, shown in the
 app next to the model.
 
-tlansclaib is free, with no ads and no subscription. It started as a script for
-one meeting. If it saves you time too, a
-[contribution](https://donate.stripe.com/dRm14ne1O4In7b82t28AE00) helps me keep
-it going.
+## Support
+
+tlansclaib is an independent project. I build it in my own time, with no
+company behind it, and it stays free, without ads or a subscription. If it
+saves you time, a contribution helps me keep it maintained and improving.
+
+[Support my work](https://donate.stripe.com/dRm14ne1O4In7b82t28AE00)
