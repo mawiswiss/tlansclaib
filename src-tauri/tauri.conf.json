@@ -42,7 +42,7 @@
     "macOS": {
       "minimumSystemVersion": "13.0",
       "signingIdentity": "-",
-      "hardenedRuntime": false
+      "entitlements": "entitlements.plist"
     },
     "windows": {
       "nsis": {

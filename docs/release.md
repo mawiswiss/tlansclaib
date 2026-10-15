@@ -65,16 +65,14 @@ pnpm tauri icon src-tauri/icons/icon.svg -o /tmp/tlansclaib-icons
 
 ## Signing
 
-The Mac build is signed ad hoc, `"signingIdentity": "-"` in `tauri.conf.json`,
-without an Apple developer certificate. Without it the bundle carries only the
-linker's signature and fails `codesign --verify --deep --strict`. With it,
-macOS blocks only the first start, which "Open Anyway" under Privacy &
-Security in System Settings lets through. Windows shows the SmartScreen dialog
-once. A certificate and notarisation are a later step if the warnings become a
-problem.
+Without the Apple secrets, the Mac build is signed ad hoc: `"signingIdentity":
+"-"` in `tauri.conf.json`. With no signature at all the bundle carries only the
+linker's and fails `codesign --verify --deep --strict`. Signed ad hoc, macOS
+blocks the first start, and "Open Anyway" under Privacy & Security in System
+Settings lets it through. Windows shows the SmartScreen dialog once.
 
-Speaker detection loads sherpa-onnx's libraries, downloaded after the install,
-into the engine. That works because `"hardenedRuntime": false` keeps the
-hardened runtime off. With it on, which is Tauri's default, the engine fails to
-load them. Notarisation requires the hardened runtime, so the engine sidecar
-then needs the entitlement `com.apple.security.cs.disable-library-validation`.
+The hardened runtime is on, as notarisation requires. Speaker detection loads
+sherpa-onnx's libraries, downloaded after the install and signed by someone
+else, so `src-tauri/entitlements.plist` gives the app and the engine
+`com.apple.security.cs.disable-library-validation`. Without it the engine
+fails to load them.
