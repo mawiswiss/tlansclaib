@@ -19,7 +19,9 @@ accepts it, see below.
 | field | meaning |
 |---|---|
 | `id` | stable key, also the saved selection |
-| `name`, `recommended` | what the panel shows |
+| `name` | the full name, in menus and the history |
+| `title` | the short name on the model's card, such as "Fast" |
+| `recommended` | the description on the card |
 | `featured` | listed first, under "Recommended and installed". Other single-language models go under "For one language", the rest under "More models" |
 | `languages` | `["all"]` for the stock models, `["th"]` locks the language to Thai |
 | `language_name` | optional display name when the code alone misleads, such as Swiss German on `de` |
@@ -30,12 +32,14 @@ accepts it, see below.
 | `architecture`, `quantization`, `source`, `license` | shown in the panel |
 
 A `models.json` placed in the models folder overrides the built-in list entry
-by entry (same `id` replaces, new ids are appended). This is how a new model
-reaches a colleague without a new app version: send the file and a
-`models.json` snippet.
+by entry (same `id` replaces, new ids are appended). That way a new model
+reaches someone without a new app version: send the file and a `models.json`
+snippet.
 
-Any other `ggml-*.bin` file in the folder is listed as a custom model, named
-after the file.
+"Add any model file…" links a model where it lies, kept in
+`custom-models.json` in the models folder. Any other `ggml-*.bin` file in the
+folder, such as a copy from an older version, also lists as a custom model,
+named after the file.
 
 ## Checks
 
@@ -55,12 +59,11 @@ The engine checks the same header again when a run starts.
 
 These exist on Hugging Face only as PyTorch weights. They were converted with
 `scripts/convert-model.py` and are downloaded from the GitHub release
-`models-v1` of this repository, like the other models from Hugging Face.
-Release files have no bandwidth limit and may be up to 2 GiB each, while Git
-LFS on a free account stops serving files after 10 GiB a month, about three
-downloads of all three. `docs/release.md` describes the upload, and
+`models-v1` of this repository. Release files have no bandwidth limit and
+may be up to 2 GiB each, unlike Git LFS on a free account, which stops after
+10 GiB a month. `docs/release.md` describes the upload, and
 `docs/model-release.md` holds the release notes with the attribution the
-licenses ask for.
+licences ask for.
 
 | entry | file | size | SHA-256 |
 |---|---|---|---|
@@ -75,8 +78,8 @@ German is `gcoli/whisper-large-v3-turbo-swiss-german-mit` (MIT, trained only on
 MIT data), a large-v3-turbo fine-tune that writes Swiss German speech as
 Standard German. Its card reports 25.9% word errors on a held-out Swiss German
 test set, against 28.5% for stock turbo and 26.3% for stock large-v3. The
-Swiss German models built on SwissDial data are CC BY-NC, not usable at work,
-and left out on purpose.
+Swiss German models built on SwissDial data are CC BY-NC, for non-commercial
+use only, and left out on purpose.
 
 ## Single-language models to download
 
@@ -85,7 +88,7 @@ size and SHA-256 from Hugging Face's own records. Each file was downloaded
 once on 2026-10-13, its checksum and header verified, and run on a short clip
 in its language.
 
-| entry | file source | model | license | published result |
+| entry | file source | model | licence | published result |
 |---|---|---|---|---|
 | Thai (Typhoon) | `JoaoZaokk/typhoon-whisper-turbo-ggml`, a third-party conversion | `typhoon-ai/typhoon-whisper-turbo` | MIT | about half the character errors of biodatlab's distilled model on two Thai sets, in its authors' paper |
 | German (fast) | `cstr/whisper-large-v3-turbo-german-ggml` | `primeline/whisper-large-v3-turbo-german` | Apache-2.0 | 2.6% word errors against 3.3% for stock large-v3 |
@@ -117,7 +120,7 @@ engine on a known recording:
 
 ```bash
 target/release/tlansclaib-engine transcribe --model models/ggml-thai-fast-q8_0.bin \
-  --audio recording.m4a --output /tmp/check --language th
+  --audio recording.m4a --output /tmp/check.txt --language th
 ```
 
 `ram_gb` for a new entry: run the engine on a few minutes of audio under

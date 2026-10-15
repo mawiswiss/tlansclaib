@@ -8,7 +8,7 @@ OpenAI's Whisper, converted from its PyTorch weights with
 `whisper-quantize` to q8_0). The conversion changes the file format and the
 precision of the weights, nothing else.
 
-| File | Model | Authors | License |
+| File | Model | Authors | Licence |
 |---|---|---|---|
 | `ggml-thai-fast-q8_0.bin` | [distill-whisper-th-large-v3](https://huggingface.co/biodatlab/distill-whisper-th-large-v3) | biodatlab, Mahidol University | MIT |
 | `ggml-thai-best-q8_0.bin` | [whisper-th-large-v3-combined](https://huggingface.co/biodatlab/whisper-th-large-v3-combined) | biodatlab, Mahidol University | Apache-2.0 |
@@ -24,9 +24,9 @@ The models build on [Whisper](https://github.com/openai/whisper) by OpenAI
 (MIT) and are converted with [whisper.cpp](https://github.com/ggml-org/whisper.cpp)
 (MIT).
 
-## Licenses
+## Licences
 
-The source repositories name their license in the model card and carry no
+The source repositories name their licence in the model card and carry no
 separate copyright line, so the authors in the table above stand for it. The
 MIT-licensed models are distributed under these terms:
 

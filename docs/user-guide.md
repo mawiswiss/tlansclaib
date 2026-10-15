@@ -1,164 +1,169 @@
-# Installing and using tlansclaib
+# Using tlansclaib
 
 ## Install
 
-**macOS:** open the `.dmg`, drag tlansclaib into Applications. The app is not
-signed with an Apple developer certificate, so macOS blocks the first start.
-Open System Settings, then Privacy & Security, scroll down and click "Open
-Anyway", then confirm. After that it opens normally. Needs macOS 13 or newer.
+Download the installer for your system:
 
-**Windows:** run the `.exe` installer. SmartScreen shows "Windows protected your
-PC": click "More info", then "Run anyway". Needs Windows 10 or 11.
+- Mac, macOS 13 or newer, Apple silicon and Intel:
+  [tlansclaib-mac.dmg](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-mac.dmg).
+  Open it and drag tlansclaib into Applications. Apple has checked the app,
+  so it opens like any other.
+- Windows 10 or 11:
+  [tlansclaib-windows-setup.exe](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-windows-setup.exe).
+  Run it. SmartScreen shows "Windows protected your PC" once. Click "More
+  info", then "Run anyway".
 
-## First start: get a model
+## Get a model
 
 The app transcribes with a speech model, which is not part of the installer.
-Open "Models" in the top right.
+Open Models at the top right. "Recommended and installed" comes first, with
+speaker detection at its top. "For one language" and "More models" open with
+a click. Each card names its language in a chip.
 
-- For Thai: "Download" on "Thai (fast)", 874 MB. "Thai (best quality)" is
-  1.66 GB and takes several times longer per recording on a computer without
-  a fast GPU.
-- For Swiss German: "Download" on "Swiss German". It writes what is said as
-  Standard German.
-- For German, English or French alone: "Download" on the matching entry under
-  "For one language". These are more accurate for their language than the
-  stock models.
-- For other languages: click "Download" on "All languages (fast)". It fetches
-  574 MB once.
+- Thai: download "Fast", 874 MB. "Best quality" is 1.66 GB and takes about
+  three times as long.
+- Swiss German: the Swiss German model under "For one language". It writes
+  what is said as Standard German.
+- German, English or French alone: the matching model under "For one
+  language". These are more accurate for their language than the general
+  models.
+- Any other language: "Fast" for all languages, 574 MB.
 
-The panel lists the recommended models first. The sections "For one language"
-and "More models" open with a click. Each model shows chips for its size, the
-RAM it needs and, before it is installed, how long the download takes. RAM is
-green when it fits. Orange and red mark a problem and explain it when pointed
-at:
+Chips show the size, the RAM a model needs and, before the download, how
+long it takes. RAM is green when it fits. Orange and red mark a problem and
+explain it when pointed at:
 
 - RAM: orange when the model takes 70% of the computer's RAM or more, red from
   90%.
 - Size: orange when less than 10 GB would stay free on the disk, red when the
-  model does not fit, and then it cannot be downloaded or added.
+  model does not fit, and then it cannot be downloaded.
 - Download: orange from 10 minutes, red from an hour, at the speed measured
   the first time the dialog opens.
 
-The link next to a name opens the model's page. The info sign on "Add any model
-file…" tells which files work. A file added that way is used where it lies and
-listed under "Custom models". The pencil renames it. The unlink icon takes it
-off the list and leaves the file alone, while the bin of a downloaded model
-deletes the file.
+"Add any model file…" adds a whisper.cpp model from anywhere on the computer.
+Its info sign tells which files work. The file stays where it is and is
+listed under "Custom models". The pencil renames it, and the unlink icon
+takes it off the list without touching the file. The bin of a downloaded
+model deletes the file.
 
-The "Optional" section offers speaker detection, about 38 MB. It names who
-speaks when in a recording with one audio track, such as a meeting room, and
-runs offline like the models. Once it is there, "Speakers" in the settings row
-offers "Auto" or a number of people. Giving the number is more
-reliable. The small "Standard" next to "Speakers" can be switched to "Fast",
-which takes about a third of the time and gets a few more speaker changes
-wrong. Very short replies such as "yes" are often given to the wrong person
-either way. In calls, recording each side on its own track avoids that. Detection runs on the processor and takes time: on this Mac about 2
-to 4 minutes for a 25-minute call and 10 minutes for a 107-minute meeting,
-while the Mac was busy with other work. A laptop with four cores may take half
-an hour for two hours.
+## Speaker detection
+
+Speaker detection is an optional download of about 38 MB, at the top of the
+models dialog. It tells who speaks when in a recording with one audio track,
+such as a meeting room, and runs offline like the models. Once it is there,
+"Speakers" in the settings row offers "Auto" or 2 to 6 people. Giving the
+number is more reliable.
+
+The small "Standard" next to "Speakers" can be switched to "Fast", which
+takes about a third of the time and gets a few more speaker changes wrong.
+Very short replies such as "yes" often go to the wrong person either way.
+Detection runs on the processor: on a recent Mac about 2 to 4 minutes for a
+25-minute call, and 10 minutes for a 107-minute meeting. A laptop with four
+cores may take half an hour for two hours.
+
+Calls need none of this when each side is on its own track. Screen and call
+recordings often keep your microphone on one track and the computer's sound,
+with the other people, on another. tlansclaib transcribes every track and
+gives each line its speaker, such as
+`[00:01:23.40 --> 00:01:38.10] Speaker 2: text`.
 
 ## Transcribe
 
-1. Pick the model and the language in the row below the top bar. The Thai models
-   fix the language to Thai; for the others, "Auto" works well, and choosing
-   the language is a little more reliable. The folder icon at the end of the
-   row keeps the transcript next to the recording, the default, or puts it in
-   a folder of your choice. While a transcript is shown, this row is hidden.
-   The "Timecodes" switch next to the search above the text starts each line
-   with its time in the recording, changes the file right away and is
-   remembered for the next transcript. It is on by default. The cross at the top right of the result
-   closes it and brings the row back. "Transcribe another", the plus to the
-   right, does the same.
-2. Drop the recording on the window, or click "Choose a file…". m4a, mp3, wav,
-   mp4, flac and most other formats work. The recording waits with the
-   settings it will use listed below its name. Check them, change them in the
-   row above if needed, then click "GO".
-3. Watch the steps. Once transcribing starts, the bar shows how far it is, the
-   time elapsed and an estimate of the time left. The estimate settles after
-   the first minute. Lines appear below as they are recognised. The list stays
-   where it is scrolled. Scroll to its end to follow new lines.
-4. When done, the folder icon at the top right of the result opens the folder
-   with `<recording>_transcript.txt`, one line per stretch of speech, such as
-   `[00:01:23.40 --> 00:01:38.10] text`. The icon next to it copies the text.
-5. To rename a transcript, click the pencil next to its title, or double-click
-   the title. The text file is renamed with it, to `<title>_transcript.txt` in
-   the same folder. The recording keeps its name.
-6. Screen and call recordings often keep your microphone on one track and the
-   computer's sound, with the other people on the call, on another. tlansclaib
-   transcribes every track and names each line's speaker, as in
-   `[00:01:23.40 --> 00:01:38.10] Speaker 2: text`. The names above the text
-   can be changed, for example to "Marc" and "Client". The file follows at
-   once.
+1. Pick the model and the language in the row below the top bar. The Thai
+   models fix the language to Thai. For the others "Auto" works well, and
+   choosing the language is a little more reliable. The folder icon at the
+   end of the row keeps the transcript next to the recording, the default,
+   or puts it in a folder of your choice.
+2. Drop the recording on the window, or click "Choose a file…". m4a, mp3,
+   wav, mp4, flac and most other formats work. The recording waits with the
+   settings it will use. Check them, change them in the row above if needed,
+   then click "GO".
+3. Watch the steps. The bar shows how far it is, the time elapsed and an
+   estimate of the time left, which settles after the first minute. Lines
+   appear below as they are recognised.
 
-Cancel keeps the lines done so far in the same file.
+Cancel keeps the lines done so far in the file.
 
-"History" in the top right slides in a list of every transcript with its date,
-length and folder. Click one to show it in the app, read straight from its
-text file, with or without timecodes as it was saved. The folder icon shows it
-in Finder or Explorer, the cross removes it from the list and leaves the file.
-When a transcript is no longer where it was saved, the entry says so, and
-"Locate…" points it to the file's new place. If the recording is still there,
-"Transcribe again" makes a new transcript. The circular arrow at the top right
-of an open transcript does the same. Both open a small dialog with the
-settings that transcript used: change the model, the language, the number of
-people or the timecodes there, for example when speaker detection found four
-people where there were two, then "Transcribe again". It replaces the file and
-any corrections in it. "Wrong number?" next to the speaker names opens the
-same dialog.
+## The transcript
 
-Above a transcript, the recording can be played. Click a line to hear it from
-there; the part playing is highlighted. The search field above the text, or
-⌘F and Ctrl+F, finds words in the transcript. If the recording was moved, the
-player says so and "Locate…" finds it again. When a chosen file has different
-content than the one transcribed, the app asks before using it. Videos play
-their sound only.
+The transcript is `<recording>_transcript.txt`, one line per stretch of
+speech, such as `[00:01:23.40 --> 00:01:38.10] text`. The icons at the top
+right of the result show it in its folder, copy the text, transcribe the
+recording again and close the result. The plus to the right starts the next
+recording.
 
-To correct a line, point at it and click the pencil, or double-click its text.
-Enter or clicking elsewhere saves it straight into the text file, Escape
-cancels, and "Undo" appears for a few seconds after each save. Timecodes stay
-as they are. If the file was changed in another program in the meantime, the
-app does not overwrite it and says so.
+- Rename: click the pencil next to the title, or double-click it. The text
+  file is renamed with it. The recording keeps its name.
+- Play: the player above the text plays the recording, at 1×, 1.5× or 2×.
+  Click a line to hear it from there. The line playing is highlighted.
+- Search: the search field, or ⌘F and Ctrl+F, finds words in the text.
+- Timecodes: the switch next to the search adds or removes the times in
+  front of each line, in the file too, and is remembered for the next
+  transcript.
+- Speakers: with several speakers, their names sit above the text. Click a
+  name to change it, for example to "Marc" and "Client". The file follows at
+  once. A coloured dot on each line names its speaker when pointed at.
+- Correct a line: point at it and click the pencil, or double-click its
+  text. Enter or a click elsewhere saves it into the file, Escape cancels,
+  and "Undo" shows for a few seconds. If the file was changed in another
+  program in the meantime, the app does not overwrite it and says so.
 
-The three buttons next to it switch between following the system appearance,
-light and dark. The "i" at the far right tells what the app is and who makes it.
+When detection found the wrong number of people, "Wrong number?" next to the
+names opens the dialog to transcribe again with another number. With one
+speaker and detection installed, "More people in this audio?" does the same. The dialog takes the
+settings the transcript used. Change the model, the language or the number of
+people for this run, then "Transcribe again". It replaces the file and any
+corrections in it.
 
-The bar at the bottom shows the processor and the RAM. Their bars are green
-below 70%, orange from 70% and red from 90%. When one is orange or red, a small
-warning sign appears next to it, and pointing at it tells what to do. During a
-transcription the processor is busy by design.
+## History
 
-The model in the row below the top bar is labelled "Fits", "Tight" or "Could
-overload", by the same RAM rule as in the models dialog. It compares what the
-model needs with the computer's total RAM, so a model far too big for the
-computer shows red no matter what else is open.
+"History" at the top right lists every transcript with its date, length and
+folder, with a search above it. Click one to open it, read from its text
+file. The folder icon shows it in Finder or Explorer. The cross removes it
+from the list and leaves the file. A transcript that moved shows "Locate…" to
+point it to its new place. If only the transcript is gone and the recording
+is still there, "Transcribe again" makes a new one. The same goes for a
+recording that moved: the player offers "Locate…". When a chosen file has
+different content than the one transcribed, the app asks first.
 
-Nothing leaves the computer. Recordings and transcripts stay on it, there are
-no analytics, and once a model is installed the app needs no internet at all.
-It only goes online to download a model, and to measure the connection speed
-when the models dialog opens, so it can show how long each download takes.
+## The rest of the window
 
-Memory used is what programs and the system hold, close to "Memory Used" in
-the macOS Activity Monitor. Pointing at it shows how much is free.
+The three buttons in the top bar follow the system appearance, or pick light
+or dark. The "i" tells what the app is and who makes it.
 
-## How long does it take
+The model in the settings row is labelled "Fits", "Tight" or "Could
+overload": what the model needs against the computer's total RAM, by the
+same rule as in the models dialog.
 
-Measured on a 1 h 47 min meeting on a Mac with Apple silicon: "Thai (fast)"
-took 5 minutes, "Thai (best quality)" 15 minutes. On a Windows laptop without
-a fast graphics card, expect roughly the length of the recording with
-"Thai (fast)" and several times that with "Thai (best quality)". The app shows
-the live estimate, and the computer stays usable in the meantime.
+The bar at the bottom shows the processor and the RAM, green below 70%,
+orange from 70% and red from 90%. Orange and red add a warning sign that
+tells what to do. During a transcription the processor is busy by design,
+and the RAM figure adds how much of it the transcription uses.
+
+## Privacy
+
+Recordings and transcripts never leave the computer, and there are no
+analytics. The app goes online only for a download you start, and for four
+seconds when you first open Models after a start, to measure how long a
+download would take.
+
+## How long it takes
+
+On a Mac with Apple silicon, a 1 h 47 min meeting took 5 minutes with the
+Thai "Fast" model and 15 minutes with "Best quality". On a Windows laptop
+without a fast graphics card, expect roughly the length of the recording
+with "Fast" and several times that with "Best quality". The computer stays
+usable in the meantime.
 
 ## If something goes wrong
 
-- "This transcription needs about X GB of free RAM": close other programs, pick
-  a smaller model, or set Speakers to "Disabled". The app refuses to start rather than let the computer freeze,
-  and stops a running transcription when memory gets dangerously low.
-- "This file is a … file, not a model": the chosen file is not a whisper.cpp
-  model. The expected file name and size are shown next to each entry.
-- "Not an audio file" or a codec message: convert the recording to MP3 or WAV
-  with any audio tool and try again.
-- A log file for support lives at
-  `~/Library/Logs/tlansclaib/` on macOS and
+- "This transcription needs about X GB of free RAM": close other programs,
+  pick a smaller model, or set Speakers to "Disabled". The app refuses to
+  start rather than let the computer freeze, and stops a running
+  transcription when memory gets dangerously low.
+- A file that is "not a model": it is not a whisper.cpp model. The message
+  names what the file is instead.
+- A file that is not an audio file, or whose codec is not supported:
+  convert the recording to MP3 or WAV with any audio tool and try again.
+- The log file lives in `~/Library/Logs/tlansclaib/` on macOS and in
   `%LOCALAPPDATA%\tlansclaib\logs\` on Windows.
-
-Nothing leaves the computer: the recording and the transcript stay on it.
