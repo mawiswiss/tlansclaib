@@ -32,6 +32,8 @@ topic, no date prefixes, no generated trees.
 - No model file is accepted without validation, see `validate.rs` and
   `docs/models.md`.
 - Nothing personal in the repository, in logs or in fixtures: no home paths, no
-  device identifiers, no real recordings.
+  device identifiers, no real recordings or transcripts.
+- Commit with `TZ=UTC` in the environment, so commit and tag dates carry no
+  time zone.
 - Prose in English, without em-dashes. Code comments are rare and explain only
   what the code cannot show.
