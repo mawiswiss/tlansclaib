@@ -66,3 +66,17 @@ jobs:
           releaseName: tlansclaib ${{ github.ref_name }}
           releaseDraft: true
           args: ${{ matrix.args }}
+      - name: Notarise the disk image too, and check both with Gatekeeper
+        if: matrix.os == 'macos-latest' && env.APPLE_CERTIFICATE != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Tauri notarises only the app and signs the disk image around it.
+        run: |
+          bundle=target/universal-apple-darwin/release/bundle
+          dmg=$(ls "$bundle"/dmg/*.dmg)
+          xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "$dmg"
+          spctl --assess --type execute -vv "$bundle/macos/tlansclaib.app"
+          spctl --assess --type open --context context:primary-signature -vv "$dmg"
+          gh release upload "$GITHUB_REF_NAME" "$dmg" --clobber
