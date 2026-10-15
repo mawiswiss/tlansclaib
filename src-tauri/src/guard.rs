@@ -2,7 +2,8 @@ const GIB: u64 = 1 << 30;
 const MIB: u64 = 1 << 20;
 
 pub const RUN_HEADROOM: u64 = GIB;
-pub const DISK_HEADROOM: u64 = 500 * MIB;
+pub const DISK_MINIMUM: u64 = GIB;
+pub const DISK_RESERVE: u64 = 10 * GIB;
 pub const DEFAULT_MEMORY_FLOOR: u64 = 400 * MIB;
 pub const SWAP_GROWTH_LIMIT: u64 = 2 * GIB;
 
@@ -18,12 +19,13 @@ pub fn can_start(free: u64, needed: u64) -> Result<(), String> {
 }
 
 pub fn can_download(free_disk: u64, size: u64) -> Result<(), String> {
-    if free_disk >= size + DISK_HEADROOM {
+    if free_disk >= size + DISK_MINIMUM {
         return Ok(());
     }
     Err(format!(
-        "Not enough disk space: the model needs {} and {} is free.",
+        "Not enough disk space: the model needs {} plus {} to spare, and {} is free. Make room on the disk first.",
         gb(size),
+        gb(DISK_MINIMUM),
         gb(free_disk)
     ))
 }
@@ -70,9 +72,10 @@ mod tests {
     }
 
     #[test]
-    fn a_download_needs_the_file_plus_headroom() {
+    fn a_download_needs_the_file_plus_one_gigabyte() {
         assert!(can_download(2 * GIB, GIB).is_ok());
-        assert!(can_download(GIB, GIB).is_err());
+        let refused = can_download(2 * GIB - 1, GIB).unwrap_err();
+        assert!(refused.contains("plus 1.0 GB to spare"), "{refused}");
     }
 
     #[test]

@@ -102,6 +102,27 @@ fn start_run(app: AppHandle, audio: String, model_id: String, language: String, 
     .map_err(|e| format!("{e:#}"))
 }
 
+#[derive(serde::Serialize)]
+struct DiskSpace {
+    free: u64,
+    minimum: u64,
+    reserve: u64,
+}
+
+#[tauri::command]
+fn disk_space(models: State<Models>) -> DiskSpace {
+    DiskSpace {
+        free: models::free_disk(&models.dir),
+        minimum: guard::DISK_MINIMUM,
+        reserve: guard::DISK_RESERVE,
+    }
+}
+
+#[tauri::command]
+async fn measure_speed() -> Result<f64, String> {
+    models::measure_speed().await.map_err(|e| format!("{e:#}"))
+}
+
 #[tauri::command]
 fn cancel_run(app: AppHandle) {
     run::cancel(&app);
@@ -164,6 +185,8 @@ pub fn run() {
             cancel_run,
             read_text_file,
             autorun,
+            disk_space,
+            measure_speed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

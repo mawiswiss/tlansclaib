@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow};
 use futures_util::StreamExt;
@@ -401,7 +402,7 @@ fn custom_entry(path: &Path, registry: &[ModelEntry]) -> Option<ModelStatus> {
     })
 }
 
-fn free_disk(dir: &Path) -> u64 {
+pub fn free_disk(dir: &Path) -> u64 {
     let disks = sysinfo::Disks::new_with_refreshed_list();
     disks
         .iter()
@@ -409,6 +410,35 @@ fn free_disk(dir: &Path) -> u64 {
         .max_by_key(|d| d.mount_point().as_os_str().len())
         .map(|d| d.available_space())
         .unwrap_or(u64::MAX)
+}
+
+const SPEED_PROBE: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin";
+
+pub async fn measure_speed() -> Result<f64> {
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(12)).build()?;
+    let response = client
+        .get(SPEED_PROBE)
+        .header(reqwest::header::RANGE, "bytes=0-33554431")
+        .send()
+        .await
+        .context("no connection to the model server")?
+        .error_for_status()?;
+    let mut stream = response.bytes_stream();
+    let mut bytes = 0u64;
+    let mut started: Option<Instant> = None;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.context("the speed test was interrupted")?;
+        let since = *started.get_or_insert_with(Instant::now);
+        bytes += chunk.len() as u64;
+        if since.elapsed() >= Duration::from_secs(4) {
+            break;
+        }
+    }
+    let seconds = started.map(|s| s.elapsed().as_secs_f64()).unwrap_or(0.0);
+    if bytes < (256 << 10) || seconds <= 0.0 {
+        return Err(anyhow!("the speed test received too little data"));
+    }
+    Ok(bytes as f64 / seconds)
 }
 
 pub async fn fetch(
@@ -514,6 +544,20 @@ mod tests {
             assert!(entry.ram_gb > 0.0, "{} has no memory need", entry.id);
             assert!(entry.file.starts_with("ggml-"), "{} file name", entry.id);
         }
+    }
+
+    #[test]
+    #[ignore]
+    fn measures_the_connection_speed() {
+        let speed = tokio::runtime::Runtime::new().unwrap().block_on(measure_speed()).unwrap();
+        assert!(speed > 10_000.0, "{speed}");
+        eprintln!("{:.1} MB/s", speed / 1e6);
+    }
+
+    #[test]
+    fn the_speed_probe_is_the_listed_tiny_model() {
+        let bundled: Vec<ModelEntry> = serde_json::from_str(BUNDLED).unwrap();
+        assert!(bundled.iter().any(|e| e.url.as_deref() == Some(SPEED_PROBE)));
     }
 
     // Needs the network: cargo test -p tlansclaib -- --ignored
