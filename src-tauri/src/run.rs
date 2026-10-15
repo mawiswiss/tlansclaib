@@ -64,6 +64,10 @@ pub fn output_file(audio: &Path, output_dir: Option<&Path>) -> PathBuf {
     dir.join(format!("{stem}_transcript.txt"))
 }
 
+fn file_name(path: &Path) -> String {
+    path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
+}
+
 pub struct Request<'a> {
     pub audio: &'a Path,
     pub model_id: &'a str,
@@ -135,7 +139,7 @@ pub fn start(app: &AppHandle, request: Request) -> Result<()> {
         .create()
         .map_err(|e| log::warn!("cannot keep the computer awake: {e}"))
         .ok();
-    log::info!("started the engine (pid {}) on {} with {}", child.pid(), audio.display(), entry.file);
+    log::info!("started the engine (pid {}) on {} with {}", child.pid(), file_name(audio), entry.file);
     *state.0.lock().unwrap() = Some(ActiveRun {
         pid: child.pid(),
         child: Some(child),
@@ -230,7 +234,7 @@ fn track(app: &AppHandle, event: &Event) {
             run.saw_error = true;
         }
         Event::Done { lines, elapsed, file } => {
-            log::info!("done: {lines} lines in {elapsed:.1} s, {}", file.display());
+            log::info!("done: {lines} lines in {elapsed:.1} s, {}", file_name(file));
             record.saved = true;
             let entry = entry(record, history::Status::Done, *lines, *elapsed);
             let times = record.times.clone();

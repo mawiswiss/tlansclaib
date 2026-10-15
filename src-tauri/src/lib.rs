@@ -311,6 +311,24 @@ fn autorun() -> Option<String> {
     }
 }
 
+const LOG_STAMP: &[time::format_description::BorrowedFormatItem] = time::macros::format_description!("[[[year]-[month]-[day]][[[hour]:[minute]:[second]]");
+
+static HOME: std::sync::LazyLock<Option<String>> = std::sync::LazyLock::new(|| std::env::home_dir().map(|h| h.to_string_lossy().into_owned()));
+
+// The log goes out with support requests, so it shows the home folder as ~.
+fn log_line(out: tauri_plugin_log::fern::FormatCallback, message: &std::fmt::Arguments, record: &log::Record) {
+    let stamp = time::OffsetDateTime::now_utc().format(LOG_STAMP).unwrap_or_default();
+    let text = without_home(&message.to_string(), HOME.as_deref());
+    out.finish(format_args!("{stamp}[{}][{}] {text}", record.target(), record.level()));
+}
+
+fn without_home(text: &str, home: Option<&str>) -> String {
+    match home.map(|h| h.trim_end_matches(['/', '\\'])).filter(|h| !h.is_empty()) {
+        Some(home) => text.replace(home, "~"),
+        None => text.to_string(),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -320,6 +338,7 @@ pub fn run() {
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
+                .format(log_line)
                 .targets([
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
@@ -376,4 +395,17 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::without_home;
+
+    #[test]
+    fn the_log_shows_the_home_folder_as_a_tilde() {
+        assert_eq!(without_home("loading /Users/someone/models/a.bin", Some("/Users/someone")), "loading ~/models/a.bin");
+        assert_eq!(without_home(r"C:\Users\someone\a.m4a", Some(r"C:\Users\someone\")), r"~\a.m4a");
+        assert_eq!(without_home("/a/b", Some("/")), "/a/b");
+        assert_eq!(without_home("/a/b", None), "/a/b");
+    }
 }
