@@ -8,7 +8,6 @@ export type RerunChoice = {
   modelId: string;
   language: string;
   speakers: string;
-  precision: "standard" | "fast";
   timestamps: boolean;
 };
 
@@ -27,7 +26,7 @@ type Props = {
   onClose: () => void;
 };
 
-const COUNTS = ["2", "3", "4", "5", "6"];
+const COUNTS = ["2", "3", "4", "5", "6", "7", "8"];
 
 export function RerunDialog(props: Props) {
   const { models, languages, detection, focus } = props;
@@ -103,21 +102,9 @@ export function RerunDialog(props: Props) {
                   options={[
                     { value: "off", label: "Disabled" },
                     { value: "auto", label: "Auto" },
-                    ...COUNTS.map((n) => ({ value: n, label: `${n} people` })),
+                    ...COUNTS.map((n) => ({ value: n, label: `Up to ${n} people` })),
                   ]}
                 />
-                {choice.speakers !== "off" && (
-                  <Select
-                    className="field-select"
-                    value={choice.precision}
-                    onChange={(value) => set({ precision: value as RerunChoice["precision"] })}
-                    label="Precision of speaker detection"
-                    options={[
-                      { value: "standard", label: "Standard" },
-                      { value: "fast", label: "Fast" },
-                    ]}
-                  />
-                )}
               </span>
             ) : (
               <span className="field-note">

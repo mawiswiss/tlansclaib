@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { diskFit, downloadFit, downloadSeconds, ramFit, type Rating } from "../lib/fit";
-import { DETECTION_ID, DETECTION_SOURCE, SHERPA_ONNX } from "../lib/detection";
+import { DETECTION_ID, DETECTION_SOURCE } from "../lib/detection";
 import { bytes, capitalize, folderOf } from "../lib/format";
 import type { DiskSpace, DownloadProgress, ModelStatus, SpeakerDetection, Stats } from "../lib/types";
 import { Check, ChevronDown, Close, Info, LinkIcon, Pencil, Trash, Unlink } from "./icons";
@@ -307,12 +307,12 @@ export function ModelsPanel(props: Props) {
             <Tooltip
               content={
                 <>
-                  <strong className="tip-note">sherpa-onnx {SHERPA_ONNX}</strong>
-                  <span>pyannote segmentation (MIT) and 3D-Speaker CAM++ (Apache 2.0). Opens the project page.</span>
+                  <strong className="tip-note">Nemotron 3 Diarization</strong>
+                  <span>NVIDIA model (OpenMDW 1.1), with the parakeet.cpp runtime (MIT). Opens the model page.</span>
                 </>
               }
             >
-              <button type="button" className="icon-button tiny" onClick={() => onOpenUrl(DETECTION_SOURCE)} aria-label="Open the page of sherpa-onnx">
+              <button type="button" className="icon-button tiny" onClick={() => onOpenUrl(DETECTION_SOURCE)} aria-label="Open the speaker model page">
                 <LinkIcon size={14} />
               </button>
             </Tooltip>

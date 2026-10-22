@@ -7,7 +7,6 @@ pub const DISK_RESERVE: u64 = 10 * GIB;
 pub const DEFAULT_MEMORY_FLOOR: u64 = 400 * MIB;
 pub const SWAP_GROWTH_LIMIT: u64 = 2 * GIB;
 
-/// Speaker detection peaked at 1.3 GB on a 107-minute recording. It runs before the model loads.
 pub const DETECTION_RAM: u64 = 3 << 29;
 
 const AUDIO_BYTES_PER_SECOND: u64 = 16_000 * 4 * 3;
@@ -132,6 +131,12 @@ mod tests {
         assert!(can_start_recording(2 * GIB, GIB, 0, Some(3600.0)).is_err());
         assert!(can_start_recording(u64::MAX, GIB, 0, Some(f64::INFINITY)).is_err());
         assert!(can_start_recording(GIB, GIB, 0, Some(f64::INFINITY)).is_err());
+    }
+
+    #[test]
+    fn speaker_detection_reserves_memory_before_loading_whisper() {
+        assert!(can_start_recording(3 * GIB, GIB, DETECTION_RAM, Some(1059.0)).is_ok());
+        assert!(can_start_recording(2 * GIB, GIB, DETECTION_RAM, Some(1059.0)).is_err());
     }
 
     #[test]

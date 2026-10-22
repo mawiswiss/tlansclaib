@@ -112,11 +112,10 @@ pnpm tauri dev
   [distil-whisper](https://huggingface.co/distil-whisper), French by
   [bofenghuang](https://huggingface.co/bofenghuang).
 - Speaker detection, an optional download:
-  [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) by the k2-fsa team
-  (Apache 2.0) on [ONNX Runtime](https://onnxruntime.ai) (MIT), with
-  [pyannote segmentation 3.0](https://huggingface.co/pyannote/segmentation-3.0)
-  (MIT) and the CAM++ voice model of
-  [3D-Speaker](https://github.com/modelscope/3D-Speaker) (Apache 2.0).
+  [Nemotron 3 Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization)
+  by NVIDIA (OpenMDW 1.1), converted to GGUF by
+  [mudler](https://huggingface.co/mudler/Nemotron-3-Diarization-GGUF), with the
+  [parakeet.cpp](https://github.com/mudler/parakeet.cpp) runtime (MIT).
 
 ## Licence
 

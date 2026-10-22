@@ -1,9 +1,9 @@
 # Models
 
-The app loads whisper.cpp model files, the `ggml-*.bin` format. Nothing else
-loads: not the PyTorch weights on Hugging Face (`model.safetensors`, `.pt`),
-not CTranslate2 folders, not ONNX. Every file passes a check before the app
-accepts it, see below.
+The transcription model list loads whisper.cpp files in `ggml-*.bin` format.
+It does not accept PyTorch weights (`model.safetensors`, `.pt`), CTranslate2
+folders, ONNX or GGUF as transcription models. Speaker detection is a separate
+optional GGUF download. Every model file is checked before use, see below.
 
 ## Where models live
 

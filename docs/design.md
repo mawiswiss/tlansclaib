@@ -67,32 +67,19 @@ retries once on the CPU. The retry never starts after transcription begins.
   run keeps what was done. Each line starts with its times,
   `[HH:MM:SS.ss --> HH:MM:SS.ss] text`, unless `--no-timestamps` is given.
   With several speakers, the name follows: `Speaker 1: text`.
-- `speakers.rs` tells the speakers apart in a recording with one audio
-  track, for `--speakers auto` or a number of people. It loads sherpa-onnx's
-  C library at run time from `--speaker-models <folder>` (`libloading`), so
-  the engine runs without it. The structs mirror `c-api.h` of sherpa-onnx
-  1.13.8, the only version the app downloads. pyannote segmentation 3.0 finds
-  the turns and 3D-Speaker CAM++ tells the voices apart, on the CPU. A
-  recording with several tracks skips detection and keeps one speaker per
-  track. `tlansclaib-engine speakers` prints the turns alone. The settings and
-  why:
-  - The 10 s analysis window moves a tenth of its length at a time,
-    sherpa-onnx's default. `--speaker-precision fast` moves a quarter: on a
-    10-minute call 12 s instead of 33 s, with 2 of 29 long turns on the
-    wrong side instead of none. A quarter also put a speaker change 1.4 s
-    late in a 40-second clip. A fiftieth took 357 s and was no better.
-  - Without a given number, voices closer than a distance of 1.0 count as
-    one. sherpa-onnx's default of 0.5 split a call of three or four people
-    into dozens, and 1.1 merged two voices.
-  - A voice with under 10 s, and under 5% of all speech, goes to the nearest
-    other speaker.
-  - Interjections under a second came out right about a third of the time at
-    every setting, so rapid exchanges are a limit of the models. Separate
-    tracks avoid it.
-  - The lines still come from `windows.rs`. A line takes the speaker heard
-    most in it and is cut where the speaker changes, unless a part would be
-    shorter than 0.3 s. Where two speak at once, the one already speaking keeps
-    the line. Speakers are numbered in order of their first line.
+- `speakers.rs` tells the speakers apart in a recording with one audio track.
+  It loads parakeet.cpp's C library and the Nemotron 3 Diarization GGUF model
+  from `--speaker-models <folder>`, so the engine runs without them. The model
+  reports turns for up to eight speakers, numbered by first appearance. A
+  chosen number caps the labels by keeping the most active speakers. The
+  engine verifies the model's size and SHA-256 before loading it. Recordings
+  with several tracks skip detection and keep one speaker per track.
+  `tlansclaib-engine speakers` prints the turns alone. Lines still come from
+  `windows.rs` and are cut at speaker changes. A part shorter than 0.3 s is
+  folded into its neighbour. A detected reply under two seconds keeps its
+  full span when speakers overlap. Longer overlaps go to the earlier speaker.
+  Short replies are kept even when that voice speaks only briefly in the full
+  recording.
 - `model_file.rs` reads a whisper.cpp model header without loading the model
   and derives a label such as `large-v3-turbo, q8_0`. Anything else is
   rejected with a reason that names what the file is.
@@ -135,14 +122,13 @@ because progress reporting and other work are outside those stages.
   taken from a listed model of the same architecture and quantization, or
   estimated from the size, and shows with "≈". Files copied into the models
   folder by older versions still list as custom and can be deleted.
-- `detection.rs`: speaker detection is an optional download of three files,
-  each pinned by size and SHA-256: the sherpa-onnx 1.13.8 shared libraries
-  for this computer from sherpa-onnx's GitHub release (Apple silicon, Intel
-  Mac or Windows x64), and the segmentation and voice models from Hugging
-  Face. They land in `models/speaker-detection.part`, only the libraries are
-  copied out of the archive, and the folder is renamed to
-  `models/speaker-detection` once all is there. A `version.txt` ties it to
-  the engine's sherpa-onnx version. About 38 MB to download, 62 MB on disk.
+- `detection.rs`: speaker detection downloads a pinned parakeet.cpp library
+  archive for Apple silicon, Intel Mac or Windows x64, and the 191 MB GGUF
+  model. Both downloads require the expected size and SHA-256. Only the
+  library and its MIT license are extracted. The model's OpenMDW 1.1 license
+  and origin notice are saved beside it. Staging happens in
+  `models/speaker-detection.part`, then the folder is renamed once complete.
+  `version.txt` ties it to this runtime and model pair.
 - `validate.rs`: no model file is accepted unvalidated. Every file passes the
   header check. A file for a list entry must also match the entry's size and
   SHA-256. See `models.md`.
@@ -286,8 +272,7 @@ top bar picks one.
 ### Speakers
 
 - "Speakers" in the settings row offers "Disabled", which runs no detection,
-  and with detection installed "Auto" and 2 to 6 people, with a small
-  "Standard" or "Fast" choice in its label. Without detection, "Set up…"
+  and with detection installed "Auto" or a cap of 2 to 8 people. Without detection, "Set up…"
   opens the models dialog at its card. Downloading switches the setting to
   "Auto", removing it back to "Disabled".
 - With several speakers, a row above the text lists them with a colour each.
@@ -331,7 +316,7 @@ One dialog (`RerunDialog`) serves the icon on the result card, the history
 and the speaker links. It is filled with the settings in the history entry:
 the model by its id (`model_id`, or by name for older entries, or the first
 installed one with a note when that model is gone), the recording language, the
-speaker setting and its precision (`speaker_mode`, `speaker_precision`), and
+speaker setting (`speaker_mode`), and
 it keeps the timecodes as they were. Each can be changed for this run only,
 and the settings row stays as it is. A file with several tracks shows one
 speaker per track instead of a choice. The run saves a new private record,

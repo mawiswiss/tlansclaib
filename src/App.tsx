@@ -307,7 +307,7 @@ export default function App() {
         now: Date.now(),
       });
       try {
-        await b.startRun(audio, chosen.id, language, settings.timestamps, speakers, speakers ? settings.speakerPrecision : null);
+        await b.startRun(audio, chosen.id, language, settings.timestamps, speakers, null);
       } catch (error) {
         dispatch({ type: "fail", message: String(error) });
       }
@@ -397,7 +397,6 @@ export default function App() {
     if (running) return;
     const usable = models.filter((m) => m.installed);
     const original = usable.find((m) => m.id === entry.model_id) ?? usable.find((m) => m.name === entry.model);
-    const precision = entry.speaker_precision === "fast" || entry.speaker_precision === "standard" ? entry.speaker_precision : settings.speakerPrecision;
     setRerunTarget({
       entry,
       replaces,
@@ -407,7 +406,6 @@ export default function App() {
         modelId: original?.id ?? usable[0]?.id ?? "",
         language: options.language ?? entry.language ?? "auto",
         speakers: options.speakers ?? entry.speaker_mode ?? (entry.detected ? "auto" : "off"),
-        precision,
         timestamps: entry.timestamps,
       },
     });
@@ -440,7 +438,7 @@ export default function App() {
       now: Date.now(),
     });
     try {
-      await b.startRun(entry.audio, model.id, choice.language, choice.timestamps, speakers, speakers ? choice.precision : null, entry.file);
+      await b.startRun(entry.audio, model.id, choice.language, choice.timestamps, speakers, null, entry.file);
     } catch (error) {
       dispatch({ type: "fail", message: String(error) });
     }
@@ -791,7 +789,7 @@ export default function App() {
               locked ? languageName(locked) : settings.language === "auto" ? "Auto-detect" : languageName(settings.language),
               !detection?.installed || settings.speakers === "off"
                 ? "Speakers not named"
-                : `${settings.speakers === "auto" ? "Speakers detected" : `${settings.speakers} people`}${settings.speakerPrecision === "fast" ? ", fast" : ""}`,
+                : settings.speakers === "auto" ? "Speakers detected" : `Up to ${settings.speakers} people`,
               "Saved in app history",
             ]}
             onGo={go}
@@ -835,8 +833,6 @@ export default function App() {
           speakers={settings.speakers}
           detection={detection?.installed ?? false}
           onSpeakers={(value) => setSettings((s) => ({ ...s, speakers: value }))}
-          speakerPrecision={settings.speakerPrecision}
-          onSpeakerPrecision={(value) => setSettings((s) => ({ ...s, speakerPrecision: value }))}
           onSetUpSpeakers={setUpDetection}
           stats={stats}
           busy={running}

@@ -66,18 +66,13 @@ model deletes the file.
 
 ## Speaker detection
 
-Speaker detection is an optional download of about 38 MB, at the top of the
+Speaker detection is an optional download of about 202 MB, at the top of the
 models dialog. It tells who speaks when in a recording with one audio track,
 such as a meeting room, and runs offline like the models. Once it is there,
-"Speakers" in the settings row offers "Auto" or 2 to 6 people. Giving the
-number is more reliable.
-
-The small "Standard" next to "Speakers" can be switched to "Fast", which
-takes about a third of the time and gets a few more speaker changes wrong.
-Very short replies such as "yes" often go to the wrong person either way.
-Detection runs on the processor: on a recent Mac about 2 to 4 minutes for a
-25-minute call, and 10 minutes for a 107-minute meeting. A laptop with four
-cores may take half an hour for two hours.
+"Speakers" in the settings row offers "Auto" or a cap of 2 to 8 people. Auto
+estimates the number of voices. Giving a cap can suppress an extra label, but
+cannot recover a voice the model missed. Short replies can still be assigned
+to the wrong person. Detection speed depends on the computer and recording.
 
 Calls need none of this when each side is on its own track. Screen and call
 recordings often keep your microphone on one track and the computer's sound,

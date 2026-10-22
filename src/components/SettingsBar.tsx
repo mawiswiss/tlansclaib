@@ -15,15 +15,13 @@ type Props = {
   speakers: string;
   detection: boolean;
   onSpeakers: (value: string) => void;
-  speakerPrecision: "standard" | "fast";
-  onSpeakerPrecision: (value: "standard" | "fast") => void;
   onSetUpSpeakers: () => void;
   stats: Stats | null;
   busy: boolean;
 };
 
 const SET_UP = "set-up";
-const COUNTS = [2, 3, 4, 5, 6];
+const COUNTS = [2, 3, 4, 5, 6, 7, 8];
 
 export function SettingsBar(props: Props) {
   const { models, modelId, onModel, languages, language, onLanguage, locked, stats, busy } = props;
@@ -66,26 +64,9 @@ export function SettingsBar(props: Props) {
       <label
         className="setting"
         htmlFor="speakers-setting"
-        title="Name who speaks in a recording with one audio track. A recording with several tracks gets one speaker per track anyway."
+        title="Auto finds speakers in one mixed track. Choose a number to keep at most that many. Separate tracks already identify their speakers."
       >
-        <span className="label">
-          Speakers
-          {props.detection && props.speakers !== "off" && (
-            <Select
-              className="precision"
-              chevron={false}
-              value={props.speakerPrecision}
-              disabled={busy}
-              onChange={(value) => props.onSpeakerPrecision(value as "standard" | "fast")}
-              label="Precision of speaker detection"
-              title="Standard places speaker changes to about a second. Fast takes about a third of the time and gets a few more changes wrong."
-              options={[
-                { value: "standard", label: "Standard" },
-                { value: "fast", label: "Fast" },
-              ]}
-            />
-          )}
-        </span>
+        <span className="label">Speakers</span>
         <Select
           id="speakers-setting"
           value={props.detection ? props.speakers : "off"}
@@ -98,7 +79,7 @@ export function SettingsBar(props: Props) {
           options={[
             { value: "off", label: "Disabled" },
             ...(props.detection
-              ? [{ value: "auto", label: "Auto" }, ...COUNTS.map((n) => ({ value: String(n), label: `${n} people` }))]
+              ? [{ value: "auto", label: "Auto" }, ...COUNTS.map((n) => ({ value: String(n), label: `Up to ${n} people` }))]
               : [{ value: SET_UP, label: "Set up…" }]),
           ]}
         />

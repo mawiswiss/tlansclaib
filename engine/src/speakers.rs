@@ -1,41 +1,35 @@
 #[cfg(feature = "whisper")]
-use std::ffi::{CString, c_char, c_void};
+use std::ffi::{CStr, CString, c_char, c_void};
+#[cfg(feature = "whisper")]
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 #[cfg(feature = "whisper")]
 use anyhow::{Context, Result, anyhow, bail};
 #[cfg(feature = "whisper")]
 use libloading::Library;
+#[cfg(feature = "whisper")]
+use serde::Deserialize;
+#[cfg(feature = "whisper")]
+use sha2::{Digest, Sha256};
 
 use crate::RATE;
 use crate::windows::Window;
 
-/// The sherpa-onnx release whose C API the structs below mirror.
-pub const SHERPA_ONNX_VERSION: &str = "1.13.8";
-pub const SEGMENTATION_FILE: &str = "segmentation.onnx";
-pub const EMBEDDING_FILE: &str = "embedding.onnx";
-// The sherpa-onnx default of 0.5 split a call of three or four people into dozens, and 1.1 merged
-// the two voices of a short clip. Tuned on those two recordings only.
-pub const DEFAULT_THRESHOLD: f32 = 1.0;
-// sherpa-onnx's default. A quarter halved the work but put a speaker change 1.4 s late in a test.
-pub const WINDOW_SHIFT: f32 = 0.1;
-// The "fast" choice: 2.8 times quicker on a call, with 2 of 29 long turns given to the wrong side.
-pub const FAST_WINDOW_SHIFT: f32 = 0.25;
-pub const MIN_ON: f32 = 0.3;
-pub const MIN_OFF: f32 = 0.5;
+pub const DETECTION_VERSION: &str = "parakeet-0.6.1-nemotron3-f16";
+pub const MODEL_FILE: &str = "nemotron-3-diarization-f16.gguf";
+pub const MODEL_SIZE: u64 = 200_715_072;
+pub const MODEL_SHA256: &str = "b0edbc0ca9bbe1e35bf79d7df80bdec4a7c0f588b943d1346856891a0e628534";
+pub const MAX_SPEAKERS: usize = 8;
 
 #[cfg(target_os = "macos")]
-pub const LIBRARY_FILE: &str = "libsherpa-onnx-c-api.dylib";
+pub const LIBRARY_FILE: &str = "libparakeet.dylib";
 #[cfg(target_os = "windows")]
-pub const LIBRARY_FILE: &str = "sherpa-onnx-c-api.dll";
+pub const LIBRARY_FILE: &str = "parakeet.dll";
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-pub const LIBRARY_FILE: &str = "libsherpa-onnx-c-api.so";
+pub const LIBRARY_FILE: &str = "libparakeet.so";
 
 const SHORTEST_PART_SECONDS: f64 = 0.3;
-#[cfg(feature = "whisper")]
-const MINOR_SECONDS: f64 = 10.0;
-#[cfg(feature = "whisper")]
-const MINOR_SHARE: f64 = 0.05;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Turn {
@@ -48,68 +42,21 @@ pub struct Turn {
 pub struct Detection<'a> {
     pub folder: &'a Path,
     pub speakers: Option<usize>,
-    pub threshold: f32,
-    pub threads: usize,
-    pub window_shift: f32,
-    pub min_on: f32,
-    pub min_off: f32,
 }
 
 #[cfg(feature = "whisper")]
-#[repr(C)]
-struct PyannoteConfig {
-    model: *const c_char,
-    window_shift_ratio: f32,
+#[derive(Deserialize)]
+struct Diarization {
+    segments: Vec<Segment>,
 }
 
 #[cfg(feature = "whisper")]
-#[repr(C)]
-struct SegmentationConfig {
-    pyannote: PyannoteConfig,
-    num_threads: i32,
-    debug: i32,
-    provider: *const c_char,
-}
-
-#[cfg(feature = "whisper")]
-#[repr(C)]
-struct EmbeddingConfig {
-    model: *const c_char,
-    num_threads: i32,
-    debug: i32,
-    provider: *const c_char,
-}
-
-#[cfg(feature = "whisper")]
-#[repr(C)]
-struct ClusteringConfig {
-    num_clusters: i32,
-    threshold: f32,
-    compute_confidence: i32,
-}
-
-#[cfg(feature = "whisper")]
-#[repr(C)]
-struct DiarizationConfig {
-    segmentation: SegmentationConfig,
-    embedding: EmbeddingConfig,
-    clustering: ClusteringConfig,
-    min_duration_on: f32,
-    min_duration_off: f32,
-}
-
-#[cfg(feature = "whisper")]
-#[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Deserialize)]
 struct Segment {
-    start: f32,
-    end: f32,
-    speaker: i32,
-    confidence: f32,
+    start: f64,
+    end: f64,
+    speaker: usize,
 }
-
-#[cfg(feature = "whisper")]
-type Progress = unsafe extern "C" fn(i32, i32, *mut c_void) -> i32;
 
 pub fn library_path(folder: &Path) -> PathBuf {
     folder.join("lib").join(LIBRARY_FILE)
@@ -119,8 +66,11 @@ pub fn library_path(folder: &Path) -> PathBuf {
 fn open(path: &Path) -> Result<Library> {
     #[cfg(windows)]
     let library = unsafe {
-        libloading::os::windows::Library::load_with_flags(path, libloading::os::windows::LOAD_WITH_ALTERED_SEARCH_PATH)
-            .map(Library::from)
+        libloading::os::windows::Library::load_with_flags(
+            path,
+            libloading::os::windows::LOAD_WITH_ALTERED_SEARCH_PATH,
+        )
+        .map(Library::from)
     };
     #[cfg(not(windows))]
     let library = unsafe { Library::new(path) };
@@ -128,113 +78,175 @@ fn open(path: &Path) -> Result<Library> {
 }
 
 #[cfg(feature = "whisper")]
-/// Speakers are numbered in order of their first turn.
-pub fn detect(audio: &[f32], detection: &Detection, mut progress: impl FnMut(usize, usize)) -> Result<Vec<Turn>> {
-    let folder = detection.folder;
-    let segmentation = folder.join(SEGMENTATION_FILE);
-    let embedding = folder.join(EMBEDDING_FILE);
-    for file in [&segmentation, &embedding] {
-        if !file.is_file() {
-            bail!("speaker detection is incomplete, {} is missing. Remove it in Models and download it again.", file.display());
-        }
+fn validate_model(path: &Path) -> Result<()> {
+    if std::fs::metadata(path).map_or(true, |m| m.len() != MODEL_SIZE) {
+        bail!(
+            "speaker model is missing or damaged. Remove speaker detection in Models and download it again."
+        );
     }
-    let samples = i32::try_from(audio.len()).map_err(|_| anyhow!("the recording is too long for speaker detection"))?;
-    let library = open(&library_path(folder))?;
-    let c = |path: &Path| CString::new(path.to_string_lossy().as_bytes()).context("a path holds a NUL byte");
-    let (segmentation, embedding, provider) = (c(&segmentation)?, c(&embedding)?, CString::new("cpu").unwrap());
-    let threads = detection.threads.clamp(1, 64) as i32;
-    let config = DiarizationConfig {
-        segmentation: SegmentationConfig {
-            pyannote: PyannoteConfig { model: segmentation.as_ptr(), window_shift_ratio: detection.window_shift },
-            num_threads: threads,
-            debug: 0,
-            provider: provider.as_ptr(),
-        },
-        embedding: EmbeddingConfig { model: embedding.as_ptr(), num_threads: threads, debug: 0, provider: provider.as_ptr() },
-        clustering: ClusteringConfig {
-            num_clusters: detection.speakers.map(|n| n as i32).unwrap_or(-1),
-            threshold: detection.threshold,
-            compute_confidence: 0,
-        },
-        min_duration_on: detection.min_on,
-        min_duration_off: detection.min_off,
-    };
+    let mut file = std::io::BufReader::new(std::fs::File::open(path)?);
+    let mut hasher = Sha256::new();
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        let count = file.read(&mut buf)?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buf[..count]);
+    }
+    if hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>()
+        != MODEL_SHA256
+    {
+        bail!(
+            "speaker model failed validation. Remove speaker detection in Models and download it again."
+        );
+    }
+    Ok(())
+}
 
+#[cfg(feature = "whisper")]
+fn ffi_error(ptr: *const c_char) -> String {
+    if ptr.is_null() {
+        return "unknown error".into();
+    }
+    unsafe { CStr::from_ptr(ptr) }
+        .to_string_lossy()
+        .into_owned()
+}
+
+#[cfg(feature = "whisper")]
+pub fn detect(
+    audio: &[f32],
+    detection: &Detection,
+    mut progress: impl FnMut(usize, usize),
+) -> Result<Vec<Turn>> {
+    let model = detection.folder.join(MODEL_FILE);
+    validate_model(&model)?;
+    let samples = i32::try_from(audio.len())
+        .map_err(|_| anyhow!("the recording is too long for speaker detection"))?;
+    let library = open(&library_path(detection.folder))?;
+    let path =
+        CString::new(model.to_string_lossy().as_bytes()).context("a path holds a NUL byte")?;
+    progress(0, 1);
     unsafe {
-        let create = library.get::<unsafe extern "C" fn(*const DiarizationConfig) -> *const c_void>(
-            b"SherpaOnnxCreateOfflineSpeakerDiarization\0",
+        let abi = library.get::<unsafe extern "C" fn() -> i32>(b"parakeet_capi_abi_version\0")?;
+        let load = library
+            .get::<unsafe extern "C" fn(*const c_char) -> *mut c_void>(b"parakeet_capi_load\0")?;
+        let load_error = library
+            .get::<unsafe extern "C" fn() -> *const c_char>(b"parakeet_capi_load_error\0")?;
+        let kind = library
+            .get::<unsafe extern "C" fn(*const c_void) -> i32>(b"parakeet_capi_model_kind\0")?;
+        let process =
+            library.get::<unsafe extern "C" fn(*mut c_void, *const f32, i32, i32) -> *mut c_char>(
+                b"parakeet_capi_diarize_pcm\0",
+            )?;
+        let last_error = library.get::<unsafe extern "C" fn(*mut c_void) -> *const c_char>(
+            b"parakeet_capi_last_error\0",
         )?;
-        let destroy = library.get::<unsafe extern "C" fn(*const c_void)>(b"SherpaOnnxDestroyOfflineSpeakerDiarization\0")?;
-        let rate = library.get::<unsafe extern "C" fn(*const c_void) -> i32>(b"SherpaOnnxOfflineSpeakerDiarizationGetSampleRate\0")?;
-        let process = library.get::<unsafe extern "C" fn(*const c_void, *const f32, i32, Option<Progress>, *mut c_void) -> *const c_void>(
-            b"SherpaOnnxOfflineSpeakerDiarizationProcessWithCallback\0",
-        )?;
-        let count = library.get::<unsafe extern "C" fn(*const c_void) -> i32>(b"SherpaOnnxOfflineSpeakerDiarizationResultGetNumSegments\0")?;
-        let sorted = library.get::<unsafe extern "C" fn(*const c_void) -> *const Segment>(
-            b"SherpaOnnxOfflineSpeakerDiarizationResultSortByStartTime\0",
-        )?;
-        let free_segments = library.get::<unsafe extern "C" fn(*const Segment)>(b"SherpaOnnxOfflineSpeakerDiarizationDestroySegment\0")?;
-        let free_result = library.get::<unsafe extern "C" fn(*const c_void)>(b"SherpaOnnxOfflineSpeakerDiarizationDestroyResult\0")?;
-
-        let detector = create(&config);
-        if detector.is_null() {
-            bail!("speaker detection could not start. Its files may be damaged: remove it in Models and download it again.");
+        let free_string =
+            library.get::<unsafe extern "C" fn(*mut c_char)>(b"parakeet_capi_free_string\0")?;
+        let free = library.get::<unsafe extern "C" fn(*mut c_void)>(b"parakeet_capi_free\0")?;
+        if abi() != 10 {
+            bail!(
+                "speaker detection library has the wrong version. Remove it in Models and download it again."
+            );
         }
-        if rate(detector) as usize != RATE {
-            destroy(detector);
-            bail!("speaker detection expects another sample rate");
+        let context = load(path.as_ptr());
+        if context.is_null() {
+            bail!(
+                "speaker detection could not load its model: {}",
+                ffi_error(load_error())
+            );
         }
-        let mut report: &mut dyn FnMut(usize, usize) = &mut progress;
-        let result = process(detector, audio.as_ptr(), samples, Some(forward), &mut report as *mut _ as *mut c_void);
-        if result.is_null() {
-            destroy(detector);
-            bail!("speaker detection failed on this recording");
-        }
-        let n = count(result).max(0) as usize;
-        let segments = sorted(result);
-        let turns: Vec<(f64, f64, i32)> = if segments.is_null() || n == 0 {
-            Vec::new()
-        } else {
-            std::slice::from_raw_parts(segments, n)
-                .iter()
-                .map(|s| (s.start as f64, s.end as f64, s.speaker))
-                .collect()
-        };
-        if !segments.is_null() {
-            free_segments(segments);
-        }
-        free_result(result);
-        destroy(detector);
-        let turns = renumber(turns);
-        Ok(if detection.speakers.is_none() { absorb_minor(turns) } else { turns })
+        let result = (|| -> Result<Vec<Turn>> {
+            if kind(context) != 2 {
+                bail!("speaker detection loaded the wrong kind of model");
+            }
+            let output = process(context, audio.as_ptr(), samples, RATE as i32);
+            if output.is_null() {
+                bail!(
+                    "speaker detection failed: {}",
+                    ffi_error(last_error(context))
+                );
+            }
+            let bytes = CStr::from_ptr(output).to_bytes().to_vec();
+            free_string(output);
+            let result: Diarization = serde_json::from_slice(&bytes)
+                .context("speaker detection returned invalid data")?;
+            let mut segments = result.segments;
+            if segments.iter().any(|s| {
+                !s.start.is_finite()
+                    || !s.end.is_finite()
+                    || s.start < 0.0
+                    || s.end <= s.start
+                    || s.speaker >= MAX_SPEAKERS
+            }) {
+                bail!("speaker detection returned invalid turns");
+            }
+            segments.sort_by(|a, b| a.start.total_cmp(&b.start));
+            let turns = renumber(
+                segments
+                    .into_iter()
+                    .map(|s| (s.start, s.end, s.speaker as i32))
+                    .collect(),
+            );
+            Ok(match detection.speakers {
+                Some(count) => limit_speakers(turns, count),
+                None => turns,
+            })
+        })();
+        free(context);
+        progress(1, 1);
+        result
     }
 }
 
 #[cfg(feature = "whisper")]
-fn absorb_minor(turns: Vec<Turn>) -> Vec<Turn> {
-    let count = turns.iter().map(|t| t.speaker + 1).max().unwrap_or(0);
-    let mut spoken = vec![0.0f64; count];
-    for t in &turns {
-        spoken[t.speaker] += t.end - t.start;
-    }
-    let total: f64 = spoken.iter().sum();
-    let minor = |s: usize| spoken[s] < MINOR_SECONDS && spoken[s] < MINOR_SHARE * total;
-    if (0..count).all(minor) {
+fn limit_speakers(turns: Vec<Turn>, count: usize) -> Vec<Turn> {
+    let found = turns.iter().map(|t| t.speaker + 1).max().unwrap_or(0);
+    if found <= count {
         return turns;
     }
-    let major: Vec<Turn> = turns.iter().copied().filter(|t| !minor(t.speaker)).collect();
-    let moved = turns
-        .iter()
-        .map(|t| if minor(t.speaker) { (t.start, t.end, nearest(&major, (t.start + t.end) / 2.0) as i32) } else { (t.start, t.end, t.speaker as i32) })
+    let mut ranked: Vec<(usize, f64)> = (0..found)
+        .map(|speaker| {
+            (
+                speaker,
+                turns
+                    .iter()
+                    .filter(|t| t.speaker == speaker)
+                    .map(|t| t.end - t.start)
+                    .sum(),
+            )
+        })
         .collect();
-    renumber(moved)
-}
-
-#[cfg(feature = "whisper")]
-unsafe extern "C" fn forward(done: i32, total: i32, arg: *mut c_void) -> i32 {
-    let report = unsafe { &mut *(arg as *mut &mut dyn FnMut(usize, usize)) };
-    report(done.max(0) as usize, total.max(0) as usize);
-    0
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    let kept: Vec<usize> = ranked
+        .into_iter()
+        .take(count)
+        .map(|(speaker, _)| speaker)
+        .collect();
+    let major: Vec<Turn> = turns
+        .iter()
+        .copied()
+        .filter(|t| kept.contains(&t.speaker))
+        .collect();
+    renumber(
+        turns
+            .iter()
+            .map(|t| {
+                let speaker = if kept.contains(&t.speaker) {
+                    t.speaker
+                } else {
+                    nearest(&major, (t.start + t.end) / 2.0)
+                };
+                (t.start, t.end, speaker as i32)
+            })
+            .collect(),
+    )
 }
 
 #[cfg(feature = "whisper")]
@@ -248,26 +260,45 @@ fn renumber(turns: Vec<(f64, f64, i32)>) -> Vec<Turn> {
                 order.push(cluster);
                 order.len() - 1
             });
-            Turn { start, end, speaker }
+            Turn {
+                start,
+                end,
+                speaker,
+            }
         })
         .collect()
 }
 
-/// Turns without overlap: where two overlap, the one already speaking keeps the floor.
 fn timeline(turns: &[Turn]) -> Vec<Turn> {
-    let mut sorted = turns.to_vec();
-    sorted.sort_by(|a, b| a.start.total_cmp(&b.start));
+    let mut edges: Vec<f64> = turns
+        .iter()
+        .flat_map(|turn| [turn.start, turn.end])
+        .collect();
+    edges.sort_by(f64::total_cmp);
+    edges.dedup();
     let mut flat: Vec<Turn> = Vec::new();
-    for mut turn in sorted {
-        if let Some(last) = flat.last() {
-            turn.start = turn.start.max(last.end);
-        }
-        if turn.end <= turn.start {
+    for pair in edges.windows(2) {
+        let (start, end) = (pair[0], pair[1]);
+        let Some(chosen) = turns
+            .iter()
+            .filter(|t| t.start < end && t.end > start)
+            .min_by(|a, b| {
+                ((a.end - a.start) > 2.0)
+                    .cmp(&((b.end - b.start) > 2.0))
+                    .then_with(|| a.start.total_cmp(&b.start))
+            })
+        else {
             continue;
-        }
+        };
         match flat.last_mut() {
-            Some(last) if last.speaker == turn.speaker && turn.start - last.end < 0.5 => last.end = turn.end,
-            _ => flat.push(turn),
+            Some(last) if last.speaker == chosen.speaker && start - last.end < 0.5 => {
+                last.end = end
+            }
+            _ => flat.push(Turn {
+                start,
+                end,
+                speaker: chosen.speaker,
+            }),
         }
     }
     flat
@@ -281,7 +312,11 @@ pub fn attribute(lines: &[Window], turns: &[Turn]) -> Vec<(Window, usize)> {
         let (from, to) = (window.start_seconds(), window.end_seconds());
         let mut parts: Vec<Turn> = Vec::new();
         for turn in flat.iter().filter(|t| t.end > from && t.start < to) {
-            let piece = Turn { start: turn.start.max(from), end: turn.end.min(to), speaker: turn.speaker };
+            let piece = Turn {
+                start: turn.start.max(from),
+                end: turn.end.min(to),
+                speaker: turn.speaker,
+            };
             match parts.last_mut() {
                 Some(last) if last.speaker == piece.speaker => last.end = piece.end,
                 _ => parts.push(piece),
@@ -298,9 +333,15 @@ pub fn attribute(lines: &[Window], turns: &[Turn]) -> Vec<(Window, usize)> {
         }
         parts[0].start = from;
         parts.last_mut().unwrap().end = to;
-        while let Some(i) = parts.iter().position(|p| p.end - p.start < SHORTEST_PART_SECONDS).filter(|_| parts.len() > 1) {
+        while let Some(i) = parts
+            .iter()
+            .position(|p| p.end - p.start < SHORTEST_PART_SECONDS)
+            .filter(|_| parts.len() > 1)
+        {
             let length = |p: &Turn| p.end - p.start;
-            let into = if i == 0 || (i + 1 < parts.len() && length(&parts[i + 1]) > length(&parts[i - 1])) {
+            let into = if i == 0
+                || (i + 1 < parts.len() && length(&parts[i + 1]) > length(&parts[i - 1]))
+            {
                 i + 1
             } else {
                 i - 1
@@ -312,15 +353,24 @@ pub fn attribute(lines: &[Window], turns: &[Turn]) -> Vec<(Window, usize)> {
             if target > 0 && parts[target - 1].speaker == parts[target].speaker {
                 let merged = parts.remove(target);
                 parts[target - 1].end = merged.end;
-            } else if target + 1 < parts.len() && parts[target + 1].speaker == parts[target].speaker {
+            } else if target + 1 < parts.len() && parts[target + 1].speaker == parts[target].speaker
+            {
                 let merged = parts.remove(target + 1);
                 parts[target].end = merged.end;
             }
         }
         let last = parts.len() - 1;
         for (i, part) in parts.iter().enumerate() {
-            let start = if i == 0 { window.start } else { (part.start * RATE as f64).round() as usize };
-            let end = if i == last { window.end } else { (part.end * RATE as f64).round() as usize };
+            let start = if i == 0 {
+                window.start
+            } else {
+                (part.start * RATE as f64).round() as usize
+            };
+            let end = if i == last {
+                window.end
+            } else {
+                (part.end * RATE as f64).round() as usize
+            };
             out.push((Window { start, end }, part.speaker));
         }
     }
@@ -357,30 +407,55 @@ mod tests {
     use super::*;
 
     fn window(from: f64, to: f64) -> Window {
-        Window { start: (from * RATE as f64) as usize, end: (to * RATE as f64) as usize }
+        Window {
+            start: (from * RATE as f64) as usize,
+            end: (to * RATE as f64) as usize,
+        }
     }
 
     fn turn(start: f64, end: f64, speaker: usize) -> Turn {
-        Turn { start, end, speaker }
+        Turn {
+            start,
+            end,
+            speaker,
+        }
     }
 
     fn seconds(lines: &[(Window, usize)]) -> Vec<(f64, f64, usize)> {
-        lines.iter().map(|(w, s)| (w.start_seconds(), w.end_seconds(), *s)).collect()
+        lines
+            .iter()
+            .map(|(w, s)| (w.start_seconds(), w.end_seconds(), *s))
+            .collect()
     }
 
     #[test]
     fn numbers_speakers_by_their_first_turn() {
-        let turns = renumber(vec![(0.0, 2.0, 7), (2.5, 4.0, 3), (4.5, 6.0, 7), (6.0, 6.0, 9)]);
-        assert_eq!(turns.iter().map(|t| t.speaker).collect::<Vec<_>>(), vec![0, 1, 0]);
+        let turns = renumber(vec![
+            (0.0, 2.0, 7),
+            (2.5, 4.0, 3),
+            (4.5, 6.0, 7),
+            (6.0, 6.0, 9),
+        ]);
+        assert_eq!(
+            turns.iter().map(|t| t.speaker).collect::<Vec<_>>(),
+            vec![0, 1, 0]
+        );
     }
 
     #[test]
-    fn gives_the_turns_of_a_voice_heard_only_briefly_to_its_neighbours() {
-        let turns = vec![turn(0.0, 30.0, 0), turn(30.0, 32.0, 1), turn(32.5, 60.0, 2), turn(60.0, 90.0, 0)];
-        let kept = absorb_minor(turns);
-        assert_eq!(kept.iter().map(|t| t.speaker).collect::<Vec<_>>(), vec![0, 0, 1, 0]);
-        let short = vec![turn(0.0, 4.0, 0), turn(4.0, 8.0, 1)];
-        assert_eq!(absorb_minor(short.clone()), short);
+    fn limits_extra_speakers_without_erasing_a_short_reply() {
+        let turns = vec![
+            turn(0.0, 30.0, 0),
+            turn(30.0, 31.0, 1),
+            turn(31.0, 60.0, 0),
+            turn(60.8, 61.0, 2),
+            turn(61.0, 90.0, 1),
+        ];
+        let kept = limit_speakers(turns, 2);
+        assert_eq!(
+            kept.iter().map(|t| t.speaker).collect::<Vec<_>>(),
+            vec![0, 1, 0, 1, 1]
+        );
     }
 
     #[test]
@@ -391,14 +466,23 @@ mod tests {
 
     #[test]
     fn cuts_a_line_where_the_speaker_changes() {
-        let lines = attribute(&[window(10.0, 20.0)], &[turn(9.0, 14.0, 1), turn(14.4, 21.0, 0)]);
+        let lines = attribute(
+            &[window(10.0, 20.0)],
+            &[turn(9.0, 14.0, 1), turn(14.4, 21.0, 0)],
+        );
         assert_eq!(seconds(&lines), vec![(10.0, 14.2, 0), (14.2, 20.0, 1)]);
     }
 
     #[test]
     fn keeps_a_short_reply_as_its_own_line() {
-        let lines = attribute(&[window(0.0, 12.0)], &[turn(0.0, 5.0, 0), turn(5.0, 5.6, 1), turn(5.6, 12.0, 0)]);
-        assert_eq!(seconds(&lines), vec![(0.0, 5.0, 0), (5.0, 5.6, 1), (5.6, 12.0, 0)]);
+        let lines = attribute(
+            &[window(0.0, 12.0)],
+            &[turn(0.0, 5.0, 0), turn(5.0, 5.6, 1), turn(5.6, 12.0, 0)],
+        );
+        assert_eq!(
+            seconds(&lines),
+            vec![(0.0, 5.0, 0), (5.0, 5.6, 1), (5.6, 12.0, 0)]
+        );
     }
 
     #[test]
@@ -408,15 +492,45 @@ mod tests {
     }
 
     #[test]
-    fn the_one_already_speaking_keeps_an_overlap() {
+    fn a_short_reply_keeps_its_full_span_in_an_overlap() {
         let flat = timeline(&[turn(0.0, 6.0, 0), turn(4.0, 9.0, 1), turn(5.0, 5.5, 2)]);
-        assert_eq!(flat, vec![turn(0.0, 6.0, 0), turn(6.0, 9.0, 1)]);
+        assert_eq!(
+            flat,
+            vec![
+                turn(0.0, 5.0, 0),
+                turn(5.0, 5.5, 2),
+                turn(5.5, 6.0, 0),
+                turn(6.0, 9.0, 1)
+            ]
+        );
+    }
+
+    #[test]
+    fn cuts_a_line_around_a_short_reply_even_when_the_other_voice_overlaps() {
+        let lines = attribute(
+            &[window(0.0, 10.0)],
+            &[turn(0.0, 5.0, 0), turn(4.0, 5.0, 1), turn(4.5, 10.0, 0)],
+        );
+        assert_eq!(
+            seconds(&lines),
+            vec![(0.0, 4.0, 0), (4.0, 5.0, 1), (5.0, 10.0, 0)]
+        );
     }
 
     #[test]
     fn a_line_outside_every_turn_takes_the_nearest_speaker() {
-        let lines = attribute(&[window(0.0, 3.0), window(30.0, 34.0)], &[turn(5.0, 9.0, 0), turn(20.0, 25.0, 1)]);
-        assert_eq!(seconds(&lines).iter().map(|l| l.2).collect::<Vec<_>>(), vec![0, 1]);
-        assert!(attribute(&[window(0.0, 3.0)], &[]).iter().all(|(_, s)| *s == 0));
+        let lines = attribute(
+            &[window(0.0, 3.0), window(30.0, 34.0)],
+            &[turn(5.0, 9.0, 0), turn(20.0, 25.0, 1)],
+        );
+        assert_eq!(
+            seconds(&lines).iter().map(|l| l.2).collect::<Vec<_>>(),
+            vec![0, 1]
+        );
+        assert!(
+            attribute(&[window(0.0, 3.0)], &[])
+                .iter()
+                .all(|(_, s)| *s == 0)
+        );
     }
 }

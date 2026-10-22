@@ -52,7 +52,7 @@ secrets. Without them, as in a fork, the app is signed ad hoc
 (`"signingIdentity": "-"`), and macOS blocks the first start until "Open
 Anyway" under Privacy & Security.
 
-Speaker detection loads sherpa-onnx's libraries, downloaded after the
+Speaker detection loads parakeet.cpp's library, downloaded after the
 install, so `src-tauri/entitlements.plist` allows libraries signed by someone
 else. The hardened runtime that notarisation requires refuses them otherwise.
 

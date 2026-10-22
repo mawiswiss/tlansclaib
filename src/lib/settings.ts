@@ -5,7 +5,6 @@ export type Settings = {
   language: string;
   timestamps: boolean;
   speakers: string;
-  speakerPrecision: "standard" | "fast";
   theme: Theme;
   transcribed: number | null;
   supportAskedAt: number | null;
@@ -22,7 +21,6 @@ export const DEFAULTS: Settings = {
   language: "auto",
   timestamps: true,
   speakers: "off",
-  speakerPrecision: "standard",
   theme: "system",
   transcribed: null,
   supportAskedAt: null,
@@ -35,6 +33,7 @@ export function loadSettings(): Settings {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE) ?? "{}");
     delete saved.outputDir;
+    delete saved.speakerPrecision;
     return { ...DEFAULTS, ...saved };
   } catch (error) {
     settingsLoadError = `Could not load saved settings. Defaults are being used: ${String(error)}`;

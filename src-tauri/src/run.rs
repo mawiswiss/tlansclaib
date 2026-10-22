@@ -139,9 +139,6 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
             return Err(anyhow!("Speaker detection is not set up. Download it under Models, or set Speakers to Off."));
         }
         args.extend(["--speakers".into(), speakers.to_string(), "--speaker-models".into(), detection.dir.to_string_lossy().into_owned()]);
-        if speaker_precision == Some("fast") {
-            args.extend(["--speaker-precision".into(), "fast".into()]);
-        }
     }
     #[cfg(windows)]
     let engine_name = {
