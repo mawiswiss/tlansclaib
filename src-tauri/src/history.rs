@@ -69,16 +69,16 @@ impl History {
         History { path, lock: Mutex::new(()) }
     }
 
-    pub fn list(&self) -> Vec<Listed> {
+    pub fn list(&self) -> Result<Vec<Listed>> {
         let _guard = self.lock.lock().unwrap();
-        self.load()
+        Ok(self.load()?
             .into_iter()
             .map(|entry| Listed {
                 exists: entry.file.is_file(),
                 audio_exists: entry.audio.is_file(),
                 entry,
             })
-            .collect()
+            .collect())
     }
 
     pub fn add(&self, entry: Entry) -> Result<()> {
@@ -110,9 +110,9 @@ impl History {
         self.path.with_file_name("times")
     }
 
-    pub fn get(&self, id: u64) -> Option<Entry> {
+    pub fn get(&self, id: u64) -> Result<Option<Entry>> {
         let _guard = self.lock.lock().unwrap();
-        self.load().into_iter().find(|e| e.id == id)
+        Ok(self.load()?.into_iter().find(|e| e.id == id))
     }
 
     pub fn relocate(&self, id: u64, kind: Kind, path: &Path) -> Result<()> {
@@ -163,7 +163,7 @@ impl History {
 
     fn change(&self, f: impl FnOnce(Vec<Entry>) -> Vec<Entry>) -> Result<()> {
         let _guard = self.lock.lock().unwrap();
-        let before = self.load();
+        let before = self.load()?;
         let ids: Vec<u64> = before.iter().map(|e| e.id).collect();
         let entries = f(before);
         for gone in ids.iter().filter(|id| !entries.iter().any(|e| e.id == **id)) {
@@ -176,16 +176,24 @@ impl History {
         Ok(())
     }
 
-    fn load(&self) -> Vec<Entry> {
-        let Ok(text) = std::fs::read_to_string(&self.path) else {
-            return Vec::new();
+    fn load(&self) -> Result<Vec<Entry>> {
+        let text = match std::fs::read_to_string(&self.path) {
+            Ok(text) => text,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(error) => return Err(error).context("Could not read the history file"),
         };
-        serde_json::from_str(&text).unwrap_or_else(|error| {
-            let aside = self.path.with_extension("broken.json");
-            log::warn!("{} is unreadable ({error}), moved it to {}", self.path.display(), aside.display());
-            let _ = std::fs::rename(&self.path, &aside);
-            Vec::new()
-        })
+        match serde_json::from_str(&text) {
+            Ok(entries) => Ok(entries),
+            Err(error) => {
+                let aside = self.path.with_extension("broken.json");
+                if aside.exists() {
+                    anyhow::bail!("The history file is damaged. An earlier recovery copy already exists, so the damaged file was left in place: {error}");
+                }
+                std::fs::rename(&self.path, &aside).context("Could not preserve the damaged history file")?;
+                log::warn!("damaged history file moved aside for recovery");
+                anyhow::bail!("The history file was damaged. A copy was saved as history.broken.json for recovery: {error}")
+            }
+        }
     }
 }
 
@@ -252,7 +260,7 @@ mod tests {
         history.add(entry(2, "/b.txt")).unwrap();
         history.written(Path::new("/a.txt"), false, &["Marc".into(), "Client".into()]).unwrap();
         history.remove(2).unwrap();
-        let listed = history.list();
+        let listed = history.list().unwrap();
         assert_eq!(listed.len(), 1);
         assert!(!listed[0].entry.timestamps);
         assert_eq!(listed[0].entry.speakers, vec!["Marc", "Client"]);
@@ -262,7 +270,7 @@ mod tests {
         std::fs::write(&moved, "first line\n").unwrap();
         assert!(history.relocate(1, Kind::Transcript, &dir.join("missing.txt")).is_err());
         history.relocate(1, Kind::Transcript, &moved).unwrap();
-        let listed = history.list();
+        let listed = history.list().unwrap();
         assert_eq!(listed[0].entry.file, moved);
         assert!(listed[0].exists);
         assert!(listed[0].entry.file_sha256.is_some());
@@ -270,15 +278,15 @@ mod tests {
         let recording = dir.join("meeting.m4a");
         std::fs::write(&recording, b"audio").unwrap();
         history.relocate(1, Kind::Audio, &recording).unwrap();
-        let entry = history.get(1).unwrap();
+        let entry = history.get(1).unwrap().unwrap();
         assert_eq!(entry.audio, recording);
         assert!(entry.audio_fingerprint.is_some());
-        assert!(history.list()[0].audio_exists);
+        assert!(history.list().unwrap()[0].audio_exists);
 
-        let hash = history.get(1).unwrap().file_sha256;
+        let hash = history.get(1).unwrap().unwrap().file_sha256;
         let renamed = crate::transcript::rename(&moved, "Weekly sync").unwrap();
         history.renamed(&moved, &renamed).unwrap();
-        let listed = history.list();
+        let listed = history.list().unwrap();
         assert_eq!(listed[0].entry.file, renamed);
         assert!(listed[0].exists);
         assert_eq!(listed[0].entry.file_sha256, hash);
@@ -289,8 +297,12 @@ mod tests {
         assert_eq!(history.times(1), None);
 
         std::fs::write(dir.join("history.json"), "not json").unwrap();
-        assert!(history.list().is_empty());
+        assert!(history.list().is_err());
         assert!(dir.join("history.broken.json").is_file());
+        assert!(history.list().unwrap().is_empty());
+        std::fs::write(dir.join("history.json"), "also not json").unwrap();
+        assert!(history.list().is_err());
+        assert_eq!(std::fs::read_to_string(dir.join("history.broken.json")).unwrap(), "not json");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -307,7 +319,7 @@ mod tests {
         let mut saved = entry(1, file.to_str().unwrap());
         saved.file_sha256 = Some(fingerprint::transcript(&file).unwrap());
         history.add(saved).unwrap();
-        let stored = || history.get(1).unwrap().file_sha256;
+        let stored = || history.get(1).unwrap().unwrap().file_sha256;
 
         let opened = fingerprint::transcript(&file).unwrap();
         let lines = vec![Line { start: 0.0, end: 12.75, text: "first, corrected".into(), speaker: None }];

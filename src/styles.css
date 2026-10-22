@@ -1531,6 +1531,24 @@ button.another:hover .another-glyph {
   user-select: text;
 }
 
+.app-error {
+  position: fixed;
+  right: 16px;
+  bottom: 56px;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(460px, calc(100vw - 32px));
+  border: 1px solid var(--problem);
+  box-shadow: var(--shadow-md);
+}
+
+.app-error span {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
 .problem-text {
   color: var(--problem);
 }

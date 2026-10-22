@@ -297,8 +297,11 @@ fn run(
 
     emit(&Event::Step { step: Step::Decode });
     let phase = Instant::now();
-    let audio::Source { tracks, video } = audio::load_tracks(audio_path)?;
+    let audio::Source { tracks, video, warnings } = audio::load_tracks(audio_path)?;
     timings.decode = phase.elapsed().as_secs_f64();
+    if !warnings.is_empty() {
+        emit(&Event::Warning { message: format!("Some audio was skipped, so the transcript may be incomplete: {}.", warnings.join("; ")) });
+    }
     let mut speakers = output::speakers(tracks.len());
     emit(&Event::Audio {
         seconds: tracks.iter().map(Vec::len).max().unwrap_or(0) as f64 / engine::RATE as f64,

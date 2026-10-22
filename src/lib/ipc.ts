@@ -54,6 +54,7 @@ export type Backend = {
   onEngineEvent(handler: (event: EngineEvent) => void): Promise<Unlisten>;
   onStats(handler: (stats: Stats) => void): Promise<Unlisten>;
   onDownloadProgress(handler: (progress: DownloadProgress) => void): Promise<Unlisten>;
+  onAppError(handler: (message: string) => void): Promise<Unlisten>;
   onModelsChanged(handler: () => void): Promise<Unlisten>;
   onHistoryChanged(handler: () => void): Promise<Unlisten>;
   onDrop(handler: (state: "over" | "leave" | string[]) => void): Promise<Unlisten>;
@@ -131,6 +132,7 @@ async function tauriBackend(): Promise<Backend> {
     onEngineEvent: (handler) => listen<EngineEvent>("engine-event", (e) => handler(e.payload)),
     onStats: (handler) => listen<Stats>("system-stats", (e) => handler(e.payload)),
     onDownloadProgress: (handler) => listen<DownloadProgress>("download-progress", (e) => handler(e.payload)),
+    onAppError: (handler) => listen<string>("app-error", (e) => handler(e.payload)),
     onModelsChanged: (handler) => listen("models-changed", () => handler()),
     onHistoryChanged: (handler) => listen("history-changed", () => handler()),
     onDrop: (handler) =>

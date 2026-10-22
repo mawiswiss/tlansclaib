@@ -96,23 +96,18 @@ impl Models {
         }
     }
 
-    pub fn registry(&self) -> Vec<ModelEntry> {
+    pub fn registry(&self) -> Result<Vec<ModelEntry>> {
         let bundled: Vec<ModelEntry> = serde_json::from_str(BUNDLED).expect("the bundled models.json is valid");
         let override_file = self.dir.join("models.json");
         match std::fs::read_to_string(&override_file) {
-            Ok(text) => match serde_json::from_str::<Vec<ModelEntry>>(&text) {
-                Ok(extra) => merge(bundled, extra),
-                Err(error) => {
-                    log::warn!("ignoring {}: {error}", override_file.display());
-                    bundled
-                }
-            },
-            Err(_) => bundled,
+            Ok(text) => Ok(merge(bundled, serde_json::from_str::<Vec<ModelEntry>>(&text).context("Could not read the custom model catalog (models.json)")?)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(bundled),
+            Err(error) => Err(error).context("Could not open the custom model catalog (models.json)"),
         }
     }
 
-    pub fn list(&self) -> Vec<ModelStatus> {
-        let registry = self.registry();
+    pub fn list(&self) -> Result<Vec<ModelStatus>> {
+        let registry = self.registry()?;
         let mut list: Vec<ModelStatus> = registry
             .iter()
             .map(|entry| {
@@ -129,26 +124,26 @@ impl Models {
             })
             .collect();
         let known: Vec<&str> = registry.iter().map(|e| e.file.as_str()).collect();
-        if let Ok(files) = std::fs::read_dir(&self.dir) {
-            let mut custom: Vec<ModelStatus> = files
-                .flatten()
-                .map(|f| f.path())
-                .filter(|p| p.extension().is_some_and(|e| e == "bin"))
-                .filter(|p| !known.contains(&p.file_name().unwrap_or_default().to_string_lossy().as_ref()))
-                .filter_map(|path| custom_entry(&path, &registry))
-                .collect();
-            custom.sort_by(|a, b| a.entry.name.cmp(&b.entry.name));
-            list.extend(custom);
-        }
-        list.extend(self.links().iter().map(|link| linked_entry(link, &registry)));
-        list
+        let files = std::fs::read_dir(&self.dir).context("Could not read the models folder")?;
+        let paths = files.map(|entry| entry.map(|file| file.path())).collect::<std::io::Result<Vec<_>>>()?;
+        let mut custom: Vec<ModelStatus> = paths
+            .into_iter()
+            .filter(|p| p.extension().is_some_and(|e| e == "bin"))
+            .filter(|p| !known.contains(&p.file_name().unwrap_or_default().to_string_lossy().as_ref()))
+            .filter_map(|path| custom_entry(&path, &registry))
+            .collect();
+        custom.sort_by(|a, b| a.entry.name.cmp(&b.entry.name));
+        list.extend(custom);
+        list.extend(self.links()?.iter().map(|link| linked_entry(link, &registry)));
+        Ok(list)
     }
 
-    pub fn links(&self) -> Vec<Link> {
-        std::fs::read_to_string(self.dir.join(LINKS))
-            .ok()
-            .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_default()
+    pub fn links(&self) -> Result<Vec<Link>> {
+        match std::fs::read_to_string(self.dir.join(LINKS)) {
+            Ok(text) => serde_json::from_str(&text).context("Could not read linked models (custom-models.json)"),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+            Err(error) => Err(error).context("Could not open linked models (custom-models.json)"),
+        }
     }
 
     fn save_links(&self, links: &[Link]) -> Result<()> {
@@ -163,7 +158,7 @@ impl Models {
         let info = validate::check(source, None).map_err(|reason| anyhow!(reason))?;
         let path = source.canonicalize().with_context(|| format!("cannot read {}", source.display()))?;
         let id = format!("linked:{}", &crate::validate::hex(&Sha256::digest(path.to_string_lossy().as_bytes()))[..12]);
-        let mut links = self.links();
+        let mut links = self.links()?;
         if !links.iter().any(|l| l.id == id) {
             let file = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             links.push(Link { id: id.clone(), name: default_name(&file), path: path.clone() });
@@ -174,7 +169,7 @@ impl Models {
     }
 
     pub fn unlink(&self, id: &str) -> Result<()> {
-        let mut links = self.links();
+        let mut links = self.links()?;
         let before = links.len();
         links.retain(|l| l.id != id);
         if links.len() == before {
@@ -188,14 +183,14 @@ impl Models {
         if name.is_empty() || name.chars().count() > 60 {
             return Err(anyhow!("A model name needs 1 to 60 characters."));
         }
-        let mut links = self.links();
+        let mut links = self.links()?;
         let link = links.iter_mut().find(|l| l.id == id).ok_or_else(|| anyhow!("Only a model added from a file can be renamed."))?;
         link.name = name.to_string();
         self.save_links(&links)
     }
 
     pub fn find(&self, id: &str) -> Result<ModelStatus> {
-        self.list()
+        self.list()?
             .into_iter()
             .find(|m| m.entry.id == id)
             .ok_or_else(|| anyhow!("unknown model {id}"))
@@ -303,7 +298,7 @@ impl Models {
     }
 
     pub fn delete(&self, id: &str) -> Result<()> {
-        if self.links().iter().any(|l| l.id == id) {
+        if self.links()?.iter().any(|l| l.id == id) {
             return Err(anyhow!("A model added from a file is unlinked, not deleted. Its file stays where it is."));
         }
         let (_, path) = self.installed_path(id)?;
@@ -515,7 +510,7 @@ mod tests {
         assert!(linked.linked && linked.custom && linked.installed);
         assert_eq!(linked.entry.name, "my-thai-q8_0");
         assert_eq!(models.link(&file).unwrap().entry.id, linked.entry.id);
-        assert_eq!(models.links().len(), 1);
+        assert_eq!(models.links().unwrap().len(), 1);
         assert!(models.delete(&linked.entry.id).unwrap_err().to_string().contains("unlinked, not deleted"));
         assert!(file.is_file());
 
@@ -602,7 +597,7 @@ mod tests {
         std::fs::write(dir.join("ggml-mine.bin"), &header).unwrap();
         std::fs::write(dir.join("notes.txt"), b"x").unwrap();
         let models = Models::new(dir.clone());
-        let list = models.list();
+        let list = models.list().unwrap();
         let tiny = list.iter().find(|m| m.entry.id == "tiny").unwrap();
         assert!(tiny.installed && !tiny.custom);
         assert_eq!(tiny.label.as_deref(), Some("tiny, f16"));
@@ -610,6 +605,23 @@ mod tests {
         assert!(mine.custom && mine.installed);
         assert_eq!(mine.entry.name, "mine");
         assert!(list.iter().filter(|m| m.installed).count() == 2);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn damaged_model_metadata_is_reported_without_replacing_it() {
+        let dir = std::env::temp_dir().join(format!("tlansclaib-model-errors-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let links = dir.join(LINKS);
+        std::fs::write(&links, "not json").unwrap();
+        let models = Models::new(dir.clone());
+        assert!(models.list().unwrap_err().to_string().contains("linked models"));
+        assert!(models.rename("linked:missing", "New name").is_err());
+        assert_eq!(std::fs::read_to_string(&links).unwrap(), "not json");
+
+        std::fs::write(&links, "[]").unwrap();
+        std::fs::write(dir.join("models.json"), "not json").unwrap();
+        assert!(models.list().unwrap_err().to_string().contains("custom model catalog"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

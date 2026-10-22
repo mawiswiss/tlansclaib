@@ -74,10 +74,6 @@ pub fn output_file(audio: &Path, output_dir: Option<&Path>) -> PathBuf {
     dir.join(format!("{stem}_transcript.txt"))
 }
 
-fn file_name(path: &Path) -> String {
-    path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
-}
-
 pub struct Request<'a> {
     pub audio: &'a Path,
     pub model_id: &'a str,
@@ -185,9 +181,12 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         .app_name("tlansclaib")
         .app_reverse_domain("tlansclaib")
         .create()
-        .map_err(|e| log::warn!("cannot keep the computer awake: {e}"))
+        .map_err(|error| {
+            log::warn!("could not prevent sleep during transcription");
+            let _ = app.emit("app-error", format!("The computer may sleep during transcription: {error}"));
+        })
         .ok();
-    log::info!("started the engine (pid {}) on {} with {}", child.pid(), file_name(audio), entry.file);
+    log::info!("started the engine (pid {})", child.pid());
     *state.0.lock().unwrap() = Some(ActiveRun {
         pid: child.pid(),
         child: Some(child),
@@ -219,6 +218,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         let mut step = None;
         let mut model_ready = false;
         let mut pending_gpu_error = None;
+        let mut process_error = None;
         while let Some(event) = events.recv().await {
             match event {
                 CommandEvent::Stdout(line) => match serde_json::from_slice::<Event>(&line) {
@@ -238,10 +238,20 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                         track(&app, &event);
                         let _ = app.emit("engine-event", &event);
                     }
-                    Err(_) => log::warn!(target: "engine", "{}", String::from_utf8_lossy(&line).trim_end()),
+                    Err(_) => {
+                        log::warn!(target: "engine", "unreadable progress event");
+                        process_error = Some("The engine sent unreadable progress data.".to_string());
+                    }
                 },
-                CommandEvent::Stderr(line) => log::info!(target: "engine", "{}", String::from_utf8_lossy(&line).trim_end()),
-                CommandEvent::Error(message) => log::error!(target: "engine", "{message}"),
+                CommandEvent::Stderr(_) => log::info!(target: "engine", "engine diagnostic received"),
+                CommandEvent::Error(message) => {
+                    log::error!(target: "engine", "could not read the engine process");
+                    if gpu_attempt && step == Some(Step::Load) && !model_ready {
+                        pending_gpu_error = Some(message);
+                    } else {
+                        process_error = Some(message);
+                    }
+                }
                 CommandEvent::Terminated(payload) => {
                     if retry_on_cpu(gpu_attempt, step, model_ready, payload.code) && app.state::<RunState>().0.lock().unwrap().is_some() {
                         log::warn!("{backend} model startup failed. Retrying on CPU.");
@@ -265,6 +275,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                                     step = None;
                                     model_ready = false;
                                     pending_gpu_error = None;
+                                    process_error = None;
                                     continue;
                                 }
                                 let _ = child.kill();
@@ -285,11 +296,14 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                     }
                     let run = app.state::<RunState>().0.lock().unwrap().take();
                     if let Some(run) = run {
-                        if payload.code != Some(0) && !run.saw_error {
+                        if !run.saw_error && (payload.code != Some(0) || !run.record.saved) {
                             let _ = app.emit(
                                 "engine-event",
                                 Event::Error {
-                                    message: pending_gpu_error.unwrap_or_else(|| {
+                                    message: pending_gpu_error.take().or_else(|| process_error.take().map(|error| format!("Could not read the transcription process: {error}"))).unwrap_or_else(|| {
+                                        if payload.code == Some(0) {
+                                            return "The transcription process ended without saving a result.".into();
+                                        }
                                         format!(
                                             "The engine stopped unexpectedly (exit code {}). The log file has details.",
                                             payload.code.map(|c| c.to_string()).unwrap_or_else(|| "none".into())
@@ -300,10 +314,28 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                         }
                         remember_incomplete(&app, &run.record);
                     }
+                    if payload.code == Some(0)
+                        && let Some(error) = process_error.take()
+                    {
+                        let _ = app.emit("app-error", format!("Could not read all output from the transcription process: {error}"));
+                    }
                     break;
                 }
                 _ => {}
             }
+        }
+        let run = app.state::<RunState>().0.lock().unwrap().take();
+        if let Some(mut run) = run {
+            if let Some(child) = run.child.take() {
+                let _ = child.kill();
+            }
+            if !run.saw_error {
+                let message = pending_gpu_error
+                    .or_else(|| process_error.map(|error| format!("Could not read the transcription process: {error}")))
+                    .unwrap_or_else(|| "The transcription process ended without a final status.".into());
+                let _ = app.emit("engine-event", Event::Error { message });
+            }
+            remember_incomplete(&app, &run.record);
         }
     });
     Ok(())
@@ -334,12 +366,12 @@ fn track(app: &AppHandle, event: &Event) {
             record.lines += 1;
             record.times.push((*start, *end));
         }
-        Event::Error { message } => {
-            log::error!("engine: {message}");
+        Event::Error { .. } => {
+            log::error!("engine reported an error");
             run.saw_error = true;
         }
-        Event::Done { lines, elapsed, file, timings } => {
-            log::info!("done: {lines} lines in {elapsed:.1} s, {}", file_name(file));
+        Event::Done { lines, elapsed, file: _, timings } => {
+            log::info!("done: {lines} lines in {elapsed:.1} s");
             log::info!(
                 "stage times: decode {:.2}s, speakers {:.2}s, load {:.2}s, transcribe {:.2}s, write {:.2}s",
                 timings.decode,
@@ -387,7 +419,7 @@ fn remember(app: &AppHandle, entry: history::Entry, times: &[(f64, f64)]) {
     let history = app.state::<History>();
     let id = entry.id;
     if let Err(error) = history.add(entry).and_then(|_| history.save_times(id, times)) {
-        log::warn!("cannot save the history: {error:#}");
+        crate::report_history_error(app, "The transcript was saved", &error);
     }
     let _ = app.emit("history-changed", ());
 }

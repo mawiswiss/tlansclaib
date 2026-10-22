@@ -18,7 +18,7 @@ type Props = {
   onSaveLine: (index: number, text: string) => Promise<boolean>;
   onLog: (level: "info" | "warn", message: string) => void;
   onOpenFolder: (path: string) => void;
-  onCopy: () => Promise<void>;
+  onCopy: () => Promise<boolean>;
   onRename: (title: string) => Promise<boolean>;
   onRenameSpeaker: (track: number, name: string) => Promise<boolean>;
   onRerun: (options?: { focus?: "speakers"; speakers?: string }) => void;
@@ -77,6 +77,7 @@ export function ResultView(props: Props) {
   const [copied, setCopied] = useState(false);
   const [src, setSrc] = useState<string | null>(null);
   const [unplayable, setUnplayable] = useState(false);
+  const [playerError, setPlayerError] = useState<string | null>(null);
   const [heard, setHeard] = useState<Playing>({ lines: [], main: -1 });
   const [query, setQuery] = useState("");
   const [hit, setHit] = useState(0);
@@ -112,6 +113,7 @@ export function ResultView(props: Props) {
   useEffect(() => {
     setSrc(null);
     setUnplayable(false);
+    setPlayerError(null);
     setHeard({ lines: [], main: -1 });
     if (audioMissing) return;
     let active = true;
@@ -120,7 +122,8 @@ export function ResultView(props: Props) {
       .catch((e) => {
         if (!active) return;
         setUnplayable(true);
-        onLog("warn", `cannot play ${fileName(run.audio)}: ${String(e)}`);
+        setPlayerError(`Could not load the recording: ${String(e)}`);
+        onLog("warn", "could not load the recording for playback");
       });
     return () => {
       active = false;
@@ -353,7 +356,7 @@ export function ResultView(props: Props) {
               <button
                 type="button"
                 className={`icon-button${copied ? " copied" : ""}`}
-                onClick={() => onCopy().then(() => setCopied(true))}
+                onClick={() => { void onCopy().then(setCopied).catch(() => setCopied(false)); }}
                 aria-label={copied ? "Copied" : "Copy text"}
               >
                 {copied ? <Check strokeWidth={2.2} /> : <Copy />}
@@ -380,7 +383,7 @@ export function ResultView(props: Props) {
           </button>
         </Tooltip>
       </div>
-      {error && <p className="problem">{error}</p>}
+      {error && <p className="problem" role="alert">{error}</p>}
       {run.opened?.status === "incomplete" && <p className="note">This transcription was stopped early and holds the lines done until then.</p>}
       {run.check?.changed && <p className="note">This transcript was changed outside tlansclaib since it was saved.</p>}
       {run.check?.audio === "different" && (
@@ -410,23 +413,26 @@ export function ResultView(props: Props) {
               </button>
             </p>
           ) : unplayable ? (
-            <p className="player-note">This recording cannot be played here. Its format is not supported by the system player.</p>
+            <p className="player-note problem" role="alert">{playerError ?? "This recording cannot be played by the system player."}</p>
           ) : src ? (
             <AudioPlayer
               ref={player}
               src={src}
               onTime={onTime}
               onSeek={onSeek}
-              onReady={(d) => onLog("info", `playing ${fileName(run.audio)}, ${Math.round(d)} s`)}
+              onReady={(d) => onLog("info", `playing a recording, ${Math.round(d)} s`)}
+              onPlaybackError={setPlayerError}
               onFail={() => {
                 setUnplayable(true);
-                onLog("warn", `the system player cannot play ${fileName(run.audio)}`);
+                setPlayerError("This recording cannot be played by the system player.");
+                onLog("warn", "the system player cannot play the recording");
               }}
             />
           ) : (
             <p className="player-note muted">Loading the recording…</p>
           )}
         </div>
+        {playerError && !unplayable && <p className="problem" role="alert">{playerError}</p>}
         <div className="transcript-bar">
           {run.speakers.length > 1 ? (
             <div className="speakers-group">

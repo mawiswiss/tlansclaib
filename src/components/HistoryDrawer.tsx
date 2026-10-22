@@ -57,7 +57,7 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
           <Search size={16} />
           <input type="search" placeholder="Find by name or folder" value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
-        {error && <p className="problem history-error">{error}</p>}
+        {error && <p className="problem history-error" role="alert">{error}</p>}
         <ul className="history" ref={list}>
           {entries.length === 0 && <li className="empty">Transcripts appear here once the first recording is done.</li>}
           {entries.length > 0 && shown.length === 0 && <li className="empty">Nothing matches “{query}”.</li>}

@@ -20,8 +20,9 @@ const FEATURES = [
 
 export function AboutDialog({ version, onOpenUrl, onSupport, onClose }: Props) {
   const [v, setV] = useState("");
+  const [versionError, setVersionError] = useState<string | null>(null);
   useEffect(() => {
-    version().then(setV).catch(() => setV(""));
+    void version().then(setV).catch((error) => setVersionError(`Could not read the app version: ${String(error)}`));
   }, [version]);
   return (
     <div className="overlay" onClick={onClose}>
@@ -113,6 +114,7 @@ export function AboutDialog({ version, onOpenUrl, onSupport, onClose }: Props) {
         <footer className="modal-foot about-foot">
           <span className="muted">
             © {YEAR} {AUTHOR} · MIT License{v && ` · Version ${v}`}
+            {versionError && <span role="alert"> · {versionError}</span>}
           </span>
         </footer>
       </section>

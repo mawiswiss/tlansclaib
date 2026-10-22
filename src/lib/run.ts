@@ -199,6 +199,8 @@ export function reduce(state: RunState, action: RunAction): RunState {
           };
         case "error":
           return { ...state, status: "error", error: e.message };
+        case "warning":
+          return state;
         case "cancelled":
           return { ...state, status: "cancelled" };
       }

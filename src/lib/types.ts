@@ -83,5 +83,6 @@ export type EngineEvent =
   | { event: "progress"; done: number; total: number; position: number }
   | { event: "done"; lines: number; elapsed: number; file: string; timings?: Timings }
   | { event: "error"; message: string }
+  | { event: "warning"; message: string }
   | { event: "retry"; message: string }
   | { event: "cancelled" };

@@ -10,19 +10,19 @@ type Props = {
   onSeek: (seconds: number) => void;
   onReady: (duration: number) => void;
   onFail: () => void;
+  onPlaybackError: (message: string | null) => void;
 };
 
 const SPEEDS = [1, 1.5, 2];
 
-export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer({ src, onTime, onSeek, onReady, onFail }, ref) {
+export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer({ src, onTime, onSeek, onReady, onFail, onPlaybackError }, ref) {
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
-
   const play = () => {
-    audio.current?.play().catch(() => {});
+    void audio.current?.play().then(() => onPlaybackError(null)).catch((error) => onPlaybackError(`Could not play the recording: ${String(error)}`));
   };
 
   useImperativeHandle(ref, () => ({

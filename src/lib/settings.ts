@@ -14,6 +14,7 @@ export type Settings = {
 };
 
 const STORAGE = "tlansclaib.settings";
+export let settingsLoadError: string | null = null;
 
 export const DEFAULTS: Settings = {
   modelId: "",
@@ -31,7 +32,8 @@ export const DEFAULTS: Settings = {
 export function loadSettings(): Settings {
   try {
     return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE) ?? "{}") };
-  } catch {
+  } catch (error) {
+    settingsLoadError = `Could not load saved settings. Defaults are being used: ${String(error)}`;
     return DEFAULTS;
   }
 }

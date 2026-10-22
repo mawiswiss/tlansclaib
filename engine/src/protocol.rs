@@ -72,6 +72,9 @@ pub enum Event {
     Error {
         message: String,
     },
+    Warning {
+        message: String,
+    },
 }
 
 pub fn emit(event: &Event) {
@@ -108,6 +111,8 @@ mod tests {
         assert_eq!(json, r#"{"event":"speaker_progress","done":3,"total":40}"#);
         let json = serde_json::to_string(&Event::Step { step: Step::Speakers }).unwrap();
         assert_eq!(json, r#"{"event":"step","step":"speakers"}"#);
+        let json = serde_json::to_string(&Event::Warning { message: "one track skipped".into() }).unwrap();
+        assert_eq!(json, r#"{"event":"warning","message":"one track skipped"}"#);
     }
 
     #[test]

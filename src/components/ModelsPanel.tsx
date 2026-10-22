@@ -397,7 +397,7 @@ export function ModelsPanel(props: Props) {
           </button>
         </header>
         <div className="modal-body">
-          {error && <p className="problem">{error}</p>}
+          {error && <p className="problem" role="alert">{error}</p>}
           {group("main", "Recommended and installed", main, card, detectionCard())}
           {group("single", "For one language", single)}
           {group("more", "More models", more)}

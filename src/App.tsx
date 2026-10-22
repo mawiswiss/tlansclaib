@@ -15,7 +15,7 @@ import { capitalize, fileName, folderOf, titleOf, transcriptText } from "./lib/f
 import { getBackend, type Backend } from "./lib/ipc";
 import { idle, reduce } from "./lib/run";
 import { DONATE } from "./lib/about";
-import { loadSettings, saveSettings } from "./lib/settings";
+import { loadSettings, saveSettings, settingsLoadError } from "./lib/settings";
 import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from "./lib/support";
 import { parseTranscript, withTimes } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
@@ -29,9 +29,12 @@ async function copyText(text: string) {
     const area = document.createElement("textarea");
     area.value = text;
     document.body.appendChild(area);
-    area.select();
-    document.execCommand("copy");
-    area.remove();
+    try {
+      area.select();
+      if (!document.execCommand("copy")) throw new Error("Clipboard access was denied.");
+    } finally {
+      area.remove();
+    }
   }
 }
 
@@ -43,6 +46,7 @@ export default function App() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [folder, setFolder] = useState("");
   const [settings, setSettings] = useState(loadSettings);
+  const [appErrors, setAppErrors] = useState<string[]>(settingsLoadError ? [settingsLoadError] : []);
   const [panel, setPanel] = useState<"models" | "about" | "support" | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -75,18 +79,38 @@ export default function App() {
     [languages],
   );
 
-  const refreshModels = useCallback(async () => {
-    const b = backend.current;
-    if (b) setModels(await b.listModels());
+  const showError = useCallback((message: string) => {
+    setAppErrors((current) => current.includes(message) ? current : [...current, message].slice(-10));
+  }, []);
+  const reportError = useCallback((context: string, error: unknown) => {
+    showError(`${context}: ${String(error)}`);
+  }, [showError]);
+  const requireBackend = useCallback(() => {
+    if (!backend.current) throw new Error("The app is still starting. Please try again.");
+    return backend.current;
   }, []);
 
-  useEffect(() => {
-    saveSettings(settings);
-  }, [settings]);
+  const refreshModels = useCallback(async () => {
+    const b = backend.current;
+    if (!b) return;
+    try {
+      setModels(await b.listModels());
+    } catch (error) {
+      reportError("Could not refresh models", error);
+    }
+  }, [reportError]);
 
   useEffect(() => {
-    applyTheme(settings.theme);
-  }, [settings.theme]);
+    try {
+      saveSettings(settings);
+    } catch (error) {
+      reportError("Could not save settings", error);
+    }
+  }, [settings, reportError]);
+
+  useEffect(() => {
+    void applyTheme(settings.theme).catch((error) => reportError("Could not apply the appearance", error));
+  }, [settings.theme, reportError]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -129,64 +153,86 @@ export default function App() {
   }, [panel]);
 
   useEffect(() => {
-    if (panel === "models") backend.current?.diskSpace().then(setDisk).catch(() => setDisk(null));
-  }, [panel, models]);
+    if (panel === "models") backend.current?.diskSpace().then(setDisk).catch((error) => reportError("Could not check disk space", error));
+  }, [panel, models, reportError]);
 
   const openUrl = (url: string) => {
-    backend.current?.openUrl(url).catch(() => {});
+    void Promise.resolve().then(() => requireBackend().openUrl(url)).catch((error) => reportError("Could not open the link", error));
   };
-  const version = useCallback(() => backend.current?.appVersion() ?? Promise.resolve(""), []);
+  const version = useCallback(() => backend.current?.appVersion() ?? Promise.reject(new Error("The app is still starting.")), []);
 
   useEffect(() => {
     let active = true;
-    let unlisten: (() => void)[] = [];
-    getBackend().then(async (b) => {
+    const unlisten: (() => void)[] = [];
+    void getBackend().then(async (b) => {
       if (!active) return;
       backend.current = b;
-      setModels(await b.listModels());
-      setFolder(await b.modelsFolder());
-      b.speakerDetection().then(setDetection).catch(() => setDetection(null));
-      b.listLanguages().then(setLanguages).catch(() => setLanguages([]));
-      b.listHistory()
-        .then((entries) => {
-          setHistory(entries);
-          setSettings((s) => countFromHistory(s, entries));
-        })
-        .catch(() => setHistory([]));
-      b.autorun().then((audio) => {
-        if (audio) startLatest.current(audio, null);
-      });
-      const registered = await Promise.all([
-        b.onEngineEvent((event) => dispatch({ type: "engine", event, now: Date.now() })),
-        b.onStats(setStats),
-        b.onDownloadProgress((p) => setDownloads((d) => ({ ...d, [p.id]: p }))),
-        b.onModelsChanged(() => {
-          b.listModels().then(setModels);
-          b.speakerDetection().then(setDetection).catch(() => setDetection(null));
-        }),
-        b.onHistoryChanged(() => b.listHistory().then(setHistory)),
-        b.onDrop((state) => {
+      const listeners = [
+        ["transcription events", b.onEngineEvent((event) => {
+          if (event.event === "warning") showError(event.message);
+          dispatch({ type: "engine", event, now: Date.now() });
+        })],
+        ["system status", b.onStats(setStats)],
+        ["download progress", b.onDownloadProgress((p) => setDownloads((d) => ({ ...d, [p.id]: p })))],
+        ["app errors", b.onAppError(showError)],
+        ["model changes", b.onModelsChanged(() => {
+          void refreshModels();
+          void b.speakerDetection().then(setDetection).catch((error) => reportError("Could not refresh speaker detection", error));
+        })],
+        ["history changes", b.onHistoryChanged(() => {
+          void b.listHistory().then(setHistory).catch((error) => reportError("Could not refresh history", error));
+        })],
+        ["file drops", b.onDrop((state) => {
           if (Array.isArray(state)) {
             setDragging(false);
             if (state[0]) stageLatest.current(state[0]);
           } else setDragging(state === "over");
-        }),
-      ]);
-      if (active) unlisten = registered;
-      else registered.forEach((u) => u());
+        })],
+      ] as const;
+      const registered = await Promise.allSettled(listeners.map(([, promise]) => promise));
+      registered.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          if (active) unlisten.push(result.value);
+          else result.value();
+        } else if (active) reportError(`Could not listen for ${listeners[index][0]}`, result.reason);
+      });
+      if (!active) return;
+      void b.listModels().then(setModels).catch((error) => reportError("Could not load models", error));
+      void b.modelsFolder().then(setFolder).catch((error) => reportError("Could not find the models folder", error));
+      void b.speakerDetection().then(setDetection).catch((error) => reportError("Could not load speaker detection", error));
+      void b.listLanguages().then(setLanguages).catch((error) => reportError("Could not load languages", error));
+      void b.listHistory().then((entries) => {
+        setHistory(entries);
+        setSettings((s) => countFromHistory(s, entries));
+      }).catch((error) => reportError("Could not load history", error));
+      void b.autorun().then((audio) => {
+        if (active && audio) startLatest.current(audio, null);
+      }).catch((error) => reportError("Could not start the requested recording", error));
+    }).catch((error) => {
+      if (active) reportError("Could not start the app", error);
     });
     return () => {
       active = false;
       unlisten.forEach((u) => u());
     };
-  }, []);
+  }, [refreshModels, reportError, showError]);
 
   const start = useCallback(
     async (audio: string, outputDir: string | null) => {
       const b = backend.current;
-      const current = (await b?.listModels())?.filter((m) => m.installed) ?? [];
+      if (!b) {
+        showError("The app is still starting. Please try again.");
+        return;
+      }
+      let current: ModelStatus[];
+      try {
+        current = (await b.listModels()).filter((m) => m.installed);
+      } catch (error) {
+        reportError("Could not check installed models", error);
+        return;
+      }
       const chosen = current.find((m) => m.id === settings.modelId) ?? current[0];
-      if (!b || !chosen) {
+      if (!chosen) {
         setPanel("models");
         return;
       }
@@ -211,7 +257,7 @@ export default function App() {
         dispatch({ type: "fail", message: String(error) });
       }
     },
-    [settings, detection],
+    [settings, detection, reportError, showError],
   );
   startLatest.current = start;
 
@@ -273,7 +319,7 @@ export default function App() {
     backend.current
       ?.transcriptHash(run.result.file)
       .then((hash) => dispatch({ type: "hash", hash }))
-      .catch(() => {});
+      .catch((error) => setResultError(`Could not check the saved transcript: ${String(error)}`));
   }, [run.status, run.opened, run.result]);
 
   const saveLine = async (index: number, text: string): Promise<boolean> => {
@@ -315,9 +361,15 @@ export default function App() {
   const startAgain = async (entry: HistoryEntry, choice: RerunChoice) => {
     const b = backend.current;
     setRerunTarget(null);
-    if (!b || running) return;
+    if (!b || running) {
+      if (!b) showError("The app is still starting. Please try again.");
+      return;
+    }
     const model = models.find((m) => m.installed && m.id === choice.modelId);
-    if (!model) return;
+    if (!model) {
+      showError("The selected model is no longer installed. Choose another model.");
+      return;
+    }
     const speakers = choice.speakers !== "off" && detection?.installed ? choice.speakers : null;
     setResultError(null);
     setHistoryError(null);
@@ -377,8 +429,12 @@ export default function App() {
   };
 
   const choose = async () => {
-    const path = await backend.current?.pickAudioFile();
-    if (path) stage(path);
+    try {
+      const path = await requireBackend().pickAudioFile();
+      if (path) stage(path);
+    } catch (error) {
+      reportError("Could not choose a recording", error);
+    }
   };
 
   const renameTranscript = async (title: string): Promise<boolean> => {
@@ -396,21 +452,29 @@ export default function App() {
   };
 
   const chooseOutputDir = async () => {
-    const dir = await backend.current?.pickFolder();
-    if (dir) setSettings((s) => ({ ...s, outputDir: dir }));
+    try {
+      const dir = await requireBackend().pickFolder();
+      if (dir) setSettings((s) => ({ ...s, outputDir: dir }));
+    } catch (error) {
+      reportError("Could not choose the output folder", error);
+    }
   };
 
   const saveElsewhere = async () => {
-    const dir = await backend.current?.pickFolder();
-    if (!dir) return;
-    setSettings((s) => ({ ...s, outputDir: dir }));
-    start(run.audio, dir);
+    try {
+      const dir = await requireBackend().pickFolder();
+      if (!dir) return;
+      setSettings((s) => ({ ...s, outputDir: dir }));
+      void start(run.audio, dir);
+    } catch (error) {
+      reportError("Could not choose another output folder", error);
+    }
   };
 
   const download = async (id: string) => {
     setPanelError(null);
     try {
-      await backend.current?.downloadModel(id);
+      await requireBackend().downloadModel(id);
     } catch (error) {
       setPanelError(String(error));
     } finally {
@@ -418,14 +482,14 @@ export default function App() {
         const { [id]: _, ...rest } = d;
         return rest;
       });
-      refreshModels();
+      void refreshModels();
     }
   };
 
   const downloadDetection = async () => {
     setPanelError(null);
     try {
-      await backend.current?.downloadSpeakerDetection();
+      await requireBackend().downloadSpeakerDetection();
       setSettings((s) => (s.speakers === "off" ? { ...s, speakers: "auto" } : s));
     } catch (error) {
       setPanelError(String(error));
@@ -434,64 +498,67 @@ export default function App() {
         const { [DETECTION_ID]: _, ...rest } = d;
         return rest;
       });
-      backend.current?.speakerDetection().then(setDetection).catch(() => {});
+      void backend.current?.speakerDetection().then(setDetection).catch((error) => reportError("Could not refresh speaker detection", error));
     }
   };
 
   const removeDetection = async () => {
     setPanelError(null);
     try {
-      await backend.current?.removeSpeakerDetection();
+      await requireBackend().removeSpeakerDetection();
       setSettings((s) => ({ ...s, speakers: "off" }));
     } catch (error) {
       setPanelError(String(error));
     }
-    backend.current?.speakerDetection().then(setDetection).catch(() => {});
+    void backend.current?.speakerDetection().then(setDetection).catch((error) => reportError("Could not refresh speaker detection", error));
   };
 
   const addFile = async (id: string | null) => {
     const b = backend.current;
-    if (!b) return;
+    if (!b) {
+      setPanelError("The app is still starting. Please try again.");
+      return;
+    }
     setPanelError(null);
-    const path = await b.pickModelFile();
-    if (!path) return;
     try {
+      const path = await b.pickModelFile();
+      if (!path) return;
       const added = await b.addModelFile(id, path);
       setSettings((s) => ({ ...s, modelId: added.id }));
     } catch (error) {
       setPanelError(String(error));
     }
-    refreshModels();
+    void refreshModels();
   };
 
   const remove = async (id: string) => {
     setPanelError(null);
     try {
-      await backend.current?.deleteModel(id);
+      await requireBackend().deleteModel(id);
     } catch (error) {
       setPanelError(String(error));
     }
-    refreshModels();
+    void refreshModels();
   };
 
   const unlink = async (id: string) => {
     setPanelError(null);
     try {
-      await backend.current?.unlinkModel(id);
+      await requireBackend().unlinkModel(id);
     } catch (error) {
       setPanelError(String(error));
     }
-    refreshModels();
+    void refreshModels();
   };
 
   const renameModel = async (id: string, name: string) => {
     setPanelError(null);
     try {
-      await backend.current?.renameModel(id, name);
+      await requireBackend().renameModel(id, name);
     } catch (error) {
       setPanelError(String(error));
     }
-    refreshModels();
+    void refreshModels();
   };
 
   const closePanel = () => {
@@ -520,7 +587,7 @@ export default function App() {
       setHistoryOpen(false);
     } catch (error) {
       setHistoryError(`Cannot open ${entry.file}: ${String(error)}`);
-      b.listHistory().then(setHistory).catch(() => {});
+      void b.listHistory().then(setHistory).catch((refreshError) => reportError("Could not refresh history", refreshError));
     }
   };
 
@@ -559,6 +626,39 @@ export default function App() {
     }
   };
 
+  const showInFolder = async (path: string) => {
+    try {
+      await requireBackend().reveal(path);
+    } catch (error) {
+      reportError("Could not show the file in its folder", error);
+    }
+  };
+
+  const removeHistory = async (id: number) => {
+    setHistoryError(null);
+    try {
+      await requireBackend().removeHistory(id);
+    } catch (error) {
+      setHistoryError(`Could not remove the history entry: ${String(error)}`);
+    }
+  };
+
+  const cancelDownload = async (id: string) => {
+    try {
+      await requireBackend().cancelDownload(id);
+    } catch (error) {
+      setPanelError(`Could not cancel the download: ${String(error)}`);
+    }
+  };
+
+  const cancelDetection = async () => {
+    try {
+      await requireBackend().cancelSpeakerDetection();
+    } catch (error) {
+      setPanelError(`Could not cancel speaker detection: ${String(error)}`);
+    }
+  };
+
   const main = () => {
     switch (run.status) {
       case "running":
@@ -567,7 +667,9 @@ export default function App() {
             run={run}
             showTimes={settings.timestamps}
             languageName={languageName}
-            onCancel={() => backend.current?.cancelRun()}
+            onCancel={() => {
+              void Promise.resolve().then(() => requireBackend().cancelRun()).catch((error) => reportError("Could not stop transcription", error));
+            }}
           />
         );
       case "done":
@@ -583,10 +685,24 @@ export default function App() {
             onLocateAudio={locateAudio}
             onSaveLine={saveLine}
             onLog={(level, message) => backend.current?.log(level, message)}
-            onOpenFolder={(path) => backend.current?.reveal(path)}
+            onOpenFolder={(path) => { void showInFolder(path); }}
             onCopy={async () => {
-              const text = await backend.current?.readTextFile(run.result!.file).catch(() => null);
-              await copyText(text ?? transcriptText(run.lines, run.timestamps, run.speakers));
+              try {
+                let text: string;
+                let readError: unknown = null;
+                try {
+                  text = await requireBackend().readTextFile(run.result!.file);
+                } catch (error) {
+                  readError = error;
+                  text = transcriptText(run.lines, run.timestamps, run.speakers);
+                }
+                await copyText(text);
+                if (readError) setResultError(`Could not read the saved transcript, so the text shown here was copied: ${String(readError)}`);
+                return true;
+              } catch (error) {
+                setResultError(`Could not copy the transcript: ${String(error)}`);
+                return false;
+              }
             }}
             onRename={renameTranscript}
             onRenameSpeaker={renameSpeaker}
@@ -687,16 +803,16 @@ export default function App() {
           error={panelError}
           folder={folder}
           onDownload={download}
-          onCancelDownload={(id) => backend.current?.cancelDownload(id)}
+          onCancelDownload={(id) => { void cancelDownload(id); }}
           onAddFile={addFile}
           onDelete={remove}
           onUnlink={unlink}
           onRename={renameModel}
-          onShowFolder={() => backend.current?.reveal(folder)}
+          onShowFolder={() => { void showInFolder(folder); }}
           onOpenUrl={openUrl}
           detection={detection}
           onDownloadDetection={downloadDetection}
-          onCancelDetection={() => backend.current?.cancelSpeakerDetection()}
+          onCancelDetection={() => { void cancelDetection(); }}
           onRemoveDetection={removeDetection}
           onClose={closePanel}
         />
@@ -739,13 +855,19 @@ export default function App() {
         onOpen={openHistory}
         onLocate={locateTranscript}
         onRerun={(entry) => openRerun(entry, false)}
-        onReveal={(path) => backend.current?.reveal(path)}
-        onRemove={(id) => backend.current?.removeHistory(id)}
+        onReveal={(path) => { void showInFolder(path); }}
+        onRemove={(id) => { void removeHistory(id); }}
         onClose={() => {
           setHistoryOpen(false);
           setHistoryError(null);
         }}
       />
+      {appErrors.length > 0 && (
+        <div className="problem app-error" role="alert">
+          <span>{appErrors[0]}{appErrors.length > 1 && ` (${appErrors.length - 1} more)`}</span>
+          <button type="button" className="inline-link" onClick={() => setAppErrors((current) => current.slice(1))}>Dismiss</button>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { loadSettings } from "./lib/settings";
 import { applyTheme } from "./lib/theme";
 import "./styles.css";
 
-applyTheme(loadSettings().theme);
+void applyTheme(loadSettings().theme).catch(() => {});
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

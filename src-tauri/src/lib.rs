@@ -17,6 +17,11 @@ use history::History;
 use models::{ModelStatus, Models};
 use system::Monitor;
 
+pub(crate) fn report_history_error(app: &AppHandle, action: &str, error: &anyhow::Error) {
+    log::warn!("history update failed");
+    let _ = app.emit("app-error", format!("{action}, but the history could not be updated: {error:#}"));
+}
+
 #[derive(serde::Deserialize, serde::Serialize)]
 struct Language {
     code: String,
@@ -24,8 +29,8 @@ struct Language {
 }
 
 #[tauri::command]
-fn list_models(models: State<Models>) -> Vec<ModelStatus> {
-    models.list()
+fn list_models(models: State<Models>) -> Result<Vec<ModelStatus>, String> {
+    models.list().map_err(|error| format!("{error:#}"))
 }
 
 #[tauri::command]
@@ -92,6 +97,9 @@ async fn list_languages(app: AppHandle) -> Result<Vec<Language>, String> {
         .output()
         .await
         .map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err("Could not load languages from the transcription engine.".into());
+    }
     serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())
 }
 
@@ -150,8 +158,8 @@ fn remove_speaker_detection(app: AppHandle, detection: State<detection::Detectio
 }
 
 #[tauri::command]
-fn list_history(history: State<History>) -> Vec<history::Listed> {
-    history.list()
+fn list_history(history: State<History>) -> Result<Vec<history::Listed>, String> {
+    history.list().map_err(|error| format!("{error:#}"))
 }
 
 #[tauri::command]
@@ -196,7 +204,7 @@ fn rename_transcript(app: AppHandle, history: State<History>, file: String, titl
     let to = transcript::rename(&from, &title).map_err(|e| format!("{e:#}"))?;
     if to != from {
         if let Err(error) = history.renamed(&from, &to) {
-            log::warn!("cannot save the history: {error:#}");
+            report_history_error(&app, "The transcript was renamed", &error);
         }
         let _ = app.emit("history-changed", ());
     }
@@ -210,7 +218,7 @@ fn transcript_hash(file: String) -> Result<String, String> {
 
 fn remember_write(app: &AppHandle, history: &History, file: &Path, timestamps: bool, speakers: &[String]) -> Result<String, String> {
     if let Err(error) = history.written(file, timestamps, speakers) {
-        log::warn!("cannot save the history: {error:#}");
+        report_history_error(app, "The transcript was saved", &error);
     }
     let _ = app.emit("history-changed", ());
     fingerprint::transcript(file).map_err(|e| e.to_string())
@@ -256,7 +264,7 @@ struct Opened {
 
 #[tauri::command]
 fn open_history(history: State<History>, id: u64) -> Result<Opened, String> {
-    let entry = history.get(id).ok_or("This transcript is no longer in the history.")?;
+    let entry = history.get(id).map_err(|error| format!("{error:#}"))?.ok_or("This transcript is no longer in the history.")?;
     let text = std::fs::read_to_string(&entry.file).map_err(|e| format!("cannot read {}: {e}", entry.file.display()))?;
     let file = fingerprint::compare(entry.file_sha256.as_deref(), &entry.file, fingerprint::transcript);
     let changed = file == fingerprint::Match::Different;
@@ -268,7 +276,7 @@ fn open_history(history: State<History>, id: u64) -> Result<Opened, String> {
 
 #[tauri::command]
 fn check_candidate(history: State<History>, id: u64, kind: history::Kind, path: String) -> Result<fingerprint::Match, String> {
-    let entry = history.get(id).ok_or("This transcript is no longer in the history.")?;
+    let entry = history.get(id).map_err(|error| format!("{error:#}"))?.ok_or("This transcript is no longer in the history.")?;
     let path = Path::new(&path);
     Ok(match kind {
         history::Kind::Transcript => fingerprint::compare(entry.file_sha256.as_deref(), path, fingerprint::transcript),

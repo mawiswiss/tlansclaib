@@ -328,6 +328,7 @@ export function mockBackend(): Backend {
     onEngineEvent: (h) => on<EngineEvent>("engine", h),
     onStats: (h) => on<Stats>("stats", h),
     onDownloadProgress: (h) => on<DownloadProgress>("download", h),
+    onAppError: (h) => on<string>("app-error", h),
     onModelsChanged: (h) => on("models", h),
     onHistoryChanged: (h) => on("history", h),
     onDrop: async () => () => {},

@@ -20,6 +20,7 @@ pub struct Source {
     /// Every audio track on its own, in file order, aligned to the track that starts first.
     pub tracks: Vec<Vec<f32>>,
     pub video: bool,
+    pub warnings: Vec<String>,
 }
 
 pub fn load(path: &Path) -> Result<Vec<f32>> {
@@ -89,12 +90,14 @@ pub fn load_tracks(path: &Path) -> Result<Source> {
 
     let video = format.tracks().iter().any(|t| t.track_type() == Some(TrackType::Video));
     let mut tracks = Vec::new();
+    let mut warnings = Vec::new();
     let mut first_error = None;
     for track in format.tracks().iter().filter(|t| t.track_type() == Some(TrackType::Audio)) {
         match TrackDecoder::new(track) {
             Ok(decoder) => tracks.push(decoder),
             Err(error) => {
-                log::warn!("skipping audio track {}: {error:#}", track.id);
+                log::warn!("skipping audio track {}", track.id);
+                warnings.push(format!("Audio track {} could not be decoded: {error:#}", track.id));
                 first_error.get_or_insert(error);
             }
         }
@@ -122,6 +125,7 @@ pub fn load_tracks(path: &Path) -> Result<Source> {
         let samples = track.resampler.finish()?;
         if samples.is_empty() {
             log::warn!("audio track {id} holds no audio");
+            warnings.push(format!("Audio track {id} contains no audio"));
         } else {
             decoded.push((offset, samples));
         }
@@ -142,7 +146,7 @@ pub fn load_tracks(path: &Path) -> Result<Source> {
             aligned
         })
         .collect();
-    Ok(Source { tracks, video })
+    Ok(Source { tracks, video, warnings })
 }
 
 pub fn mix(mut tracks: Vec<Vec<f32>>) -> Vec<f32> {

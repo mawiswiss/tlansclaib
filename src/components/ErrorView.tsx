@@ -15,7 +15,7 @@ export function ErrorView({ title, message, onRetry, onSaveElsewhere }: Props) {
           <Alert size={28} />
         </span>
         <h2>{title}</h2>
-        <p>{message}</p>
+        <p role="alert">{message}</p>
         <div className="actions">
           <button type="button" className="primary" onClick={onRetry}>
             Start over
