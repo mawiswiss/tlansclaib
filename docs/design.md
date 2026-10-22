@@ -91,7 +91,7 @@ retries once on the CPU. The retry never starts after transcription begins.
     tracks avoid it.
   - The lines still come from `windows.rs`. A line takes the speaker heard
     most in it and is cut where the speaker changes, unless a part would be
-    shorter than 1 s. Where two speak at once, the one already speaking keeps
+    shorter than 0.3 s. Where two speak at once, the one already speaking keeps
     the line. Speakers are numbered in order of their first line.
 - `model_file.rs` reads a whisper.cpp model header without loading the model
   and derives a label such as `large-v3-turbo, q8_0`. Anything else is

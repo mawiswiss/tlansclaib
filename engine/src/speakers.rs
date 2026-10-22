@@ -31,7 +31,7 @@ pub const LIBRARY_FILE: &str = "sherpa-onnx-c-api.dll";
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub const LIBRARY_FILE: &str = "libsherpa-onnx-c-api.so";
 
-const SHORTEST_PART_SECONDS: f64 = 1.0;
+const SHORTEST_PART_SECONDS: f64 = 0.3;
 #[cfg(feature = "whisper")]
 const MINOR_SECONDS: f64 = 10.0;
 #[cfg(feature = "whisper")]
@@ -396,9 +396,15 @@ mod tests {
     }
 
     #[test]
-    fn folds_a_short_interjection_into_its_neighbour() {
+    fn keeps_a_short_reply_as_its_own_line() {
         let lines = attribute(&[window(0.0, 12.0)], &[turn(0.0, 5.0, 0), turn(5.0, 5.6, 1), turn(5.6, 12.0, 0)]);
-        assert_eq!(seconds(&lines), vec![(0.0, 12.0, 0)]);
+        assert_eq!(seconds(&lines), vec![(0.0, 5.0, 0), (5.0, 5.6, 1), (5.6, 12.0, 0)]);
+    }
+
+    #[test]
+    fn folds_a_short_piece_at_a_window_edge() {
+        let lines = attribute(&[window(0.0, 5.0)], &[turn(0.0, 4.8, 0), turn(4.8, 7.0, 1)]);
+        assert_eq!(seconds(&lines), vec![(0.0, 5.0, 0)]);
     }
 
     #[test]
