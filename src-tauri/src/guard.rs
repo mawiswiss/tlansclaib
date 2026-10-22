@@ -21,6 +21,11 @@ pub fn can_start(free: u64, needed: u64) -> Result<(), String> {
     ))
 }
 
+#[cfg(any(windows, test))]
+pub fn can_use_gpu(free: u64, needed: u64) -> bool {
+    needed.checked_add(RUN_HEADROOM).is_some_and(|minimum| free >= minimum)
+}
+
 pub fn can_download(free_disk: u64, size: u64) -> Result<(), String> {
     if free_disk >= size + DISK_MINIMUM {
         return Ok(());
@@ -72,6 +77,13 @@ mod tests {
         let refused = can_start(3 * GIB - 1, 2 * GIB).unwrap_err();
         assert!(refused.contains("3.0 GB of free RAM"), "{refused}");
         assert!(refused.contains("smaller model"));
+    }
+
+    #[test]
+    fn a_gpu_needs_the_model_plus_headroom() {
+        assert!(can_use_gpu(3 * GIB, 2 * GIB));
+        assert!(!can_use_gpu(3 * GIB - 1, 2 * GIB));
+        assert!(!can_use_gpu(u64::MAX, u64::MAX));
     }
 
     #[test]

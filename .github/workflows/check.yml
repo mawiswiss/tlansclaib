@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-latest, windows-2022]
     runs-on: ${{ matrix.os }}
     env:
       # A CI machine may have AVX-512, a colleague's laptop usually not. Keep the baseline at AVX2.
@@ -19,6 +19,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      - name: Install Vulkan SDK
+        if: runner.os == 'Windows'
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: 1.4.341.1
       - uses: Swatinem/rust-cache@v2
       - uses: pnpm/action-setup@v4
         with:
@@ -40,8 +45,15 @@ jobs:
           if [[ $triple == *windows* ]]; then ext=".exe"; fi
           mkdir -p src-tauri/binaries
           touch "src-tauri/binaries/tlansclaib-engine-$triple$ext"
+          if [[ $triple == *windows* ]]; then touch "src-tauri/binaries/tlansclaib-engine-vulkan-$triple$ext"; fi
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+      - name: Build Vulkan engine
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cargo build -p tlansclaib-engine --features vulkan
+          ./target/debug/tlansclaib-engine.exe --help | grep gpu-memory
       - name: Cache the tiny model
         id: tiny
         uses: actions/cache@v4

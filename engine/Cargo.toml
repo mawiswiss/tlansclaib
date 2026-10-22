@@ -19,6 +19,7 @@ required-features = ["whisper"]
 [features]
 default = ["whisper"]
 whisper = ["dep:whisper-rs", "dep:symphonia", "dep:rubato", "dep:clap", "dep:env_logger", "dep:log", "dep:num_cpus", "dep:libloading"]
+vulkan = ["whisper", "whisper-rs/vulkan"]
 
 [dependencies]
 anyhow = "1"

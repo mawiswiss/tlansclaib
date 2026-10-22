@@ -43,6 +43,8 @@ impl Engine {
             .to_str()
             .ok_or_else(|| anyhow!("the model path is not valid UTF-8"))?;
         let mut params = WhisperContextParameters::default();
+        #[cfg(all(target_os = "windows", feature = "vulkan"))]
+        let use_gpu = use_gpu && vulkan_free_memory().is_some();
         params.use_gpu(use_gpu);
         let context = WhisperContext::new_with_params(path, params).map_err(|error| {
             anyhow!(
@@ -50,8 +52,12 @@ impl Engine {
                 model.file_name().map(|n| n.to_string_lossy()).unwrap_or_default()
             )
         })?;
-        let device = if use_gpu && cfg!(target_os = "macos") {
+        let device = if !use_gpu {
+            "cpu"
+        } else if cfg!(target_os = "macos") {
             "metal"
+        } else if cfg!(all(target_os = "windows", feature = "vulkan")) {
+            "vulkan"
         } else {
             "cpu"
         };
@@ -130,6 +136,26 @@ impl Engine {
         }
         Ok(text)
     }
+}
+
+#[cfg(all(target_os = "windows", feature = "vulkan"))]
+pub fn vulkan_free_memory() -> Option<u64> {
+    use whisper_rs::whisper_rs_sys as sys;
+
+    let registered = unsafe {
+        if sys::ggml_backend_reg_by_name(c"Vulkan".as_ptr()).is_null() {
+            // MSVC static builds can omit Vulkan during registry initialization.
+            let backend = sys::ggml_backend_vk_reg();
+            if !backend.is_null() {
+                sys::ggml_backend_register(backend);
+            }
+        }
+        !sys::ggml_backend_reg_by_name(c"Vulkan".as_ptr()).is_null()
+    };
+    if !registered {
+        return None;
+    }
+    whisper_rs::vulkan::list_devices().into_iter().next().map(|device| device.vram.free as u64)
 }
 
 const NEAR_TOKEN_LIMIT: i32 = 200;

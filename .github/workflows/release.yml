@@ -16,7 +16,7 @@ jobs:
           - os: macos-latest
             args: --target universal-apple-darwin
             assets: tlansclaib-mac[ext]
-          - os: windows-latest
+          - os: windows-2022
             args: ""
             assets: tlansclaib-windows[setup][ext]
     runs-on: ${{ matrix.os }}
@@ -27,6 +27,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - name: Install Vulkan SDK
+        if: matrix.os == 'windows-2022'
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: 1.4.341.1
       - uses: Swatinem/rust-cache@v2
       - uses: pnpm/action-setup@v4
         with:

@@ -7,8 +7,9 @@ Drop a recording on the window, check the model and the language, press GO.
 The transcript lands as a text file next to the recording. The window shows it
 line by line, with the recording to play along.
 [whisper.cpp](https://github.com/ggml-org/whisper.cpp) does the work, on the
-GPU of a Mac and on the processor under Windows. On my Mac it runs about 20
-times faster than the recording plays.
+GPU of a Mac, on a compatible Windows Vulkan GPU with enough free memory, or on
+the processor otherwise. On my Mac it runs about 20 times faster than the
+recording plays.
 
 ## Download
 

@@ -36,7 +36,10 @@ place first, because tauri-build refuses to compile the app without either.
 - `GGML_NATIVE=OFF` keeps whisper.cpp at an AVX2 baseline on Windows. Without
   it the build optimises for the CI machine, which may have AVX-512, and the
   binary then crashes on laptops without it.
-- The engine uses Metal on macOS and the CPU on Windows.
+- The engine uses Metal on macOS. Windows bundles CPU and Vulkan sidecars. The
+  Vulkan build needs the Vulkan SDK on the build machine, which CI installs.
+  The app probes the GPU before a run and falls back to the CPU sidecar when
+  Vulkan is unavailable or has too little free memory.
 - tauri-action names the files after `assetNamePattern`. On macOS it also
   uploads the app as a `.tar.gz`, which the workflow deletes again, so the
   release holds the two installers only.

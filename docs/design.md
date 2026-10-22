@@ -18,9 +18,11 @@ src/         React and TypeScript frontend
 scripts/     model conversion and the sidecar build, not shipped
 ```
 
-whisper.cpp runs inside `tlansclaib-engine`, bundled as a Tauri sidecar. The
-app starts it per run, reads JSON lines from its stdout, and kills it when
-memory gets tight. A crash in the engine becomes an error in the window
+whisper.cpp runs inside `tlansclaib-engine`, bundled as a Tauri sidecar. On
+Windows, a second sidecar has the Vulkan backend. The app checks its free GPU
+memory before each run and chooses the CPU sidecar when it cannot use Vulkan. It
+starts the chosen sidecar per run, reads JSON lines from its stdout, and kills
+it when memory gets tight. A crash in the engine becomes an error in the window
 instead of a vanished app. The same binary works from a terminal.
 
 ## The engine
@@ -348,7 +350,7 @@ at any time, for testing.
 
 ## Later
 
-Vulkan on Windows, the CoreML encoder on macOS, a Windows signing
+The CoreML encoder on macOS, a Windows signing
 certificate, converting a Hugging Face model inside the app, a remote model
 list, SRT export, translation to English, and speaker detection within each
 track, for calls where one track holds several people.

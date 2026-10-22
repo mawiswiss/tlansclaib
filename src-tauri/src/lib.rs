@@ -97,7 +97,7 @@ async fn list_languages(app: AppHandle) -> Result<Vec<Language>, String> {
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
-fn start_run(
+async fn start_run(
     app: AppHandle,
     audio: String,
     model_id: String,
@@ -124,6 +124,7 @@ fn start_run(
             transcript: output_file.as_deref(),
         },
     )
+    .await
     .map_err(|e| format!("{e:#}"))
 }
 

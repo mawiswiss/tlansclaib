@@ -70,6 +70,9 @@ enum Command {
     Decode { audio: PathBuf, output: PathBuf },
     /// Print the languages whisper supports as JSON
     Languages,
+    #[cfg(all(target_os = "windows", feature = "vulkan"))]
+    /// Print free Vulkan memory in bytes, or null when no GPU is usable
+    GpuMemory,
     /// Print who speaks when, using the speaker detection files in a folder
     Speakers {
         audio: PathBuf,
@@ -164,6 +167,11 @@ fn main() {
             result
         }
         Command::Check { file } => check(&file),
+        #[cfg(all(target_os = "windows", feature = "vulkan"))]
+        Command::GpuMemory => {
+            println!("{}", json!(transcribe::vulkan_free_memory()));
+            Ok(())
+        }
         Command::Decode { audio, output } => audio::load(&audio).and_then(|samples| {
             let bytes: Vec<u8> = samples.iter().flat_map(|s| s.to_le_bytes()).collect();
             std::fs::write(&output, bytes)?;

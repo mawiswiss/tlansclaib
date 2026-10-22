@@ -15,7 +15,7 @@ const STEPS: { step: Step; title: string; short: string }[] = [
 ];
 
 function deviceName(device: string | null): string {
-  return device === "metal" || device === "cuda" ? "GPU" : "CPU";
+  return device === "metal" || device === "vulkan" ? "GPU" : "CPU";
 }
 
 export function RunView({ run, showTimes, languageName, onCancel }: Props) {

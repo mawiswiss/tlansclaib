@@ -12,16 +12,17 @@ const triple = process.env.TAURI_ENV_TARGET_TRIPLE || host;
 const dir = join(root, "src-tauri", "binaries");
 mkdirSync(dir, { recursive: true });
 
-function build(target) {
+function build(target, features = []) {
   const args = ["build", "--release", "-p", "tlansclaib-engine"];
   if (target !== host) args.push("--target", target);
+  if (features.length) args.push("--features", features.join(","));
   execFileSync("cargo", args, { cwd: root, stdio: "inherit" });
   const ext = target.includes("windows") ? ".exe" : "";
   return join(root, "target", target === host ? "" : target, "release", `tlansclaib-engine${ext}`);
 }
 
-function place(built, target) {
-  const path = join(dir, `tlansclaib-engine-${target}${target.includes("windows") ? ".exe" : ""}`);
+function place(built, target, name = "tlansclaib-engine") {
+  const path = join(dir, `${name}-${target}${target.includes("windows") ? ".exe" : ""}`);
   copyFileSync(built, path);
   return path;
 }
@@ -32,5 +33,8 @@ if (triple === "universal-apple-darwin") {
   execFileSync("lipo", ["-create", "-output", join(dir, "tlansclaib-engine-universal-apple-darwin"), ...slices], { stdio: "inherit" });
 } else {
   place(build(triple), triple);
+  if (triple.includes("windows")) {
+    place(build(triple, ["vulkan"]), triple, "tlansclaib-engine-vulkan");
+  }
 }
 console.log(`sidecar ready for ${triple}`);

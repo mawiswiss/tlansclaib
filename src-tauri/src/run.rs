@@ -43,7 +43,7 @@ struct Record {
 }
 
 #[derive(Default)]
-pub struct RunState(pub Mutex<Option<ActiveRun>>);
+pub struct RunState(pub Mutex<Option<ActiveRun>>, pub tokio::sync::Mutex<()>);
 
 #[derive(Clone, Serialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
@@ -80,9 +80,10 @@ pub struct Request<'a> {
     pub transcript: Option<&'a Path>,
 }
 
-pub fn start(app: &AppHandle, request: Request) -> Result<()> {
+pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     let Request { audio, model_id, language, timestamps, output_dir, speakers, speaker_precision, transcript } = request;
     let state = app.state::<RunState>();
+    let _starting = state.1.lock().await;
     if state.0.lock().unwrap().is_some() {
         return Err(anyhow!("A transcription is already running."));
     }
@@ -129,7 +130,23 @@ pub fn start(app: &AppHandle, request: Request) -> Result<()> {
             args.extend(["--speaker-precision".into(), "fast".into()]);
         }
     }
-    let (mut events, child) = app.shell().sidecar("tlansclaib-engine")?.args(args).spawn()?;
+    #[cfg(windows)]
+    let engine_name = {
+        let probe = app.shell().sidecar("tlansclaib-engine-vulkan")?.arg("gpu-memory").output().await;
+        let free = probe
+            .ok()
+            .filter(|output| output.status.success())
+            .and_then(|output| serde_json::from_slice::<Option<u64>>(&output.stdout).ok())
+            .flatten();
+        if free.is_some_and(|free| guard::can_use_gpu(free, entry.ram_bytes())) {
+            "tlansclaib-engine-vulkan"
+        } else {
+            "tlansclaib-engine"
+        }
+    };
+    #[cfg(not(windows))]
+    let engine_name = "tlansclaib-engine";
+    let (mut events, child) = app.shell().sidecar(engine_name)?.args(args).spawn()?;
     let awake = keepawake::Builder::default()
         .idle(true)
         .sleep(true)
