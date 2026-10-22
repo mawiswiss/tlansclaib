@@ -206,9 +206,9 @@ export function mockBackend(): Backend {
       { code: "fr", name: "french" },
       { code: "ja", name: "japanese" },
     ],
-    startRun: async (audio, modelId, language, timestamps, outputDir, speakers, speakerPrecision, outputFile) => {
-      const name = audio.split("/").pop()!.replace(/\.[^.]+$/, "_transcript.txt");
-      const file = outputFile ?? (outputDir ? `${outputDir}/${name}` : audio.replace(/[^/]+$/, name));
+    startRun: async (audio, modelId, language, timestamps, speakers, speakerPrecision, outputFile) => {
+      const name = audio.split("/").pop()!.replace(/\.[^.]+$/, "");
+      const file = `/AppData/transcripts/${Date.now()}.json`;
       const send = (event: EngineEvent) => emit("engine", event);
       const total = 40;
       let done = 0;
@@ -242,12 +242,12 @@ export function mockBackend(): Backend {
             send({ event: "step", step: "write" });
             history = [
               {
-                id: Date.now(), audio, file, model: models.find((x) => x.id === modelId)?.name ?? modelId,
+                id: Date.now(), audio, file, title: name, model: models.find((x) => x.id === modelId)?.name ?? modelId,
                 language: language === "auto" ? "th" : language, audio_seconds: total * 12.9, lines: total - 8, elapsed: 9.4,
                 finished_at: Math.floor(Date.now() / 1000), status: "done", timestamps, speakers: voices, detected: voices.length > 0,
                 model_id: modelId, speaker_mode: speakers, speaker_precision: speakers ? speakerPrecision : null, exists: true, audio_exists: true,
               },
-              ...history.filter((h) => h.file !== file),
+              ...history.filter((h) => h.file !== outputFile),
             ];
             emit("history", null);
             send({ event: "done", lines: total - 8, elapsed: 9.4, file });
@@ -259,10 +259,6 @@ export function mockBackend(): Backend {
       if (timer) clearInterval(timer);
       timer = null;
       emit("engine", { event: "cancelled" } satisfies EngineEvent);
-    },
-    readTextFile: async (path) => {
-      const entry = history.find((h) => h.file === path);
-      return mockTranscript(entry?.timestamps ?? true, entry?.speakers);
     },
     listHistory: async () => history.map((h) => ({ ...h })),
     removeHistory: async (id) => {
@@ -284,11 +280,17 @@ export function mockBackend(): Backend {
       return `mock-${Date.now()}`;
     },
     transcriptHash: async () => "mock-initial",
+    exportTranscript: async () => {},
     renameTranscript: async (file, title) => {
       const name = title.trim();
       if (!name) throw new Error("The title cannot be empty.");
       if (/[<>:"/\\|?*]/.test(name)) throw new Error("The title cannot contain that character, because file names cannot.");
       if (name === "taken") throw new Error("taken_transcript.txt already exists in this folder.");
+      if (file.endsWith(".json")) {
+        history = history.map((h) => (h.file === file ? { ...h, title: name } : h));
+        emit("history", null);
+        return file;
+      }
       const target = `${file.slice(0, Math.max(file.lastIndexOf("/"), file.lastIndexOf("\\")) + 1)}${name}_transcript.txt`;
       history = history.map((h) => (h.file === file ? { ...h, file: target } : h));
       emit("history", null);
@@ -298,6 +300,8 @@ export function mockBackend(): Backend {
       const entry = history.find((h) => h.id === id)!;
       return {
         text: mockTranscript(entry.timestamps, entry.speakers),
+        lines: entry.file.endsWith(".json") ? Array.from({ length: 12 }, (_, i) => ({ start: i * 13, end: i * 13 + 13, text: i % 2 ? EN : THAI, speaker: entry.speakers?.length ? TURNS[i] % entry.speakers.length : undefined })) : null,
+        timestamps: entry.timestamps,
         hash: "mock-opened",
         times: entry.timestamps ? null : Array.from({ length: 12 }, (_, i): [number, number] => [i * 13, i * 13 + 13]),
         changed: id === 12,
@@ -323,8 +327,8 @@ export function mockBackend(): Backend {
     autorun: async () => null,
     pickAudioFile: async () => "/Users/someone/Recordings/meeting.m4a",
     pickModelFile: async () => "/Volumes/USB/ggml-thai-fast-q8_0.bin",
-    pickFolder: async () => "/Users/someone/Documents",
     pickTranscriptFile: async () => "/Users/someone/Archive/interview_transcript.txt",
+    pickExportFile: async (name) => `/Users/someone/Documents/${name}.txt`,
     onEngineEvent: (h) => on<EngineEvent>("engine", h),
     onStats: (h) => on<Stats>("stats", h),
     onDownloadProgress: (h) => on<DownloadProgress>("download", h),

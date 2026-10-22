@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { clock, fileName, folderOf, titleOf } from "../lib/format";
+import { clock, folderOf, titleOf } from "../lib/format";
 import type { HistoryEntry } from "../lib/types";
 import { Close, Folder, Retry, Search } from "./icons";
 
@@ -33,7 +33,7 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return entries;
-    return entries.filter((e) => [e.audio, e.file, e.model].some((s) => s.toLowerCase().includes(q)));
+    return entries.filter((e) => [e.title ?? titleOf(e.file), e.audio, e.file, e.model].some((s) => s.toLowerCase().includes(q)));
   }, [entries, query]);
 
   useEffect(() => {
@@ -69,10 +69,10 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
                   className="entry-main"
                   onClick={() => onOpen(e)}
                   disabled={busy}
-                  title={busy ? "Available when the transcription is done" : `Open ${fileName(e.file)}`}
+                  title={busy ? "Available when the transcription is done" : `Open ${e.title ?? titleOf(e.file)}`}
                 >
                   <span className="entry-top">
-                    <strong>{titleOf(e.file)}</strong>
+                    <strong>{e.title ?? titleOf(e.file)}</strong>
                     <span className="when">{when(e.finished_at)}</span>
                   </span>
                   <span className="entry-meta">
@@ -80,16 +80,16 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
                     {e.audio_seconds !== null ? clock(e.audio_seconds) : `${e.lines} lines`} · {e.model}
                     {e.language && <> · {languageName(e.language)}</>}
                   </span>
-                  <span className="entry-path">{folderOf(e.file)}</span>
+                  <span className="entry-path">{e.file.endsWith(".json") ? "App history" : folderOf(e.file)}</span>
                 </button>
               ) : (
                 <div className="entry-main" title={e.file}>
                   <span className="entry-top">
-                    <strong>{titleOf(e.file)}</strong>
+                    <strong>{e.title ?? titleOf(e.file)}</strong>
                     <span className="when">{when(e.finished_at)}</span>
                   </span>
                   <span className="entry-meta">
-                    <span className="problem-text">Transcript moved or deleted</span>
+                    <span className="problem-text">Transcript unavailable</span>
                   </span>
                   <span className="entry-fix">
                     {e.audio_exists && (
@@ -104,19 +104,19 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
                         Transcribe again
                       </button>
                     )}
-                    <button type="button" className="inline-link" onClick={() => onLocate(e)}>
+                    {!e.file.endsWith(".json") && <button type="button" className="inline-link" onClick={() => onLocate(e)}>
                       Locate…
-                    </button>
+                    </button>}
                   </span>
                 </div>
               )}
               <span className="entry-actions">
-                <button type="button" className="icon-button small" onClick={() => onRemove(e.id)} title="Remove from the list" aria-label="Remove from the list">
+                <button type="button" className="icon-button small" onClick={() => onRemove(e.id)} title={e.file.endsWith(".json") ? "Delete transcript" : "Remove from the list"} aria-label={e.file.endsWith(".json") ? `Delete ${e.title ?? titleOf(e.file)}` : `Remove ${e.title ?? titleOf(e.file)} from the list`}>
                   <Close size={15} />
                 </button>
-                <button type="button" className="icon-button small" onClick={() => onReveal(e.file)} disabled={!e.exists} title="Show in folder" aria-label="Show in folder">
+                {!e.file.endsWith(".json") && <button type="button" className="icon-button small" onClick={() => onReveal(e.file)} disabled={!e.exists} title="Show in folder" aria-label="Show in folder">
                   <Folder size={16} />
-                </button>
+                </button>}
               </span>
             </li>
           ))}

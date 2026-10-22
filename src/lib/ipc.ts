@@ -19,7 +19,6 @@ export type Backend = {
     modelId: string,
     language: string,
     timestamps: boolean,
-    outputDir: string | null,
     speakers: string | null,
     speakerPrecision: string | null,
     outputFile?: string | null,
@@ -29,12 +28,12 @@ export type Backend = {
   cancelSpeakerDetection(): Promise<void>;
   removeSpeakerDetection(): Promise<void>;
   cancelRun(): Promise<void>;
-  readTextFile(path: string): Promise<string>;
   listHistory(): Promise<HistoryEntry[]>;
   removeHistory(id: number): Promise<void>;
   setTranscriptTimestamps(file: string, lines: Line[], timestamps: boolean, speakers: string[]): Promise<string>;
   saveTranscript(file: string, expected: string, lines: Line[], timestamps: boolean, speakers: string[]): Promise<string>;
   transcriptHash(file: string): Promise<string>;
+  exportTranscript(file: string, expected: string, destination: string, lines: Line[], timestamps: boolean, timed: boolean, speakers: string[]): Promise<void>;
   renameTranscript(file: string, title: string): Promise<string>;
   openHistory(id: number): Promise<Opened>;
   checkCandidate(id: number, kind: FileKind, path: string): Promise<Match>;
@@ -49,8 +48,8 @@ export type Backend = {
   autorun(): Promise<string | null>;
   pickAudioFile(): Promise<string | null>;
   pickModelFile(): Promise<string | null>;
-  pickFolder(): Promise<string | null>;
   pickTranscriptFile(): Promise<string | null>;
+  pickExportFile(name: string, timed: boolean): Promise<string | null>;
   onEngineEvent(handler: (event: EngineEvent) => void): Promise<Unlisten>;
   onStats(handler: (stats: Stats) => void): Promise<Unlisten>;
   onDownloadProgress(handler: (progress: DownloadProgress) => void): Promise<Unlisten>;
@@ -79,19 +78,19 @@ async function tauriBackend(): Promise<Backend> {
     renameModel: (id, name) => invoke("rename_model", { id, name }),
     reveal: (path) => invoke("reveal", { path }),
     listLanguages: () => invoke("list_languages"),
-    startRun: (audio, modelId, language, timestamps, outputDir, speakers, speakerPrecision, outputFile) =>
-      invoke("start_run", { audio, modelId, language, timestamps, outputDir, speakers, speakerPrecision, outputFile: outputFile ?? null }),
+    startRun: (audio, modelId, language, timestamps, speakers, speakerPrecision, outputFile) =>
+      invoke("start_run", { audio, modelId, language, timestamps, speakers, speakerPrecision, outputFile: outputFile ?? null }),
     speakerDetection: () => invoke("speaker_detection"),
     downloadSpeakerDetection: () => invoke("download_speaker_detection"),
     cancelSpeakerDetection: () => invoke("cancel_speaker_detection"),
     removeSpeakerDetection: () => invoke("remove_speaker_detection"),
     cancelRun: () => invoke("cancel_run"),
-    readTextFile: (path) => invoke("read_text_file", { path }),
     listHistory: () => invoke("list_history"),
     removeHistory: (id) => invoke("remove_history", { id }),
     setTranscriptTimestamps: (file, lines, timestamps, speakers) => invoke("set_transcript_timestamps", { file, lines, timestamps, speakers }),
     saveTranscript: (file, expected, lines, timestamps, speakers) => invoke("save_transcript", { file, expected, lines, timestamps, speakers }),
     transcriptHash: (file) => invoke("transcript_hash", { file }),
+    exportTranscript: (file, expected, destination, lines, timestamps, timed, speakers) => invoke("export_transcript", { file, expected, destination, lines, timestamps, timed, speakers }),
     renameTranscript: (file, title) => invoke("rename_transcript", { file, title }),
     openHistory: (id) => invoke("open_history", { id }),
     checkCandidate: (id, kind, path) => invoke("check_candidate", { id, kind, path }),
@@ -121,13 +120,19 @@ async function tauriBackend(): Promise<Backend> {
       const picked = await open({ multiple: false, filters: [{ name: "whisper.cpp model", extensions: ["bin"] }] });
       return typeof picked === "string" ? picked : null;
     },
-    pickFolder: async () => {
-      const picked = await open({ directory: true, multiple: false });
-      return typeof picked === "string" ? picked : null;
-    },
     pickTranscriptFile: async () => {
       const picked = await open({ multiple: false, filters: [{ name: "Transcript", extensions: ["txt"] }] });
       return typeof picked === "string" ? picked : null;
+    },
+    pickExportFile: async (name, timed) => {
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      return save({
+        defaultPath: `${name}.txt`,
+        filters: [
+          { name: "Text", extensions: ["txt"] },
+          ...(timed ? [{ name: "SubRip subtitles", extensions: ["srt"] }, { name: "WebVTT subtitles", extensions: ["vtt"] }] : []),
+        ],
+      });
     },
     onEngineEvent: (handler) => listen<EngineEvent>("engine-event", (e) => handler(e.payload)),
     onStats: (handler) => listen<Stats>("system-stats", (e) => handler(e.payload)),

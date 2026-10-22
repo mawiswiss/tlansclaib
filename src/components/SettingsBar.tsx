@@ -1,7 +1,6 @@
 import { FIT_LABEL, ramFit } from "../lib/fit";
-import { capitalize, fileName } from "../lib/format";
+import { capitalize } from "../lib/format";
 import type { Language, ModelStatus, Stats } from "../lib/types";
-import { Folder } from "./icons";
 import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
 
@@ -13,9 +12,6 @@ type Props = {
   language: string;
   onLanguage: (code: string) => void;
   locked: string | null;
-  outputDir: string | null;
-  onOutputDir: (dir: string | null) => void;
-  onChooseOutputDir: () => void;
   speakers: string;
   detection: boolean;
   onSpeakers: (value: string) => void;
@@ -26,7 +22,6 @@ type Props = {
   busy: boolean;
 };
 
-const CHOOSE = "choose";
 const SET_UP = "set-up";
 const COUNTS = [2, 3, 4, 5, 6];
 
@@ -108,26 +103,6 @@ export function SettingsBar(props: Props) {
           ]}
         />
       </label>
-      <div className={`setting icon-setting${props.outputDir ? " custom" : ""}`}>
-        <Select
-          className="icon-trigger"
-          chevron={false}
-          value={props.outputDir ?? ""}
-          disabled={busy}
-          label="Save to"
-          title={`Save to: ${props.outputDir ?? "next to the recording"}`}
-          trigger={() => <Folder size={19} />}
-          onChange={(value) => {
-            if (value === CHOOSE) props.onChooseOutputDir();
-            else props.onOutputDir(value || null);
-          }}
-          options={[
-            { value: "", label: "Next to the recording" },
-            ...(props.outputDir ? [{ value: props.outputDir, label: fileName(props.outputDir) }] : []),
-            { value: CHOOSE, label: "Choose a folder…" },
-          ]}
-        />
-      </div>
     </section>
   );
 }

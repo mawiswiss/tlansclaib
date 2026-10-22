@@ -4,10 +4,9 @@ type Props = {
   title: string;
   message: string;
   onRetry: () => void;
-  onSaveElsewhere: (() => void) | null;
 };
 
-export function ErrorView({ title, message, onRetry, onSaveElsewhere }: Props) {
+export function ErrorView({ title, message, onRetry }: Props) {
   return (
     <section className="notice">
       <div className="notice-card">
@@ -20,11 +19,6 @@ export function ErrorView({ title, message, onRetry, onSaveElsewhere }: Props) {
           <button type="button" className="primary" onClick={onRetry}>
             Start over
           </button>
-          {onSaveElsewhere && (
-            <button type="button" onClick={onSaveElsewhere}>
-              Save the transcript somewhere else…
-            </button>
-          )}
         </div>
       </div>
     </section>

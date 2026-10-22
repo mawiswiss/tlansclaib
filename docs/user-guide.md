@@ -71,9 +71,7 @@ gives each line its speaker, such as
 
 1. Pick the model and the language in the row below the top bar. The Thai
    models fix the language to Thai. For the others "Auto" works well, and
-   choosing the language is a little more reliable. The folder icon at the
-   end of the row keeps the transcript next to the recording, the default,
-   or puts it in a folder of your choice.
+   choosing the language is a little more reliable.
 2. Drop the recording on the window, or click "Choose a file…". m4a, mp3,
    wav, mp4, flac and most other formats work. The recording waits with the
    settings it will use. Check them, change them in the row above if needed,
@@ -82,49 +80,46 @@ gives each line its speaker, such as
    estimate of the time left, which settles after the first minute. Lines
    appear below as they are recognised.
 
-Cancel keeps the lines done so far in the file.
+Cancel keeps completed lines in the app's history.
 
 ## The transcript
 
-The transcript is `<recording>_transcript.txt`, one line per stretch of
-speech, such as `[00:01:23.40 --> 00:01:38.10] text`. The icons at the top
-right of the result show it in its folder, copy the text, transcribe the
-recording again and close the result. The plus to the right starts the next
-recording.
+The transcript stays in the app's history, with its line timing and recording
+reference. Nothing appears beside the recording. Use Export to choose a file
+when you need one: `.txt` for text, or `.srt` and `.vtt` for timed subtitles.
+The other icons copy the text, transcribe the recording again and close the
+result. The plus to the right starts the next recording.
 
-- Rename: click the pencil next to the title, or double-click it. The text
-  file is renamed with it. The recording keeps its name.
+- Rename: click the pencil next to the title, or double-click it. This changes
+  the title in history. The recording keeps its name.
 - Play: the player above the text plays the recording, at 1×, 1.5× or 2×.
   Click a line to hear it from there. The line playing is highlighted.
 - Search: the search field, or ⌘F and Ctrl+F, finds words in the text.
-- Timecodes: the switch next to the search adds or removes the times in
-  front of each line, in the file too, and is remembered for the next
-  transcript.
+- Timecodes: the switch next to the search shows or hides times and controls
+  whether text exports include them. The app retains the line timing.
 - Speakers: with several speakers, their names sit above the text. Click a
-  name to change it, for example to "Marc" and "Client". The file follows at
-  once. A coloured dot on each line names its speaker when pointed at.
+  name to change it. History saves the new name at once. A coloured dot on
+  each line names its speaker when pointed at.
 - Correct a line: point at it and click the pencil, or double-click its
-  text. Enter or a click elsewhere saves it into the file, Escape cancels,
-  and "Undo" shows for a few seconds. If the file was changed in another
-  program in the meantime, the app does not overwrite it and says so.
+  text. Enter or a click elsewhere saves it in history, Escape cancels,
+  and "Undo" shows for a few seconds.
 
 When detection found the wrong number of people, "Wrong number?" next to the
 names opens the dialog to transcribe again with another number. With one
 speaker and detection installed, "More people in this audio?" does the same. The dialog takes the
 settings the transcript used. Change the model, the language or the number of
-people for this run, then "Transcribe again". It replaces the file and any
-corrections in it.
+people for this run, then "Transcribe again". It replaces the result and any
+corrections in history. Files you exported remain where they are.
 
 ## History
 
-"History" at the top right lists every transcript with its date, length and
-folder, with a search above it. Click one to open it, read from its text
-file. The folder icon shows it in Finder or Explorer. The cross removes it
-from the list and leaves the file. A transcript that moved shows "Locate…" to
-point it to its new place. If only the transcript is gone and the recording
-is still there, "Transcribe again" makes a new one. The same goes for a
-recording that moved: the player offers "Locate…". When a chosen file has
-different content than the one transcribed, the app asks first.
+"History" at the top right lists every transcript with its date and length,
+with a search above it. Click one to open it. The cross deletes an app record;
+the app asks first and leaves the original recording and any exports alone.
+Older `.txt` entries still open from their original paths. Their cross only
+removes the history entry, and a moved text file can be located again. If a
+record is missing and the recording is still there, "Transcribe again" makes
+a new one. If the recording moved, the player offers "Locate…".
 
 ## The rest of the window
 

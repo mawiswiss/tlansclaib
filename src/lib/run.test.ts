@@ -143,7 +143,7 @@ describe("run reducer", () => {
     const moved = reduce({ ...opened, check: { changed: false, audio: "missing" } }, { type: "audio", path: "/new/meeting.m4a" });
     expect(moved.audio).toBe("/new/meeting.m4a");
     expect(moved.check?.audio).toBe("same");
-    const renamed = reduce(edited, { type: "rename", file: "/rec/Weekly sync_transcript.txt" });
+    const renamed = reduce(edited, { type: "rename", file: "/rec/Weekly sync_transcript.txt", title: "Weekly sync" });
     expect(renamed.result?.file).toBe("/rec/Weekly sync_transcript.txt");
     expect(renamed.opened?.file).toBe("/rec/Weekly sync_transcript.txt");
     expect(renamed.hash).toBe("h2");

@@ -4,8 +4,8 @@ Transcribe recordings on your own computer, for macOS and Windows. Nothing is
 uploaded.
 
 Drop a recording on the window, check the model and the language, press GO.
-The transcript lands as a text file next to the recording. The window shows it
-line by line, with the recording to play along.
+The transcript stays in the app's private history until you export it as text
+or subtitles. The window shows it line by line, with the recording to play along.
 [whisper.cpp](https://github.com/ggml-org/whisper.cpp) does the work, on the
 GPU of a Mac, on a compatible Windows Vulkan GPU with enough free memory, or on
 the processor otherwise. On my Mac it runs about 20 times faster than the
@@ -38,6 +38,7 @@ through the rest. Every version is on the
 - Tells who speaks when, with an optional download of 38 MB.
 - Keeps a history of every transcript, and transcribes a recording again with
   other settings when the first try was off.
+- Exports text, SRT or WebVTT files when you choose a destination.
 
 ## What it does better
 

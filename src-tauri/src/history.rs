@@ -49,6 +49,8 @@ pub struct Entry {
     pub speaker_mode: Option<String>,
     #[serde(default)]
     pub speaker_precision: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -67,6 +69,52 @@ pub struct History {
 impl History {
     pub fn new(path: PathBuf) -> History {
         History { path, lock: Mutex::new(()) }
+    }
+
+    pub fn recover(&self) -> Result<()> {
+        let dir = self.path.with_file_name("transcripts");
+        if !dir.is_dir() {
+            return Ok(());
+        }
+        let existing = match self.load() {
+            Ok(entries) => entries,
+            Err(_) if !self.path.exists() => Vec::new(),
+            Err(error) => return Err(error),
+        };
+        let mut found = Vec::new();
+        for file in std::fs::read_dir(dir)? {
+            let path = file?.path();
+            if !crate::transcript::internal(&path) {
+                continue;
+            }
+            let Ok(mut stored) = crate::transcript::Stored::read(&path) else {
+                continue;
+            };
+            if path.file_stem().and_then(|stem| stem.to_str()).and_then(|stem| stem.parse::<u64>().ok()) != Some(stored.entry.id) {
+                continue;
+            }
+            if existing.iter().any(|entry| entry.id == stored.entry.id && entry.file == path) {
+                continue;
+            }
+            if stored.entry.file != path {
+                stored.entry.file = path.clone();
+                stored.write(&path)?;
+            }
+            let mut entry = stored.entry;
+            entry.file = path;
+            entry.file_sha256 = Some(crate::fingerprint::transcript(&entry.file)?);
+            found.push(entry);
+        }
+        if found.is_empty() {
+            return Ok(());
+        }
+        found.sort_by_key(|entry| entry.finished_at);
+        self.change(|mut entries| {
+            for entry in found {
+                entries = add(entries, entry);
+            }
+            entries
+        })
     }
 
     pub fn list(&self) -> Result<Vec<Listed>> {
@@ -92,15 +140,6 @@ impl History {
         })
     }
 
-    /// The start and end of each written line, kept beside the history so a transcript saved without
-    /// timecodes can still play along.
-    pub fn save_times(&self, id: u64, times: &[(f64, f64)]) -> Result<()> {
-        let dir = self.times_dir();
-        std::fs::create_dir_all(&dir)?;
-        std::fs::write(dir.join(format!("{id}.json")), serde_json::to_vec(times)?)?;
-        Ok(())
-    }
-
     pub fn times(&self, id: u64) -> Option<Vec<(f64, f64)>> {
         let text = std::fs::read_to_string(self.times_dir().join(format!("{id}.json"))).ok()?;
         serde_json::from_str(&text).ok()
@@ -115,35 +154,73 @@ impl History {
         Ok(self.load()?.into_iter().find(|e| e.id == id))
     }
 
+    pub fn by_file(&self, file: &Path) -> Result<Option<Entry>> {
+        let _guard = self.lock.lock().unwrap();
+        Ok(self.load()?.into_iter().find(|entry| entry.file == file))
+    }
+
     pub fn relocate(&self, id: u64, kind: Kind, path: &Path) -> Result<()> {
         if !path.is_file() {
             anyhow::bail!("{} is not a file", path.display());
+        }
+        let previous = self.get(id)?.ok_or_else(|| anyhow::anyhow!("This transcript is no longer in the history."))?;
+        if kind == Kind::Transcript && crate::transcript::internal(&previous.file) {
+            anyhow::bail!("An app history transcript cannot be relocated. Transcribe the recording again if its data is missing.");
+        }
+        if kind == Kind::Transcript && crate::transcript::internal(path) {
+            anyhow::bail!("Choose a text transcript.");
         }
         let fingerprint = match kind {
             Kind::Transcript => crate::fingerprint::transcript(path)?,
             Kind::Audio => crate::fingerprint::audio(path)?,
         };
-        self.change(|mut entries| {
+        let stored_file = (kind == Kind::Audio && crate::transcript::internal(&previous.file)).then_some(previous.file.as_path());
+        let old_stored = stored_file.map(crate::transcript::Stored::read).transpose()?;
+        if let (Some(file), Some(mut stored)) = (stored_file, old_stored.clone()) {
+            stored.entry.audio = path.to_path_buf();
+            stored.entry.audio_fingerprint = Some(fingerprint.clone());
+            stored.write(file)?;
+        }
+        let stored_hash = stored_file.map(crate::fingerprint::transcript).transpose()?;
+        let changed = self.change(|mut entries| {
             for entry in entries.iter_mut().filter(|e| e.id == id) {
                 match kind {
                     Kind::Transcript => {
                         entry.file = path.to_path_buf();
-                        entry.file_sha256 = Some(fingerprint.clone());
+                        entry.file_sha256 = stored_hash.clone().or_else(|| Some(fingerprint.clone()));
                     }
                     Kind::Audio => {
                         entry.audio = path.to_path_buf();
                         entry.audio_fingerprint = Some(fingerprint.clone());
+                        if let Some(hash) = &stored_hash {
+                            entry.file_sha256 = Some(hash.clone());
+                        }
                     }
                 }
             }
             entries
-        })
+        });
+        if changed.is_err() && let (Some(file), Some(stored)) = (stored_file, old_stored) {
+            let _ = stored.write(file);
+        }
+        changed
     }
 
     pub fn renamed(&self, from: &Path, to: &Path) -> Result<()> {
         self.change(|mut entries| {
             for entry in entries.iter_mut().filter(|e| e.file == from) {
                 entry.file = to.to_path_buf();
+            }
+            entries
+        })
+    }
+
+    pub fn titled(&self, file: &Path, title: &str) -> Result<()> {
+        let hash = crate::fingerprint::transcript(file)?;
+        self.change(|mut entries| {
+            for entry in entries.iter_mut().filter(|entry| entry.file == file) {
+                entry.title = Some(title.to_string());
+                entry.file_sha256 = Some(hash.clone());
             }
             entries
         })
@@ -164,15 +241,18 @@ impl History {
     fn change(&self, f: impl FnOnce(Vec<Entry>) -> Vec<Entry>) -> Result<()> {
         let _guard = self.lock.lock().unwrap();
         let before = self.load()?;
-        let ids: Vec<u64> = before.iter().map(|e| e.id).collect();
-        let entries = f(before);
-        for gone in ids.iter().filter(|id| !entries.iter().any(|e| e.id == **id)) {
-            let _ = std::fs::remove_file(self.times_dir().join(format!("{gone}.json")));
-        }
+        let entries = f(before.clone());
         let part = self.path.with_extension("json.part");
         std::fs::write(&part, serde_json::to_vec_pretty(&entries)?)
             .with_context(|| format!("cannot write {}", part.display()))?;
         std::fs::rename(&part, &self.path).with_context(|| format!("cannot write {}", self.path.display()))?;
+        let transcripts = self.path.with_file_name("transcripts");
+        for gone in before.iter().filter(|entry| !entries.iter().any(|next| next.id == entry.id)) {
+            let _ = std::fs::remove_file(self.times_dir().join(format!("{}.json", gone.id)));
+            if gone.file.parent() == Some(transcripts.as_path()) && !entries.iter().any(|entry| entry.file == gone.file) {
+                let _ = std::fs::remove_file(&gone.file);
+            }
+        }
         Ok(())
     }
 
@@ -198,7 +278,7 @@ impl History {
 }
 
 pub fn add(mut entries: Vec<Entry>, entry: Entry) -> Vec<Entry> {
-    entries.retain(|e| e.file != entry.file);
+    entries.retain(|e| e.id != entry.id && e.file != entry.file);
     entries.insert(0, entry);
     entries.truncate(LIMIT);
     entries
@@ -229,6 +309,7 @@ mod tests {
             model_id: None,
             speaker_mode: None,
             speaker_precision: None,
+            title: None,
         }
     }
 
@@ -291,7 +372,8 @@ mod tests {
         assert!(listed[0].exists);
         assert_eq!(listed[0].entry.file_sha256, hash);
 
-        history.save_times(1, &[(0.0, 4.5), (5.0, 9.0)]).unwrap();
+        std::fs::create_dir_all(history.times_dir()).unwrap();
+        std::fs::write(history.times_dir().join("1.json"), "[[0.0,4.5],[5.0,9.0]]").unwrap();
         assert_eq!(history.times(1), Some(vec![(0.0, 4.5), (5.0, 9.0)]));
         history.remove(1).unwrap();
         assert_eq!(history.times(1), None);
@@ -329,6 +411,62 @@ mod tests {
 
         std::fs::write(&file, "changed in another editor\n").unwrap();
         assert_eq!(fingerprint::compare(stored().as_deref(), &file, fingerprint::transcript), Match::Different);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn app_record_keeps_metadata_lines_and_exports_until_deleted() {
+        use crate::transcript::{self, Line, Stored};
+
+        let dir = std::env::temp_dir().join(format!("tlansclaib-record-{}", std::process::id()));
+        let records = dir.join("transcripts");
+        std::fs::create_dir_all(&records).unwrap();
+        let file = records.join("1.json");
+        let history = History::new(dir.join("history.json"));
+        let mut metadata = entry(1, file.to_str().unwrap());
+        metadata.title = Some("Meeting".into());
+        metadata.speakers = vec!["Speaker 1".into()];
+        let lines = vec![Line { start: 1.25, end: 3.5, text: "Hello".into(), speaker: Some(0) }];
+        Stored::new(metadata.clone(), lines.clone()).write(&file).unwrap();
+        metadata.file_sha256 = Some(crate::fingerprint::transcript(&file).unwrap());
+        history.add(metadata).unwrap();
+
+        let edited = vec![Line { text: "Hello there".into(), ..lines[0].clone() }];
+        let hash = crate::fingerprint::transcript(&file).unwrap();
+        let new_hash = transcript::save(&file, &hash, &edited, false, &["Host".into()]).unwrap();
+        history.written(&file, false, &["Host".into()]).unwrap();
+        assert_eq!(history.get(1).unwrap().unwrap().file_sha256.as_deref(), Some(new_hash.as_str()));
+        transcript::rename(&file, "Weekly sync").unwrap();
+        history.titled(&file, "Weekly sync").unwrap();
+        let stored = Stored::read(&file).unwrap();
+        assert_eq!(stored.entry.title.as_deref(), Some("Weekly sync"));
+        assert_eq!(stored.entry.audio, PathBuf::from("/recordings/meeting.m4a"));
+        assert!(!stored.entry.timestamps);
+        assert_eq!(stored.entry.speakers, vec!["Host"]);
+        assert_eq!(stored.lines[0].text, "Hello there");
+
+        let hash = crate::fingerprint::transcript(&file).unwrap();
+        let srt = dir.join("export.srt");
+        transcript::export(&file, &hash, &srt, &stored.lines, false, true, &stored.entry.speakers).unwrap();
+        assert_eq!(std::fs::read_to_string(&srt).unwrap(), "1\n00:00:01,250 --> 00:00:03,500\nHost: Hello there\n\n");
+        let vtt = dir.join("export.vtt");
+        transcript::export(&file, &hash, &vtt, &stored.lines, false, true, &stored.entry.speakers).unwrap();
+        assert_eq!(std::fs::read_to_string(&vtt).unwrap(), "WEBVTT\n\n00:00:01.250 --> 00:00:03.500\nHost: Hello there\n\n");
+        assert!(transcript::export(&file, &hash, &vtt, &stored.lines, false, false, &stored.entry.speakers).is_err());
+        let txt = dir.join("export.txt");
+        transcript::export(&file, &hash, &txt, &stored.lines, false, true, &stored.entry.speakers).unwrap();
+        assert_eq!(std::fs::read_to_string(&txt).unwrap(), "Host: Hello there\n");
+        let audio = dir.join("relocated.m4a");
+        std::fs::write(&audio, b"recording").unwrap();
+        history.relocate(1, Kind::Audio, &audio).unwrap();
+        assert_eq!(Stored::read(&file).unwrap().entry.audio, audio);
+        std::fs::write(dir.join("history.json"), "broken").unwrap();
+        history.recover().unwrap();
+        assert_eq!(history.get(1).unwrap().unwrap().title.as_deref(), Some("Weekly sync"));
+        assert_eq!(Stored::read(&file).unwrap().lines[0].text, "Hello there");
+        history.remove(1).unwrap();
+        assert!(!file.exists());
+        assert!(txt.exists());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

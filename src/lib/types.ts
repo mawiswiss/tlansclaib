@@ -28,6 +28,7 @@ export type HistoryEntry = {
   id: number;
   audio: string;
   file: string;
+  title?: string | null;
   model: string;
   language: string | null;
   audio_seconds: number | null;
@@ -48,7 +49,7 @@ export type HistoryEntry = {
 
 export type Match = "same" | "different" | "unknown" | "missing";
 
-export type Opened = { text: string; hash: string; changed: boolean; audio: Match; times?: [number, number][] | null };
+export type Opened = { text: string; lines?: { start: number; end: number; text: string; speaker?: number }[] | null; timestamps?: boolean | null; hash: string; changed: boolean; audio: Match; times?: [number, number][] | null };
 
 export type FileKind = "transcript" | "audio";
 

@@ -2,9 +2,9 @@ use std::path::Path;
 
 use anyhow::{Context, Result, anyhow};
 use engine::output::render;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Line {
     pub start: f64,
     pub end: f64,
@@ -13,9 +13,80 @@ pub struct Line {
     pub speaker: Option<usize>,
 }
 
+#[derive(Clone, Deserialize, Serialize)]
+pub struct Stored {
+    version: u8,
+    pub entry: crate::history::Entry,
+    pub lines: Vec<Line>,
+}
+
+impl Stored {
+    pub fn new(entry: crate::history::Entry, lines: Vec<Line>) -> Self {
+        Self { version: 1, entry, lines }
+    }
+
+    pub fn read(file: &Path) -> Result<Self> {
+        let stored: Self = serde_json::from_slice(&std::fs::read(file).with_context(|| format!("cannot read {}", file.display()))?)?;
+        if stored.version != 1 {
+            return Err(anyhow!("This transcript uses an unsupported format version."));
+        }
+        Ok(stored)
+    }
+
+    pub fn write(&self, file: &Path) -> Result<()> {
+        let part = file.with_extension("json.part");
+        std::fs::write(&part, serde_json::to_vec(self)?).with_context(|| format!("cannot write {}", part.display()))?;
+        std::fs::rename(&part, file).with_context(|| format!("cannot write {}", file.display()))?;
+        Ok(())
+    }
+}
+
+pub fn internal(file: &Path) -> bool {
+    file.extension().is_some_and(|extension| extension == "json")
+}
+
 fn rendered(lines: &[Line], timestamps: bool, speakers: &[String]) -> String {
     let speaker = |l: &Line| l.speaker.and_then(|s| speakers.get(s)).map(String::as_str);
     render(lines.iter().map(|l| (l.start, l.end, speaker(l), l.text.as_str())), timestamps)
+}
+
+pub fn export(file: &Path, expected: &str, destination: &Path, lines: &[Line], timestamps: bool, timed: bool, speakers: &[String]) -> Result<()> {
+    if destination == file {
+        return Err(anyhow!("Choose a different file for the export."));
+    }
+    if crate::fingerprint::transcript(file)? != expected {
+        return Err(anyhow!("This transcript changed since it was opened. Open it again before exporting."));
+    }
+    let extension = destination.extension().and_then(|value| value.to_str()).unwrap_or("").to_ascii_lowercase();
+    let text = match extension.as_str() {
+        "txt" => rendered(lines, timestamps, speakers),
+        "srt" | "vtt" if timed => subtitles(lines, speakers, extension == "vtt"),
+        "srt" | "vtt" => return Err(anyhow!("This transcript has no line timing for subtitles.")),
+        _ => return Err(anyhow!("Choose a .txt, .srt, or .vtt file.")),
+    };
+    std::fs::write(destination, text).with_context(|| format!("cannot write {}", destination.display()))
+}
+
+fn subtitles(lines: &[Line], speakers: &[String], vtt: bool) -> String {
+    let mut text = if vtt { "WEBVTT\n\n".to_string() } else { String::new() };
+    for (index, line) in lines.iter().filter(|line| !line.text.is_empty()).enumerate() {
+        if !vtt {
+            text.push_str(&format!("{}\n", index + 1));
+        }
+        let separator = if vtt { '.' } else { ',' };
+        let time = |seconds: f64| {
+            let millis = (seconds.max(0.0) * 1000.0).round() as u64;
+            format!("{:02}:{:02}:{:02}{separator}{:03}", millis / 3_600_000, millis / 60_000 % 60, millis / 1000 % 60, millis % 1000)
+        };
+        text.push_str(&format!("{} --> {}\n", time(line.start), time(line.end)));
+        if let Some(name) = line.speaker.and_then(|speaker| speakers.get(speaker)) {
+            text.push_str(name);
+            text.push_str(": ");
+        }
+        text.push_str(&line.text);
+        text.push_str("\n\n");
+    }
+    text
 }
 
 pub fn check_speakers(speakers: &[String]) -> Result<()> {
@@ -37,6 +108,11 @@ pub fn check_speakers(speakers: &[String]) -> Result<()> {
 }
 
 pub fn set_timestamps(file: &Path, lines: &[Line], timestamps: bool, speakers: &[String]) -> Result<()> {
+    if internal(file) {
+        let mut stored = Stored::read(file)?;
+        stored.entry.timestamps = timestamps;
+        return stored.write(file);
+    }
     let current = std::fs::read_to_string(file).with_context(|| format!("cannot read {}", file.display()))?;
     let wanted = rendered(lines, timestamps, speakers);
     if current == wanted {
@@ -60,6 +136,15 @@ pub fn save(file: &Path, expected: &str, lines: &[Line], timestamps: bool, speak
             file.display()
         ));
     }
+    if internal(file) {
+        let mut stored = Stored::read(file)?;
+        stored.lines = lines.to_vec();
+        stored.entry.lines = lines.iter().filter(|line| !line.text.is_empty()).count();
+        stored.entry.timestamps = timestamps;
+        stored.entry.speakers = speakers.to_vec();
+        stored.write(file)?;
+        return crate::fingerprint::transcript(file);
+    }
     write(file, &rendered(lines, timestamps, speakers))?;
     crate::fingerprint::transcript(file)
 }
@@ -79,6 +164,12 @@ pub fn rename(file: &Path, title: &str) -> Result<std::path::PathBuf> {
     }
     if !file.is_file() {
         return Err(anyhow!("The transcript is no longer at {}.", file.display()));
+    }
+    if internal(file) {
+        let mut stored = Stored::read(file)?;
+        stored.entry.title = Some(title.to_string());
+        stored.write(file)?;
+        return Ok(file.to_path_buf());
     }
     let target = file.with_file_name(format!("{title}{SUFFIX}"));
     if target == file {

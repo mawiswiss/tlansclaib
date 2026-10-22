@@ -111,13 +111,11 @@ async fn start_run(
     model_id: String,
     language: String,
     timestamps: bool,
-    output_dir: Option<String>,
     speakers: Option<String>,
     speaker_precision: Option<String>,
     output_file: Option<String>,
 ) -> Result<(), String> {
     let audio = PathBuf::from(audio);
-    let output_dir = output_dir.map(PathBuf::from);
     let output_file = output_file.map(PathBuf::from);
     run::start(
         &app,
@@ -126,7 +124,6 @@ async fn start_run(
             model_id: &model_id,
             language: &language,
             timestamps,
-            output_dir: output_dir.as_deref(),
             speakers: speakers.as_deref(),
             speaker_precision: speaker_precision.as_deref(),
             transcript: output_file.as_deref(),
@@ -202,8 +199,9 @@ fn save_transcript(
 fn rename_transcript(app: AppHandle, history: State<History>, file: String, title: String) -> Result<String, String> {
     let from = PathBuf::from(file);
     let to = transcript::rename(&from, &title).map_err(|e| format!("{e:#}"))?;
-    if to != from {
-        if let Err(error) = history.renamed(&from, &to) {
+    if to != from || transcript::internal(&from) {
+        let update = if to == from { history.titled(&from, title.trim().trim_matches(['.', ' '])) } else { history.renamed(&from, &to) };
+        if let Err(error) = update {
             report_history_error(&app, "The transcript was renamed", &error);
         }
         let _ = app.emit("history-changed", ());
@@ -214,6 +212,20 @@ fn rename_transcript(app: AppHandle, history: State<History>, file: String, titl
 #[tauri::command]
 fn transcript_hash(file: String) -> Result<String, String> {
     fingerprint::transcript(Path::new(&file)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn export_transcript(
+    file: String,
+    expected: String,
+    destination: String,
+    lines: Vec<transcript::Line>,
+    timestamps: bool,
+    timed: bool,
+    speakers: Vec<String>,
+) -> Result<(), String> {
+    transcript::export(Path::new(&file), &expected, Path::new(&destination), &lines, timestamps, timed, &speakers)
+        .map_err(|error| format!("{error:#}"))
 }
 
 fn remember_write(app: &AppHandle, history: &History, file: &Path, timestamps: bool, speakers: &[String]) -> Result<String, String> {
@@ -256,6 +268,8 @@ fn open_url(url: String) -> Result<(), String> {
 #[derive(serde::Serialize)]
 struct Opened {
     text: String,
+    lines: Option<Vec<transcript::Line>>,
+    timestamps: Option<bool>,
     hash: String,
     changed: bool,
     audio: fingerprint::Match,
@@ -265,13 +279,19 @@ struct Opened {
 #[tauri::command]
 fn open_history(history: State<History>, id: u64) -> Result<Opened, String> {
     let entry = history.get(id).map_err(|error| format!("{error:#}"))?.ok_or("This transcript is no longer in the history.")?;
-    let text = std::fs::read_to_string(&entry.file).map_err(|e| format!("cannot read {}: {e}", entry.file.display()))?;
+    let stored = transcript::internal(&entry.file)
+        .then(|| transcript::Stored::read(&entry.file).map_err(|e| format!("{e:#}")))
+        .transpose()?;
+    if stored.as_ref().is_some_and(|saved| saved.entry.id != id) {
+        return Err("This transcript file belongs to another history entry.".into());
+    }
+    let text = if stored.is_some() { String::new() } else { std::fs::read_to_string(&entry.file).map_err(|e| format!("cannot read {}: {e}", entry.file.display()))? };
     let file = fingerprint::compare(entry.file_sha256.as_deref(), &entry.file, fingerprint::transcript);
     let changed = file == fingerprint::Match::Different;
     let audio = fingerprint::compare(entry.audio_fingerprint.as_deref(), &entry.audio, fingerprint::audio);
     let hash = fingerprint::transcript(&entry.file).map_err(|e| e.to_string())?;
     let times = (file == fingerprint::Match::Same).then(|| history.times(id)).flatten();
-    Ok(Opened { text, hash, changed, audio, times })
+    Ok(Opened { text, lines: stored.as_ref().map(|saved| saved.lines.clone()), timestamps: stored.map(|saved| saved.entry.timestamps), hash, changed, audio, times })
 }
 
 #[tauri::command]
@@ -303,11 +323,6 @@ fn audio_source(app: AppHandle, path: String) -> Result<(), String> {
 #[tauri::command]
 fn cancel_run(app: AppHandle) {
     run::cancel(&app);
-}
-
-#[tauri::command]
-fn read_text_file(path: String) -> Result<String, String> {
-    std::fs::read_to_string(path).map_err(|e| e.to_string())
 }
 
 /// A development build started with TLANSCLAIB_AUTORUN=<audio file> transcribes it at once.
@@ -362,7 +377,11 @@ pub fn run() {
             std::fs::create_dir_all(&dir)?;
             app.manage(detection::Detection::new(&dir));
             app.manage(Models::new(dir));
-            app.manage(History::new(data.join("history.json")));
+            let history = History::new(data.join("history.json"));
+            if let Err(error) = history.recover() {
+                log::warn!("could not recover app history: {error:#}");
+            }
+            app.manage(history);
             let monitor = Monitor::new();
             app.manage(monitor.clone());
             let handle = app.handle().clone();
@@ -382,7 +401,6 @@ pub fn run() {
             list_languages,
             start_run,
             cancel_run,
-            read_text_file,
             autorun,
             list_history,
             remove_history,
@@ -391,6 +409,7 @@ pub fn run() {
             open_history,
             save_transcript,
             transcript_hash,
+            export_transcript,
             rename_transcript,
             speaker_detection,
             download_speaker_detection,

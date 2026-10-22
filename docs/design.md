@@ -5,7 +5,8 @@
 A desktop app for macOS and Windows that transcribes a recording on the
 user's own computer. The user drops a recording on the window, checks the
 model and the language, watches the steps and the time estimate, and gets a
-text file next to the recording. It runs on modest laptops, never takes the
+result in the app's private history. Text or subtitles are exported on request.
+It runs on modest laptops, never takes the
 machine down, downloads models on demand instead of shipping them, and shows
 system usage while it works.
 
@@ -142,35 +143,31 @@ because progress reporting and other work are outside those stages.
   header check. A file for a list entry must also match the entry's size and
   SHA-256. See `models.md`.
 - `run.rs`: starts the sidecar, forwards each event to the window, holds the
-  child for cancel and keeps the machine awake for the duration. The
-  transcript goes next to the recording, into the chosen folder, or over the
-  transcript being transcribed again.
+  child for cancel and keeps the machine awake for the duration. The engine
+  writes scratch text in app data. On completion or cancellation, the app saves
+  the lines and run metadata to `transcripts/<id>.json` and removes the scratch
+  file. A rerun replaces its history entry only after the new record is saved.
 - `history.rs`: every finished run, and every stopped run with at least one
   line, lands in `history.json` in the app data folder, newest first, at most
-  500 entries. A run that writes a file again replaces that file's entry.
-  Each entry keeps the settings of the run, the paths of the transcript and
-  the recording, and a fingerprint of each from `fingerprint.rs`: the full
-  SHA-256 of the transcript, and for the recording its size plus the SHA-256
-  of its first and last 4 MB, fast even for long videos. Opening an entry
-  reports a transcript changed outside the app and a recording that is
-  missing or different. Either file can be pointed to a new place, and one
-  whose content differs needs a confirmation first. The start and end of
-  every line go to `times/<id>.json` next to `history.json`, so a transcript
-  written without timecodes still plays along and can get them back. They are
-  used only while the transcript's fingerprint matches, and go with the
-  entry.
-- `transcript.rs`: rewrites a transcript for a correction, new speaker names
-  or the timecodes switch, and renames it. A correction or a new name is
-  written only while the file has the fingerprint the app last saw. The
-  switch writes only while the file reads exactly as the app would write it,
-  with or without timecodes. So an edit made in another program is never
-  overwritten.
+  500 entries. It indexes the private JSON records. Each record also keeps its
+  title, recording path, settings, speaker names and timed lines. The index
+  keeps fingerprints from `fingerprint.rs`: the full SHA-256 of the record,
+  and for the recording its size plus the SHA-256 of its first and last 4 MB.
+  Opening an entry reports a changed record or a missing or changed recording.
+  Removing an app record deletes its JSON file. Older text transcripts remain
+  readable at their existing paths, with their separate `times/<id>.json` files.
+  JSON keeps each result portable and lets the index be rebuilt on startup.
+  At the 500-entry limit there is no query workload that calls for SQLite.
+- `transcript.rs`: saves corrections, title changes and the timecodes display
+  preference in private records. Exports text, SRT and WebVTT to a path chosen
+  in the save dialog. Legacy text files keep their existing edit checks.
 - `guard.rs`: the safety rules as pure functions over numbers, fed by
   `sysinfo`. Before a run, free memory must cover the model's memory need,
   or 1.5 GB for speaker detection when that is larger, plus an estimate of
-  three copies of decoded 16 kHz audio and 1 GB of headroom. If the file
-  has no usable duration, the audio estimate is skipped and the live memory
-  monitor still applies. Before a
+  three copies of decoded 16 kHz audio, the in-memory transcript and 1 GB of
+  headroom. Free disk must also cover scratch text, the private record and
+  1 GB of headroom. If the file has no usable duration, the duration-based
+  estimates are skipped and the live memory monitor still applies. Before a
   download or a copy into the models folder, free disk must cover the file
   plus 1 GB. During a run the engine
   is stopped when free memory falls under 400 MB or swap has grown by more
@@ -191,10 +188,8 @@ top bar picks one.
   features, led by the statement that nothing leaves the computer, then who
   makes the app, the licence, the systems and how to support it.
 - The settings row holds model, language ("Auto" or a language) and
-  speakers in aligned cells, then a folder icon for where the transcript
-  goes. The icon's menu offers "Next to the recording" or a chosen folder. It
-  turns blue for a chosen folder and names it in its tooltip. The row shows
-  only before a transcription. Timecodes are not a setting there: the switch
+  speakers in aligned cells. It shows only before a transcription. Timecodes
+  are not a setting there: the switch
   above a finished transcript decides and is remembered for the next.
 - The model carries a fit label from `lib/fit.ts`: its listed RAM need
   against the computer's total RAM, green below 70%, orange below 90%, red
@@ -227,18 +222,15 @@ top bar picks one.
 
 ### The result
 
-- A card with four icons at its top right: show in folder, copy text,
-  transcribe again and close, each named in a tooltip. Copying turns its icon
+- A card with icons for export, copy text, transcribe again and close, each
+  named in a tooltip. Legacy text files also have a show in folder icon.
+  Copying turns its icon
   into a green check. "Transcribe another" is a plus to the right of the
   card. Close and the plus both bring back the settings row and the drop
   zone.
-- The title is the transcript's file name without `_transcript.txt`. The
-  pencil or a double-click renames it, and the file with it, as
-  `<title>_transcript.txt` in the same folder (`rename_transcript`). The
-  recording keeps its name. The rename refuses an existing file, characters
-  file names cannot hold, and a title over 120 characters. A change in case
-  only is allowed. The history follows the new path, and the fingerprint
-  stays valid because the content is unchanged.
+- The title starts as the recording's name. The pencil or a double-click
+  changes the title in the private record. The recording keeps its name.
+  Legacy text files still rename with the title.
 - One line of metadata: when, the length, the format ("MP4 video, 2
   tracks"), "3 people" after speaker detection, the model and the language.
   "2 tracks" counts the audio tracks of the file, "3 people" the voices
@@ -247,8 +239,8 @@ top bar picks one.
 - The player takes a full row above the text, at 1×, 1.5× and 2×. The row
   below holds the speakers on the left, and the search field (⌘F or Ctrl+F,
   Enter for the next match) and the timecodes switch on the right. The
-  switch shows whether the file has timecodes, is disabled when no line
-  times are known, and sets the default.
+  switch controls whether times are shown and included in text exports. It is
+  disabled when no line times are known, and sets the default.
 - Moving the player's position highlights the line there and scrolls it into
   view, also while paused. A click on a line plays from its start. The line
   playing stays in view unless the user scrolled in the last few seconds.
@@ -295,12 +287,13 @@ their link to the recording.
 ### History
 
 History slides in from the right. Its cards keep one height, the list
-scrolls, and a search sits above it. A click reads the original text file,
-and `lib/transcript.ts` parses it: when every line starts with
+scrolls, and a search sits above it. A click reads timed lines from a private
+record. For older entries it reads the original text file and
+`lib/transcript.ts` parses it: when every line starts with
 `[HH:MM:SS.ss --> HH:MM:SS.ss]` it has timecodes, otherwise each line is
 shown as written. A plain transcript takes its line times from the app data
-when they are there. A missing transcript offers "Locate…", and "Transcribe
-again" when the recording is still where it was.
+when they are there. A missing older text file offers "Locate…". A missing
+record can be transcribed again when the recording is available.
 
 ### Transcribing again
 
@@ -311,8 +304,8 @@ installed one with a note when that model is gone), the language, the
 speaker setting and its precision (`speaker_mode`, `speaker_precision`), and
 it keeps the timecodes as they were. Each can be changed for this run only,
 and the settings row stays as it is. A file with several tracks shows one
-speaker per track instead of a choice. The run writes the same transcript,
-passed to `start_run` as `output_file`, and replaces the entry. The dialog
+speaker per track instead of a choice. The run saves a new private record,
+then replaces the old history entry. The dialog
 says that it replaces the transcript and its corrections. Renamed speakers
 start again as "Speaker 1" and so on.
 

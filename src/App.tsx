@@ -11,7 +11,7 @@ import { RunView } from "./components/RunView";
 import { SettingsBar } from "./components/SettingsBar";
 import { SystemBar } from "./components/SystemBar";
 import { TopBar } from "./components/TopBar";
-import { capitalize, fileName, folderOf, titleOf, transcriptText } from "./lib/format";
+import { capitalize, titleOf, transcriptText } from "./lib/format";
 import { getBackend, type Backend } from "./lib/ipc";
 import { idle, reduce } from "./lib/run";
 import { DONATE } from "./lib/about";
@@ -58,7 +58,7 @@ export default function App() {
   const [detection, setDetection] = useState<SpeakerDetection | null>(null);
   const [dragging, setDragging] = useState(false);
   const [run, dispatch] = useReducer(reduce, idle);
-  const startLatest = useRef<(audio: string, outputDir: string | null) => void>(() => {});
+  const startLatest = useRef<(audio: string) => void>(() => {});
   const stageLatest = useRef<(audio: string) => void>(() => {});
   const [pending, setPending] = useState<string | null>(null);
   const [modelsFocus, setModelsFocus] = useState<"detection" | null>(null);
@@ -78,7 +78,6 @@ export default function App() {
     (code: string) => capitalize(languages.find((l) => l.code === code)?.name ?? code),
     [languages],
   );
-
   const showError = useCallback((message: string) => {
     setAppErrors((current) => current.includes(message) ? current : [...current, message].slice(-10));
   }, []);
@@ -206,7 +205,7 @@ export default function App() {
         setSettings((s) => countFromHistory(s, entries));
       }).catch((error) => reportError("Could not load history", error));
       void b.autorun().then((audio) => {
-        if (active && audio) startLatest.current(audio, null);
+        if (active && audio) startLatest.current(audio);
       }).catch((error) => reportError("Could not start the requested recording", error));
     }).catch((error) => {
       if (active) reportError("Could not start the app", error);
@@ -218,7 +217,7 @@ export default function App() {
   }, [refreshModels, reportError, showError]);
 
   const start = useCallback(
-    async (audio: string, outputDir: string | null) => {
+    async (audio: string) => {
       const b = backend.current;
       if (!b) {
         showError("The app is still starting. Please try again.");
@@ -238,13 +237,12 @@ export default function App() {
       }
       const multilingual = chosen.languages.includes("all");
       const language = multilingual ? settings.language : chosen.languages[0];
-      const dir = outputDir ?? settings.outputDir;
       const speakers = settings.speakers !== "off" && detection?.installed ? settings.speakers : null;
       setResultError(null);
       dispatch({
         type: "start",
         audio,
-        folder: dir ?? folderOf(audio),
+        folder: "app history",
         modelName: chosen.name,
         timestamps: settings.timestamps,
         autoLanguage: language === "auto",
@@ -252,7 +250,7 @@ export default function App() {
         now: Date.now(),
       });
       try {
-        await b.startRun(audio, chosen.id, language, settings.timestamps, dir, speakers, speakers ? settings.speakerPrecision : null);
+        await b.startRun(audio, chosen.id, language, settings.timestamps, speakers, speakers ? settings.speakerPrecision : null);
       } catch (error) {
         dispatch({ type: "fail", message: String(error) });
       }
@@ -273,7 +271,7 @@ export default function App() {
     if (!pending) return;
     const audio = pending;
     setPending(null);
-    void start(audio, null);
+    void start(audio);
   };
 
   const setUpDetection = () => {
@@ -377,7 +375,7 @@ export default function App() {
     dispatch({
       type: "start",
       audio: entry.audio,
-      folder: folderOf(entry.file),
+      folder: "app history",
       modelName: model.name,
       timestamps: choice.timestamps,
       autoLanguage: choice.language === "auto",
@@ -385,7 +383,7 @@ export default function App() {
       now: Date.now(),
     });
     try {
-      await b.startRun(entry.audio, model.id, choice.language, choice.timestamps, null, speakers, speakers ? choice.precision : null, entry.file);
+      await b.startRun(entry.audio, model.id, choice.language, choice.timestamps, speakers, speakers ? choice.precision : null, entry.file);
     } catch (error) {
       dispatch({ type: "fail", message: String(error) });
     }
@@ -442,32 +440,13 @@ export default function App() {
     if (!b || !run.result) return false;
     try {
       const file = await b.renameTranscript(run.result.file, title);
-      dispatch({ type: "rename", file });
+      dispatch({ type: "rename", file, title: title.trim().replace(/^[. ]+|[. ]+$/g, "") });
+      dispatch({ type: "hash", hash: await b.transcriptHash(file) });
       setResultError(null);
       return true;
     } catch (error) {
       setResultError(String(error));
       return false;
-    }
-  };
-
-  const chooseOutputDir = async () => {
-    try {
-      const dir = await requireBackend().pickFolder();
-      if (dir) setSettings((s) => ({ ...s, outputDir: dir }));
-    } catch (error) {
-      reportError("Could not choose the output folder", error);
-    }
-  };
-
-  const saveElsewhere = async () => {
-    try {
-      const dir = await requireBackend().pickFolder();
-      if (!dir) return;
-      setSettings((s) => ({ ...s, outputDir: dir }));
-      void start(run.audio, dir);
-    } catch (error) {
-      reportError("Could not choose another output folder", error);
     }
   };
 
@@ -573,7 +552,9 @@ export default function App() {
     setHistoryError(null);
     try {
       const opened = await b.openHistory(entry.id);
-      const parsed = withTimes(parseTranscript(opened.text, entry.speakers ?? []), opened.times);
+      const parsed = opened.lines
+        ? { lines: opened.lines, timestamps: opened.timestamps ?? entry.timestamps, timed: true }
+        : withTimes(parseTranscript(opened.text, entry.speakers ?? []), opened.times);
       setResultError(null);
       dispatch({
         type: "open",
@@ -637,6 +618,8 @@ export default function App() {
   const removeHistory = async (id: number) => {
     setHistoryError(null);
     try {
+      const entry = history.find((item) => item.id === id);
+      if (entry?.file.endsWith(".json") && !(await requireBackend().confirm(`Delete “${entry.title ?? "this transcript"}” from app history?`, "Delete transcript"))) return;
       await requireBackend().removeHistory(id);
     } catch (error) {
       setHistoryError(`Could not remove the history entry: ${String(error)}`);
@@ -685,23 +668,28 @@ export default function App() {
             onLocateAudio={locateAudio}
             onSaveLine={saveLine}
             onLog={(level, message) => backend.current?.log(level, message)}
-            onOpenFolder={(path) => { void showInFolder(path); }}
             onCopy={async () => {
               try {
-                let text: string;
-                let readError: unknown = null;
-                try {
-                  text = await requireBackend().readTextFile(run.result!.file);
-                } catch (error) {
-                  readError = error;
-                  text = transcriptText(run.lines, run.timestamps, run.speakers);
-                }
-                await copyText(text);
-                if (readError) setResultError(`Could not read the saved transcript, so the text shown here was copied: ${String(readError)}`);
+                await copyText(transcriptText(run.lines, run.timestamps, run.speakers));
                 return true;
               } catch (error) {
                 setResultError(`Could not copy the transcript: ${String(error)}`);
                 return false;
+              }
+            }}
+            onExport={async () => {
+              const b = backend.current;
+              if (!b || !run.result) return null;
+              try {
+                const destination = await b.pickExportFile(run.title, run.timed);
+                if (!destination) return null;
+                const expected = run.hash ?? await b.transcriptHash(run.result.file);
+                await b.exportTranscript(run.result.file, expected, destination, run.lines, run.timestamps, run.timed, run.speakers);
+                setResultError(null);
+                return destination;
+              } catch (error) {
+                setResultError(`Could not export the transcript: ${String(error)}`);
+                return null;
               }
             }}
             onRename={renameTranscript}
@@ -719,16 +707,14 @@ export default function App() {
             title="Something went wrong"
             message={run.error ?? ""}
             onRetry={() => dispatch({ type: "reset" })}
-            onSaveElsewhere={run.error?.includes("cannot write") || run.error?.includes("Save to") ? saveElsewhere : null}
           />
         );
       case "cancelled":
         return (
           <ErrorView
             title="Cancelled"
-            message={`The transcription was stopped. What was done so far is saved in ${run.folder}.`}
+            message="The transcription was stopped. Any completed lines are saved in app history."
             onRetry={() => dispatch({ type: "reset" })}
-            onSaveElsewhere={null}
           />
         );
       default:
@@ -743,7 +729,7 @@ export default function App() {
               !detection?.installed || settings.speakers === "off"
                 ? "Speakers not named"
                 : `${settings.speakers === "auto" ? "Speakers detected" : `${settings.speakers} people`}${settings.speakerPrecision === "fast" ? ", fast" : ""}`,
-              settings.outputDir ? `Saved in ${fileName(settings.outputDir)}` : "Saved next to the recording",
+              "Saved in app history",
             ]}
             onGo={go}
             onClear={() => setPending(null)}
@@ -775,9 +761,6 @@ export default function App() {
           language={settings.language}
           onLanguage={(code) => setSettings((s) => ({ ...s, language: code }))}
           locked={locked}
-          outputDir={settings.outputDir}
-          onOutputDir={(dir) => setSettings((s) => ({ ...s, outputDir: dir }))}
-          onChooseOutputDir={chooseOutputDir}
           speakers={settings.speakers}
           detection={detection?.installed ?? false}
           onSpeakers={(value) => setSettings((s) => ({ ...s, speakers: value }))}
@@ -819,7 +802,7 @@ export default function App() {
       )}
       {rerunTarget && (
         <RerunDialog
-          title={titleOf(rerunTarget.entry.file)}
+          title={rerunTarget.entry.title ?? titleOf(rerunTarget.entry.file)}
           replaces={rerunTarget.replaces}
           tracks={!rerunTarget.entry.detected ? (rerunTarget.entry.speakers?.length ?? 0) : 0}
           models={models}

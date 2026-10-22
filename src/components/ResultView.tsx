@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { clock, duration, fileName, folderOf, sourceLabel, speed, titleOf, TRANSCRIPT_SUFFIX } from "../lib/format";
+import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/format";
 import type { RunState } from "../lib/run";
 import { findMatches, playingAt, type Playing } from "../lib/transcript";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
-import { Check, ChevronDown, Close, Copy, Folder, Info, Pencil, Plus, Retry, Search } from "./icons";
+import { Check, ChevronDown, Close, Copy, Download, Info, Pencil, Plus, Retry, Search } from "./icons";
 import { Tooltip } from "./Tooltip";
 
 type Props = {
@@ -17,8 +17,8 @@ type Props = {
   onLocateAudio: () => void;
   onSaveLine: (index: number, text: string) => Promise<boolean>;
   onLog: (level: "info" | "warn", message: string) => void;
-  onOpenFolder: (path: string) => void;
   onCopy: () => Promise<boolean>;
+  onExport: () => Promise<string | null>;
   onRename: (title: string) => Promise<boolean>;
   onRenameSpeaker: (track: number, name: string) => Promise<boolean>;
   onRerun: (options?: { focus?: "speakers"; speakers?: string }) => void;
@@ -59,8 +59,8 @@ export function ResultView(props: Props) {
     onLocateAudio,
     onSaveLine,
     onLog,
-    onOpenFolder,
     onCopy,
+    onExport,
     onRename,
     onRenameSpeaker,
     onRerun,
@@ -75,6 +75,7 @@ export function ResultView(props: Props) {
   const committing = useRef(false);
   const editor = useRef<HTMLTextAreaElement>(null);
   const [copied, setCopied] = useState(false);
+  const [exported, setExported] = useState<string | null>(null);
   const [src, setSrc] = useState<string | null>(null);
   const [unplayable, setUnplayable] = useState(false);
   const [playerError, setPlayerError] = useState<string | null>(null);
@@ -97,12 +98,15 @@ export function ResultView(props: Props) {
   const speakerInput = useRef<HTMLInputElement>(null);
 
   const result = run.result!;
-  const title = titleOf(result.file);
+  const title = run.title;
+  const internal = result.file.endsWith(".json");
   const lines = useMemo(() => run.lines.flatMap((l, index) => (l.text ? [{ ...l, index }] : [])), [run.lines]);
   const audioMissing = run.check?.audio === "missing";
   const needle = query.trim().toLowerCase();
   const hits = useMemo(() => findMatches(lines, needle), [lines, needle]);
   const syncable = run.timed && src !== null && !unplayable;
+
+  useEffect(() => setExported(null), [result.file]);
 
   useEffect(() => {
     if (!copied) return;
@@ -309,14 +313,14 @@ export function ResultView(props: Props) {
                     closeRename();
                   }
                 }}
-                aria-label="Title, also the name of the transcript file"
+                aria-label="Transcript title"
               />
             ) : (
               <h2 className="title-line">
                 <span className="title-text" onDoubleClick={startRename} title={title}>
                   {title}
                 </span>
-                <button type="button" className="icon-button tiny title-edit" onClick={startRename} aria-label="Rename" title="Rename the transcript file">
+                <button type="button" className="icon-button tiny title-edit" onClick={startRename} aria-label="Rename" title="Rename the transcript">
                   <Pencil size={14} />
                 </button>
               </h2>
@@ -342,14 +346,14 @@ export function ResultView(props: Props) {
                 </span>
               </Tooltip>
             </p>
-            <p className="path" title={result.file}>
-              {renaming ? `${titleDraft.replace(/\s+/g, " ").trim() || title}${TRANSCRIPT_SUFFIX}` : fileName(result.file)} · {folderOf(result.file)}
+            <p className="path" title={internal ? undefined : result.file}>
+              {internal ? "Stored in app history" : `${fileName(result.file)} · ${folderOf(result.file)}`}
             </p>
           </div>
           <div className="card-tools">
-            <Tooltip content="Show in folder" oneLine>
-              <button type="button" className="icon-button" onClick={() => onOpenFolder(result.file)} aria-label="Show in folder">
-                <Folder />
+            <Tooltip content="Export transcript" oneLine>
+              <button type="button" className="icon-button" onClick={() => { void onExport().then(setExported); }} aria-label="Export transcript">
+                <Download />
               </button>
             </Tooltip>
             <Tooltip content={copied ? "Copied" : "Copy text"} oneLine>
@@ -384,6 +388,7 @@ export function ResultView(props: Props) {
         </Tooltip>
       </div>
       {error && <p className="problem" role="alert">{error}</p>}
+      {exported && <p className="note" role="status">Exported to {exported}.</p>}
       {run.opened?.status === "incomplete" && <p className="note">This transcription was stopped early and holds the lines done until then.</p>}
       {run.check?.changed && <p className="note">This transcript was changed outside tlansclaib since it was saved.</p>}
       {run.check?.audio === "different" && (
@@ -397,7 +402,7 @@ export function ResultView(props: Props) {
       {noTimecodes && <p className="note">This transcript was saved without timecodes, so there are none to show or play from.</p>}
       {lastEdit && (
         <p className="note">
-          Saved to {fileName(result.file)}.{" "}
+          Correction saved.{" "}
           <button type="button" className="inline-link" onClick={undo}>
             Undo
           </button>
@@ -487,7 +492,7 @@ export function ResultView(props: Props) {
                   Wrong number?
                 </button>
               )}
-              <Tooltip content="Speakers come from the audio tracks of the recording, or from speaker detection. A new name is saved into the transcript file right away.">
+              <Tooltip content="Speakers come from the audio tracks of the recording, or from speaker detection. A new name is saved in app history right away.">
                 <span className="meta-info" tabIndex={0} aria-label="About speakers">
                   <Info size={14} />
                 </span>
@@ -539,7 +544,7 @@ export function ResultView(props: Props) {
           </label>
           <label
             className="tool-switch"
-            title={noTimecodes ? "This transcript has no times to show" : "Start each line with its time in the recording, in the file and here"}
+            title={noTimecodes ? "This transcript has no times to show" : "Show line times here and in text exports"}
           >
             <input
               type="checkbox"

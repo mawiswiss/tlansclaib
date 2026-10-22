@@ -130,7 +130,7 @@ export function RerunDialog(props: Props) {
           </div>
         </div>
         <footer className="modal-foot">
-          <p className="faint rerun-warning">{props.replaces ? "Replaces the transcript, with any corrections made to it." : ""}</p>
+          <p className="faint rerun-warning">{props.replaces ? "Replaces this result and its corrections in history. Files outside the app stay where they are." : ""}</p>
           <span className="rerun-actions">
             <button type="button" onClick={props.onClose}>
               Cancel

@@ -13,6 +13,7 @@ use crate::guard;
 use crate::history::{self, History};
 use crate::models::Models;
 use crate::system::{Monitor, Stats};
+use crate::transcript::{Line, Stored};
 
 pub struct ActiveRun {
     child: Option<CommandChild>,
@@ -24,8 +25,11 @@ pub struct ActiveRun {
 }
 
 struct Record {
+    id: u64,
     audio: PathBuf,
     file: PathBuf,
+    scratch: PathBuf,
+    replace_id: Option<u64>,
     model: String,
     model_id: String,
     speaker_mode: Option<String>,
@@ -37,7 +41,7 @@ struct Record {
     detected: bool,
     video: bool,
     lines: usize,
-    times: Vec<(f64, f64)>,
+    transcript_lines: Vec<Line>,
     started: Instant,
     saved: bool,
 }
@@ -65,29 +69,18 @@ pub fn engine_pid(app: &AppHandle) -> Option<u32> {
     app.state::<RunState>().0.lock().unwrap().as_ref().map(|r| r.pid)
 }
 
-pub fn output_file(audio: &Path, output_dir: Option<&Path>) -> PathBuf {
-    let stem = audio.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "recording".into());
-    let dir = output_dir
-        .map(Path::to_path_buf)
-        .or_else(|| audio.parent().map(Path::to_path_buf))
-        .unwrap_or_default();
-    dir.join(format!("{stem}_transcript.txt"))
-}
-
 pub struct Request<'a> {
     pub audio: &'a Path,
     pub model_id: &'a str,
     pub language: &'a str,
     pub timestamps: bool,
-    pub output_dir: Option<&'a Path>,
     pub speakers: Option<&'a str>,
     pub speaker_precision: Option<&'a str>,
-    /// Write to this transcript instead of one named after the recording, to transcribe it again.
     pub transcript: Option<&'a Path>,
 }
 
 pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
-    let Request { audio, model_id, language, timestamps, output_dir, speakers, speaker_precision, transcript } = request;
+    let Request { audio, model_id, language, timestamps, speakers, speaker_precision, transcript } = request;
     let state = app.state::<RunState>();
     let _starting = state.1.lock().await;
     if state.0.lock().unwrap().is_some() {
@@ -95,12 +88,6 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     }
     if !audio.is_file() {
         return Err(anyhow!("{} does not exist.", audio.display()));
-    }
-    if let Some(dir) = output_dir.filter(|d| !d.is_dir()) {
-        return Err(anyhow!(
-            "The folder {} is not there any more. Choose another one under \"Save to\".",
-            dir.display()
-        ));
     }
     let (entry, model_path) = app.state::<Models>().installed_path(model_id)?;
     let monitor = app.state::<std::sync::Arc<Monitor>>();
@@ -119,10 +106,16 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     let (free, swap_at_start) = monitor.memory();
     guard::can_start_recording(free, entry.ram_bytes(), detection_ram, sample_seconds).map_err(|e| anyhow!(e))?;
 
-    if let Some(dir) = transcript.and_then(Path::parent).filter(|d| !d.is_dir()) {
-        return Err(anyhow!("The folder {} is not there any more.", dir.display()));
-    }
-    let output = transcript.map(Path::to_path_buf).unwrap_or_else(|| output_file(audio, output_dir));
+    let data = app.path().app_data_dir()?;
+    guard::can_store_transcript(crate::models::free_disk(&data), sample_seconds).map_err(|e| anyhow!(e))?;
+    let transcripts = data.join("transcripts");
+    let scratch_dir = data.join("scratch");
+    std::fs::create_dir_all(&transcripts)?;
+    std::fs::create_dir_all(&scratch_dir)?;
+    let id = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() as u64;
+    let output = transcripts.join(format!("{id}.json"));
+    let scratch = scratch_dir.join(format!("{id}.txt"));
+    let replace_id = transcript.map(|file| app.state::<History>().by_file(file)).transpose()?.flatten().map(|entry| entry.id);
     let mut args = vec![
         "transcribe".to_string(),
         "--model".into(),
@@ -130,7 +123,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         "--audio".into(),
         audio.to_string_lossy().into_owned(),
         "--output".into(),
-        output.to_string_lossy().into_owned(),
+        scratch.to_string_lossy().into_owned(),
         "--language".into(),
         language.into(),
     ];
@@ -193,8 +186,11 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         swap_at_start,
         saw_error: false,
         record: Record {
+            id,
             audio: audio.to_path_buf(),
             file: output,
+            scratch,
+            replace_id,
             model: entry.name.clone(),
             model_id: entry.id.clone(),
             speaker_mode: speakers.map(str::to_string),
@@ -206,7 +202,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
             detected: false,
             video: false,
             lines: 0,
-            times: Vec::new(),
+            transcript_lines: Vec::new(),
             started: Instant::now(),
             saved: false,
         },
@@ -235,7 +231,16 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                             pending_gpu_error = Some(message.clone());
                             continue;
                         }
-                        track(&app, &event);
+                        let event = match &event {
+                            Event::Done { lines, elapsed, timings, .. } => match finish(&app, *lines, *elapsed) {
+                                Ok(file) => Event::Done { lines: *lines, elapsed: *elapsed, file, timings: timings.clone() },
+                                Err(error) => Event::Error { message: format!("Could not save the transcription: {error:#}") },
+                            },
+                            _ => {
+                                track(&app, &event);
+                                event
+                            }
+                        };
                         let _ = app.emit("engine-event", &event);
                     }
                     Err(_) => {
@@ -362,38 +367,38 @@ fn track(app: &AppHandle, event: &Event) {
             log::info!("model loaded on {device} with {threads} threads, language {language}, {windows} windows");
             record.language = Some(language.clone());
         }
-        Event::Line { start, end, text, .. } if !text.is_empty() => {
-            record.lines += 1;
-            record.times.push((*start, *end));
+        Event::Line { start, end, text, speaker } => {
+            if !text.is_empty() {
+                record.lines += 1;
+            }
+            record.transcript_lines.push(Line { start: *start, end: *end, text: text.clone(), speaker: *speaker });
         }
         Event::Error { .. } => {
             log::error!("engine reported an error");
             run.saw_error = true;
         }
-        Event::Done { lines, elapsed, file: _, timings } => {
-            log::info!("done: {lines} lines in {elapsed:.1} s");
-            log::info!(
-                "stage times: decode {:.2}s, speakers {:.2}s, load {:.2}s, transcribe {:.2}s, write {:.2}s",
-                timings.decode,
-                timings.speakers,
-                timings.load,
-                timings.transcribe,
-                timings.write
-            );
-            record.saved = true;
-            let entry = entry(record, history::Status::Done, *lines, *elapsed);
-            let times = record.times.clone();
-            drop(lock);
-            remember(app, entry, &times);
-        }
         _ => {}
     }
+}
+
+fn finish(app: &AppHandle, lines: usize, elapsed: f64) -> Result<PathBuf> {
+    let state = app.state::<RunState>();
+    let mut lock = state.0.lock().unwrap();
+    let record = &mut lock.as_mut().ok_or_else(|| anyhow!("The run was stopped."))?.record;
+    let entry = entry(record, history::Status::Done, lines, elapsed);
+    remember(app, entry, &record.transcript_lines)?;
+    record.saved = true;
+    if let Some(id) = record.replace_id && let Err(error) = app.state::<History>().remove(id) {
+        crate::report_history_error(app, "The new transcription was saved", &error);
+    }
+    let _ = std::fs::remove_file(&record.scratch);
+    Ok(record.file.clone())
 }
 
 fn entry(record: &Record, status: history::Status, lines: usize, elapsed: f64) -> history::Entry {
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
     history::Entry {
-        id: now.as_millis() as u64,
+        id: record.id,
         audio: record.audio.clone(),
         file: record.file.clone(),
         model: record.model.clone(),
@@ -405,29 +410,39 @@ fn entry(record: &Record, status: history::Status, lines: usize, elapsed: f64) -
         status,
         timestamps: record.timestamps,
         audio_fingerprint: crate::fingerprint::audio(&record.audio).ok(),
-        file_sha256: crate::fingerprint::transcript(&record.file).ok(),
+        file_sha256: None,
         speakers: record.speakers.clone(),
         detected: record.detected,
         video: Some(record.video),
         model_id: Some(record.model_id.clone()),
         speaker_mode: record.speaker_mode.clone(),
         speaker_precision: record.speaker_precision.clone(),
+        title: record.audio.file_stem().map(|name| name.to_string_lossy().into_owned()),
     }
 }
 
-fn remember(app: &AppHandle, entry: history::Entry, times: &[(f64, f64)]) {
+fn remember(app: &AppHandle, mut entry: history::Entry, lines: &[Line]) -> Result<()> {
     let history = app.state::<History>();
-    let id = entry.id;
-    if let Err(error) = history.add(entry).and_then(|_| history.save_times(id, times)) {
-        crate::report_history_error(app, "The transcript was saved", &error);
-    }
+    Stored::new(entry.clone(), lines.to_vec()).write(&entry.file)?;
+    entry.file_sha256 = Some(crate::fingerprint::transcript(&entry.file)?);
+    history.add(entry)?;
     let _ = app.emit("history-changed", ());
+    Ok(())
 }
 
 fn remember_incomplete(app: &AppHandle, record: &Record) {
-    if !record.saved && record.lines > 0 {
-        let elapsed = record.started.elapsed().as_secs_f64();
-        remember(app, entry(record, history::Status::Incomplete, record.lines, elapsed), &record.times);
+    if record.saved {
+        return;
+    }
+    if record.lines == 0 {
+        let _ = std::fs::remove_file(&record.scratch);
+        return;
+    }
+    let elapsed = record.started.elapsed().as_secs_f64();
+    if let Err(error) = remember(app, entry(record, history::Status::Incomplete, record.lines, elapsed), &record.transcript_lines) {
+        let _ = app.emit("app-error", format!("The partial transcription could not be saved: {error:#}"));
+    } else {
+        let _ = std::fs::remove_file(&record.scratch);
     }
 }
 
@@ -468,18 +483,6 @@ pub fn guard_tick(app: &AppHandle, stats: &Stats) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_output_goes_next_to_the_audio_unless_a_folder_is_given() {
-        assert_eq!(
-            output_file(Path::new("/recordings/meeting.m4a"), None),
-            PathBuf::from("/recordings/meeting_transcript.txt")
-        );
-        assert_eq!(
-            output_file(Path::new("/recordings/meeting.m4a"), Some(Path::new("/out"))),
-            PathBuf::from("/out/meeting_transcript.txt")
-        );
-    }
 
     #[test]
     fn retries_only_a_gpu_failure_before_the_model_is_ready() {

@@ -11,12 +11,32 @@ pub const SWAP_GROWTH_LIMIT: u64 = 2 * GIB;
 pub const DETECTION_RAM: u64 = 3 << 29;
 
 const AUDIO_BYTES_PER_SECOND: u64 = 16_000 * 4 * 3;
+const TRANSCRIPT_BYTES_PER_SECOND: u64 = 4096;
+
+pub fn can_store_transcript(free_disk: u64, sample_seconds: Option<f64>) -> Result<(), String> {
+    let bytes = sample_seconds
+        .map(|seconds| {
+            if !seconds.is_finite() || seconds < 0.0 {
+                return u64::MAX;
+            }
+            (seconds.ceil() * (TRANSCRIPT_BYTES_PER_SECOND * 2) as f64) as u64
+        })
+        .unwrap_or(0);
+    if bytes.checked_add(DISK_MINIMUM).is_some_and(|minimum| free_disk >= minimum) {
+        return Ok(());
+    }
+    Err(format!(
+        "This transcription needs about {} of free disk space and {} is free. Make room on the app data disk first.",
+        gb(bytes.saturating_add(DISK_MINIMUM)),
+        gb(free_disk)
+    ))
+}
 
 pub fn decoded_audio_bytes(sample_seconds: f64) -> u64 {
     if !sample_seconds.is_finite() || sample_seconds < 0.0 {
         return u64::MAX;
     }
-    (sample_seconds.ceil() * AUDIO_BYTES_PER_SECOND as f64) as u64
+    (sample_seconds.ceil() * (AUDIO_BYTES_PER_SECOND + TRANSCRIPT_BYTES_PER_SECOND) as f64) as u64
 }
 
 pub fn can_start_recording(free: u64, model: u64, detection: u64, sample_seconds: Option<f64>) -> Result<(), String> {
@@ -96,7 +116,7 @@ mod tests {
 
     #[test]
     fn long_audio_adds_to_model_memory_without_overflow() {
-        assert_eq!(decoded_audio_bytes(3600.0), 691_200_000);
+        assert_eq!(decoded_audio_bytes(3600.0), 705_945_600);
         assert!(can_start_recording(3 * GIB, GIB, 0, Some(3600.0)).is_ok());
         assert!(can_start_recording(2 * GIB, GIB, 0, Some(3600.0)).is_err());
         assert!(can_start_recording(u64::MAX, GIB, 0, Some(f64::INFINITY)).is_err());
@@ -115,6 +135,15 @@ mod tests {
         assert!(can_download(2 * GIB, GIB).is_ok());
         let refused = can_download(2 * GIB - 1, GIB).unwrap_err();
         assert!(refused.contains("plus 1.0 GB to spare"), "{refused}");
+    }
+
+    #[test]
+    fn private_transcript_storage_needs_room_for_scratch_and_json() {
+        let hour = 3600.0;
+        let needed = DISK_MINIMUM + 3600 * TRANSCRIPT_BYTES_PER_SECOND * 2;
+        assert!(can_store_transcript(needed, Some(hour)).is_ok());
+        assert!(can_store_transcript(needed - 1, Some(hour)).is_err());
+        assert!(can_store_transcript(DISK_MINIMUM, None).is_ok());
     }
 
     #[test]

@@ -1,10 +1,12 @@
 import type { EngineEvent, HistoryEntry, Match, Step, Timings } from "./types";
+import { titleOf } from "./format";
 
 export type Line = { start: number; end: number; text: string; speaker?: number };
 
 export type RunState = {
   status: "idle" | "running" | "done" | "error" | "cancelled";
   audio: string;
+  title: string;
   folder: string;
   modelName: string;
   timestamps: boolean;
@@ -42,6 +44,7 @@ export type RunState = {
 export const idle: RunState = {
   status: "idle",
   audio: "",
+  title: "",
   folder: "",
   modelName: "",
   timestamps: true,
@@ -92,7 +95,7 @@ export type RunAction =
   | { type: "edit"; index: number; text: string; hash: string }
   | { type: "speakers"; speakers: string[]; hash: string }
   | { type: "audio"; path: string }
-  | { type: "rename"; file: string }
+  | { type: "rename"; file: string; title: string }
   | { type: "engine"; event: EngineEvent; now: number }
   | { type: "fail"; message: string }
   | { type: "reset" };
@@ -104,6 +107,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
         ...idle,
         status: "running",
         audio: action.audio,
+        title: action.audio.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, "") ?? "Recording",
         folder: action.folder,
         modelName: action.modelName,
         timestamps: action.timestamps,
@@ -120,6 +124,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
         ...idle,
         status: "done",
         audio: e.audio,
+        title: e.title ?? titleOf(e.file),
         folder: i > 0 ? e.file.slice(0, i) : e.file,
         modelName: e.model,
         language: e.language,
@@ -157,8 +162,9 @@ export function reduce(state: RunState, action: RunAction): RunState {
     case "rename":
       return {
         ...state,
+        title: action.title,
         result: state.result && { ...state.result, file: action.file },
-        opened: state.opened && { ...state.opened, file: action.file },
+        opened: state.opened && { ...state.opened, file: action.file, title: action.title },
       };
     case "fail":
       return { ...state, status: "error", error: action.message };
