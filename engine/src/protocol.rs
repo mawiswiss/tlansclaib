@@ -13,6 +13,15 @@ pub enum Step {
     Write,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct Timings {
+    pub decode: f64,
+    pub speakers: f64,
+    pub load: f64,
+    pub transcribe: f64,
+    pub write: f64,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
@@ -28,6 +37,8 @@ pub enum Event {
     },
     Model {
         device: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        device_name: Option<String>,
         threads: usize,
         language: String,
         windows: usize,
@@ -55,6 +66,8 @@ pub enum Event {
         lines: usize,
         elapsed: f64,
         file: PathBuf,
+        #[serde(default)]
+        timings: Timings,
     },
     Error {
         message: String,

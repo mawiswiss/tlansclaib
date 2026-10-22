@@ -24,6 +24,9 @@ memory before each run and chooses the CPU sidecar when it cannot use Vulkan. It
 starts the chosen sidecar per run, reads JSON lines from its stdout, and kills
 it when memory gets tight. A crash in the engine becomes an error in the window
 instead of a vanished app. The same binary works from a terminal.
+Before a run, the CPU sidecar estimates decoded audio memory from the file's
+track durations. If Metal or Vulkan fails before the model is ready, the app
+retries once on the CPU. The retry never starts after transcription begins.
 
 ## The engine
 
@@ -97,10 +100,10 @@ The binary prints one JSON object per line on stdout:
 {"event":"audio","seconds":6427.3,"speakers":["Speaker 1","Speaker 2"]}
 {"event":"speaker_progress","done":12,"total":40}
 {"event":"speakers","speakers":["Speaker 1","Speaker 2","Speaker 3"]}
-{"event":"model","device":"metal|cpu","threads":9,"language":"th","windows":323}
+{"event":"model","device":"metal|vulkan|cpu","device_name":"<GPU name>","threads":9,"language":"th","windows":323}
 {"event":"line","start":0.0,"end":17.2,"text":"...","speaker":1}
 {"event":"progress","done":8,"total":323,"position":180.5}
-{"event":"done","lines":323,"elapsed":615.2,"file":"<path>"}
+{"event":"done","lines":323,"elapsed":615.2,"file":"<path>","timings":{"decode":4.2,"speakers":0.0,"load":2.1,"transcribe":608.7,"write":0.1}}
 {"event":"error","message":"..."}
 ```
 
@@ -108,6 +111,10 @@ The `audio` event names the tracks' speakers, the `speakers` event those
 found by detection. whisper.cpp's own log output goes to stderr. The engine
 lowers its own process priority at start and uses all physical cores but
 one, so the computer stays usable during a run.
+The model event names the backend and GPU that whisper.cpp initialized.
+The done event reports time spent decoding, finding speakers, loading the
+model, transcribing, and writing. The sum can be lower than elapsed time
+because progress reporting and other work are outside those stages.
 
 ## The app
 
@@ -160,7 +167,10 @@ one, so the computer stays usable during a run.
   overwritten.
 - `guard.rs`: the safety rules as pure functions over numbers, fed by
   `sysinfo`. Before a run, free memory must cover the model's memory need,
-  or 1.5 GB for speaker detection when that is larger, plus 1 GB. Before a
+  or 1.5 GB for speaker detection when that is larger, plus an estimate of
+  three copies of decoded 16 kHz audio and 1 GB of headroom. If the file
+  has no usable duration, the audio estimate is skipped and the live memory
+  monitor still applies. Before a
   download or a copy into the models folder, free disk must cover the file
   plus 1 GB. During a run the engine
   is stopped when free memory falls under 400 MB or swap has grown by more

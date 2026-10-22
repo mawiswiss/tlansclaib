@@ -15,7 +15,7 @@ const STEPS: { step: Step; title: string; short: string }[] = [
 ];
 
 function deviceName(device: string | null): string {
-  return device === "metal" || device === "vulkan" ? "GPU" : "CPU";
+  return device === "metal" ? "Metal" : device === "vulkan" ? "Vulkan" : "CPU";
 }
 
 export function RunView({ run, showTimes, languageName, onCancel }: Props) {
@@ -54,7 +54,8 @@ export function RunView({ run, showTimes, languageName, onCancel }: Props) {
         return run.speakerProgress === null && run.speakers.length > 1 ? "One per audio track" : "";
       case "load": {
         if (!run.device) return "";
-        return run.language ? `${deviceName(run.device)} · ${languageName(run.language)}` : deviceName(run.device);
+        const device = run.deviceName ? `${deviceName(run.device)}: ${run.deviceName}` : deviceName(run.device);
+        return run.language ? `${device} · ${languageName(run.language)}` : device;
       }
       case "transcribe":
         return "";
@@ -106,6 +107,7 @@ export function RunView({ run, showTimes, languageName, onCancel }: Props) {
             {transcribing && est && <span>{speed(run.position, (now - (run.transcribeStartedAt ?? now)) / 1000)}</span>}
           </div>
         </div>
+        {run.retryReason && <p role="status" className="muted">{run.retryReason}</p>}
       </div>
       <div className="log card" ref={log} onScroll={onScroll}>
         {run.lines.length === 0 && <p className="muted">The text appears here as it is recognised.</p>}

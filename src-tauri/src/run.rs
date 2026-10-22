@@ -3,8 +3,8 @@ use std::sync::Mutex;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, anyhow};
-use engine::protocol::Event;
-use serde::Serialize;
+use engine::protocol::{Event, Step};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
@@ -49,6 +49,16 @@ pub struct RunState(pub Mutex<Option<ActiveRun>>, pub tokio::sync::Mutex<()>);
 #[serde(tag = "event", rename_all = "snake_case")]
 enum AppEvent {
     Cancelled,
+    Retry { message: String },
+}
+
+#[derive(Deserialize)]
+struct AudioInfo {
+    sample_seconds: Option<f64>,
+}
+
+fn retry_on_cpu(gpu_attempt: bool, step: Option<Step>, model_ready: bool, code: Option<i32>) -> bool {
+    gpu_attempt && step == Some(Step::Load) && !model_ready && code != Some(0)
 }
 
 pub fn engine_pid(app: &AppHandle) -> Option<u32> {
@@ -98,9 +108,20 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     }
     let (entry, model_path) = app.state::<Models>().installed_path(model_id)?;
     let monitor = app.state::<std::sync::Arc<Monitor>>();
-    let (free, swap_at_start) = monitor.memory();
+    let (free, _) = monitor.memory();
     let detection_ram = if speakers.is_some() { guard::DETECTION_RAM } else { 0 };
     guard::can_start(free, entry.ram_bytes().max(detection_ram)).map_err(|e| anyhow!(e))?;
+    let audio_arg = audio.to_string_lossy().into_owned();
+    let info = app.shell().sidecar("tlansclaib-engine")?.args(["audio-info", "--audio", &audio_arg]).output().await?;
+    if !info.status.success() {
+        return Err(anyhow!("Could not inspect the recording. Check that it is a supported audio or video file."));
+    }
+    let AudioInfo { sample_seconds } = serde_json::from_slice(&info.stdout)?;
+    if sample_seconds.is_none() {
+        log::warn!("recording length is unavailable, so the decoded audio memory estimate was skipped");
+    }
+    let (free, swap_at_start) = monitor.memory();
+    guard::can_start_recording(free, entry.ram_bytes(), detection_ram, sample_seconds).map_err(|e| anyhow!(e))?;
 
     if let Some(dir) = transcript.and_then(Path::parent).filter(|d| !d.is_dir()) {
         return Err(anyhow!("The folder {} is not there any more.", dir.display()));
@@ -146,6 +167,16 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     };
     #[cfg(not(windows))]
     let engine_name = "tlansclaib-engine";
+    #[cfg(target_os = "macos")]
+    let retry_args = {
+        let mut args = args.clone();
+        args.push("--cpu".into());
+        args
+    };
+    #[cfg(not(target_os = "macos"))]
+    let retry_args = args.clone();
+    let mut gpu_attempt = cfg!(target_os = "macos") || engine_name == "tlansclaib-engine-vulkan";
+    let backend = if cfg!(target_os = "macos") { "Metal" } else { "Vulkan" };
     let (mut events, child) = app.shell().sidecar(engine_name)?.args(args).spawn()?;
     let awake = keepawake::Builder::default()
         .idle(true)
@@ -185,10 +216,25 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
 
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
+        let mut step = None;
+        let mut model_ready = false;
+        let mut pending_gpu_error = None;
         while let Some(event) = events.recv().await {
             match event {
                 CommandEvent::Stdout(line) => match serde_json::from_slice::<Event>(&line) {
                     Ok(event) => {
+                        if let Event::Step { step: next } = &event {
+                            step = Some(*next);
+                        }
+                        if matches!(&event, Event::Model { .. }) {
+                            model_ready = true;
+                        }
+                        if gpu_attempt && step == Some(Step::Load) && !model_ready
+                            && let Event::Error { message } = &event
+                        {
+                            pending_gpu_error = Some(message.clone());
+                            continue;
+                        }
                         track(&app, &event);
                         let _ = app.emit("engine-event", &event);
                     }
@@ -197,16 +243,58 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                 CommandEvent::Stderr(line) => log::info!(target: "engine", "{}", String::from_utf8_lossy(&line).trim_end()),
                 CommandEvent::Error(message) => log::error!(target: "engine", "{message}"),
                 CommandEvent::Terminated(payload) => {
+                    if retry_on_cpu(gpu_attempt, step, model_ready, payload.code) && app.state::<RunState>().0.lock().unwrap().is_some() {
+                        log::warn!("{backend} model startup failed. Retrying on CPU.");
+                        let _ = app.emit(
+                            "engine-event",
+                            AppEvent::Retry {
+                                message: format!("{backend} could not load the model. Retrying on CPU."),
+                            },
+                        );
+                        let retry = (|| -> Result<_> { Ok(app.shell().sidecar("tlansclaib-engine")?.args(retry_args.clone()).spawn()?) })();
+                        match retry {
+                            Ok((new_events, child)) => {
+                                let state = app.state::<RunState>();
+                                let mut active = state.0.lock().unwrap();
+                                if let Some(run) = active.as_mut() {
+                                    run.pid = child.pid();
+                                    run.child = Some(child);
+                                    run.saw_error = false;
+                                    events = new_events;
+                                    gpu_attempt = false;
+                                    step = None;
+                                    model_ready = false;
+                                    pending_gpu_error = None;
+                                    continue;
+                                }
+                                let _ = child.kill();
+                                break;
+                            }
+                            Err(error) => {
+                                if let Some(run) = app.state::<RunState>().0.lock().unwrap().as_mut() {
+                                    run.saw_error = true;
+                                }
+                                let _ = app.emit(
+                                    "engine-event",
+                                    Event::Error {
+                                        message: format!("{backend} model startup failed, and the CPU retry could not start: {error}"),
+                                    },
+                                );
+                            }
+                        }
+                    }
                     let run = app.state::<RunState>().0.lock().unwrap().take();
                     if let Some(run) = run {
                         if payload.code != Some(0) && !run.saw_error {
                             let _ = app.emit(
                                 "engine-event",
                                 Event::Error {
-                                    message: format!(
-                                        "The engine stopped unexpectedly (exit code {}). The log file has details.",
-                                        payload.code.map(|c| c.to_string()).unwrap_or_else(|| "none".into())
-                                    ),
+                                    message: pending_gpu_error.unwrap_or_else(|| {
+                                        format!(
+                                            "The engine stopped unexpectedly (exit code {}). The log file has details.",
+                                            payload.code.map(|c| c.to_string()).unwrap_or_else(|| "none".into())
+                                        )
+                                    }),
                                 },
                             );
                         }
@@ -238,7 +326,7 @@ fn track(app: &AppHandle, event: &Event) {
             record.speakers = speakers.clone();
             record.detected = true;
         }
-        Event::Model { device, threads, language, windows } => {
+        Event::Model { device, threads, language, windows, .. } => {
             log::info!("model loaded on {device} with {threads} threads, language {language}, {windows} windows");
             record.language = Some(language.clone());
         }
@@ -250,8 +338,16 @@ fn track(app: &AppHandle, event: &Event) {
             log::error!("engine: {message}");
             run.saw_error = true;
         }
-        Event::Done { lines, elapsed, file } => {
+        Event::Done { lines, elapsed, file, timings } => {
             log::info!("done: {lines} lines in {elapsed:.1} s, {}", file_name(file));
+            log::info!(
+                "stage times: decode {:.2}s, speakers {:.2}s, load {:.2}s, transcribe {:.2}s, write {:.2}s",
+                timings.decode,
+                timings.speakers,
+                timings.load,
+                timings.transcribe,
+                timings.write
+            );
             record.saved = true;
             let entry = entry(record, history::Status::Done, *lines, *elapsed);
             let times = record.times.clone();
@@ -351,5 +447,14 @@ mod tests {
             output_file(Path::new("/recordings/meeting.m4a"), Some(Path::new("/out"))),
             PathBuf::from("/out/meeting_transcript.txt")
         );
+    }
+
+    #[test]
+    fn retries_only_a_gpu_failure_before_the_model_is_ready() {
+        assert!(retry_on_cpu(true, Some(Step::Load), false, Some(1)));
+        assert!(!retry_on_cpu(true, Some(Step::Decode), false, Some(1)));
+        assert!(!retry_on_cpu(true, Some(Step::Load), true, Some(1)));
+        assert!(!retry_on_cpu(true, Some(Step::Load), false, Some(0)));
+        assert!(!retry_on_cpu(false, Some(Step::Load), false, Some(1)));
     }
 }

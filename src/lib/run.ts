@@ -1,4 +1,4 @@
-import type { EngineEvent, HistoryEntry, Match, Step } from "./types";
+import type { EngineEvent, HistoryEntry, Match, Step, Timings } from "./types";
 
 export type Line = { start: number; end: number; text: string; speaker?: number };
 
@@ -19,6 +19,9 @@ export type RunState = {
   video: boolean | null;
   windows: number | null;
   device: string | null;
+  deviceName: string | null;
+  retryReason: string | null;
+  timings: Timings | null;
   threads: number | null;
   language: string | null;
   lines: Line[];
@@ -53,6 +56,9 @@ export const idle: RunState = {
   video: null,
   windows: null,
   device: null,
+  deviceName: null,
+  retryReason: null,
+  timings: null,
   threads: null,
   language: null,
   lines: [],
@@ -171,7 +177,9 @@ export function reduce(state: RunState, action: RunAction): RunState {
         case "audio":
           return { ...state, audioSeconds: e.seconds, speakers: e.speakers ?? [], video: e.video ?? false };
         case "model":
-          return { ...state, device: e.device, threads: e.threads, language: e.language, windows: e.windows, total: e.windows };
+          return { ...state, device: e.device, deviceName: e.device_name ?? null, retryReason: state.retryReason && e.device === "cpu" ? state.retryReason.replace("Retrying on CPU.", "This run is using the CPU.") : state.retryReason, threads: e.threads, language: e.language, windows: e.windows, total: e.windows };
+        case "retry":
+          return { ...state, retryReason: e.message };
         case "line":
           return { ...state, lines: [...state.lines, { start: e.start, end: e.end, text: e.text, speaker: e.speaker }] };
         case "speakers":
@@ -187,6 +195,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
             step: null,
             finishedAt: action.now,
             result: { lines: e.lines, elapsed: e.elapsed, file: e.file },
+            timings: e.timings ?? null,
           };
         case "error":
           return { ...state, status: "error", error: e.message };

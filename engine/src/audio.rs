@@ -10,6 +10,7 @@ use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, TrackType};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
+use symphonia::core::units::TimeBase;
 
 use crate::RATE;
 
@@ -23,6 +24,56 @@ pub struct Source {
 
 pub fn load(path: &Path) -> Result<Vec<f32>> {
     Ok(mix(load_tracks(path)?.tracks))
+}
+
+pub fn sample_seconds(path: &Path) -> Result<Option<f64>> {
+    let file = File::open(path).with_context(|| format!("cannot open {}", path.display()))?;
+    let stream = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
+        hint.with_extension(extension);
+    }
+    let mut format = symphonia::default::get_probe()
+        .probe(&hint, stream, FormatOptions::default(), MetadataOptions::default())
+        .map_err(|e| anyhow!("this is not an audio file symphonia can read: {e}"))?;
+    let mut spans: Vec<(u32, Option<TimeBase>, f64, Option<f64>)> = format
+        .tracks()
+        .iter()
+        .filter(|track| track.track_type() == Some(TrackType::Audio))
+        .map(|track| {
+            let start = track.time_base.and_then(|base| base.calc_time(track.start_ts)).map(|time| time.as_secs_f64().max(0.0)).unwrap_or(0.0);
+            let duration = track
+                .time_base
+                .zip(track.duration)
+                .and_then(|(base, duration)| base.calc_duration(duration))
+                .map(|time| time.as_secs_f64())
+                .or_else(|| track.num_frames.zip(track.codec_params.as_ref()?.audio()?.sample_rate).map(|(frames, rate)| frames as f64 / rate as f64))
+                .filter(|duration| *duration > 0.0);
+            (track.id, track.time_base, start, duration.map(|duration| start + duration))
+        })
+        .collect();
+    if spans.is_empty() {
+        return Err(anyhow!("this file has no audio track"));
+    }
+    if spans.iter().any(|(_, _, _, end)| end.is_none()) {
+        loop {
+            let packet = match format.next_packet() {
+                Ok(Some(packet)) => packet,
+                Ok(None) | Err(Error::ResetRequired) => break,
+                Err(e) => bail!("cannot read the audio: {e}"),
+            };
+            if let Some((_, Some(base), start, end)) = spans.iter_mut().find(|span| span.0 == packet.track_id)
+                && let (Some(packet_start), Some(packet_duration)) = (base.calc_time(packet.pts), base.calc_duration(packet.block_dur()))
+            {
+                let packet_start = packet_start.as_secs_f64().max(0.0);
+                *start = start.min(packet_start);
+                let packet_end = packet_start + packet_duration.as_secs_f64();
+                *end = Some(end.unwrap_or(0.0).max(packet_end));
+            }
+        }
+    }
+    let earliest = spans.iter().map(|(_, _, start, _)| *start).fold(f64::INFINITY, f64::min);
+    Ok(spans.into_iter().map(|(_, _, _, end)| end.map(|end| (end - earliest).max(0.0))).sum())
 }
 
 pub fn load_tracks(path: &Path) -> Result<Source> {
@@ -288,6 +339,15 @@ mod tests {
         assert!(rms(&second[early.clone()]) < 0.02 && rms(&second[late.clone()]) > 0.2);
         let mixed = load(&fixture).unwrap();
         assert!(rms(&mixed[early]) > 0.2 && rms(&mixed[late]) > 0.2);
+    }
+
+    #[test]
+    fn estimates_all_decoded_tracks_before_loading_them() {
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/two-tracks.m4a");
+        let estimate = sample_seconds(&fixture).unwrap().unwrap();
+        let source = load_tracks(&fixture).unwrap();
+        let actual = source.tracks.iter().map(|track| track.len() as f64 / RATE as f64).sum::<f64>();
+        assert!((estimate - actual).abs() < 0.1, "estimate {estimate}, actual {actual}");
     }
 
     #[test]

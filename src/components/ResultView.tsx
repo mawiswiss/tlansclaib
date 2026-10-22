@@ -332,7 +332,7 @@ export function ResultView(props: Props) {
                   .join(" · ")}
               </span>
               <Tooltip
-                content={`${fileName(run.audio)}, ${result.lines} lines, transcribed in ${duration(result.elapsed)}${run.audioSeconds !== null ? `, ${speed(run.audioSeconds, result.elapsed)}` : ""}.`}
+                content={`${fileName(run.audio)}, ${result.lines} lines, transcribed in ${duration(result.elapsed)}${run.audioSeconds !== null ? `, ${speed(run.audioSeconds, result.elapsed)}` : ""}.${run.timings ? ` Read ${run.timings.decode.toFixed(1)}s, speakers ${run.timings.speakers.toFixed(1)}s, model ${run.timings.load.toFixed(1)}s, transcription ${run.timings.transcribe.toFixed(1)}s, saving ${run.timings.write.toFixed(1)}s.` : ""}`}
               >
                 <span className="meta-info" tabIndex={0} aria-label="Recording and transcription time">
                   <Info size={14} />

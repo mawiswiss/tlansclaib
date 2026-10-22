@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
-use engine::protocol::{Event, Step, emit};
+use engine::protocol::{Event, Step, Timings, emit};
 use engine::{audio, model_file, output, speakers, transcribe, windows};
 use serde_json::json;
 
@@ -68,6 +68,11 @@ enum Command {
     Check { file: PathBuf },
     /// Decode an audio file to raw 16 kHz mono float samples, for checking the decoder
     Decode { audio: PathBuf, output: PathBuf },
+    /// Estimate the decoded audio size without loading its samples
+    AudioInfo {
+        #[arg(long)]
+        audio: PathBuf,
+    },
     /// Print the languages whisper supports as JSON
     Languages,
     #[cfg(all(target_os = "windows", feature = "vulkan"))]
@@ -178,6 +183,9 @@ fn main() {
             println!("{} samples", samples.len());
             Ok(())
         }),
+        Command::AudioInfo { audio } => audio::sample_seconds(&audio).map(|sample_seconds| {
+            println!("{}", json!({ "sample_seconds": sample_seconds }));
+        }),
         Command::Speakers { audio, models, speakers: count, threshold, threads, shift, min_on, min_off } => audio::load(&audio).and_then(|samples| {
             let started = Instant::now();
             let detection = speakers::Detection {
@@ -281,13 +289,16 @@ fn run(
     decoding: transcribe::Decoding,
 ) -> Result<()> {
     let started = Instant::now();
+    let mut timings = Timings::default();
     if !audio_path.is_file() {
         return Err(anyhow!("{} not found", audio_path.display()));
     }
     model_file::inspect(model).map_err(|e| anyhow!("{} is {e}", model.display()))?;
 
     emit(&Event::Step { step: Step::Decode });
+    let phase = Instant::now();
     let audio::Source { tracks, video } = audio::load_tracks(audio_path)?;
+    timings.decode = phase.elapsed().as_secs_f64();
     let mut speakers = output::speakers(tracks.len());
     emit(&Event::Audio {
         seconds: tracks.iter().map(Vec::len).max().unwrap_or(0) as f64 / engine::RATE as f64,
@@ -302,6 +313,7 @@ fn run(
         }
         Some((SpeakerCount(count), folder, window_shift)) => {
             emit(&Event::Step { step: Step::Speakers });
+            let phase = Instant::now();
             let detection = speakers::Detection {
                 folder,
                 speakers: count,
@@ -319,12 +331,14 @@ fn run(
                     emit(&Event::SpeakerProgress { done, total });
                 }
             })?;
+            timings.speakers = phase.elapsed().as_secs_f64();
             Some(turns)
         }
         None => None,
     };
 
     emit(&Event::Step { step: Step::Load });
+    let phase = Instant::now();
     let mut engine = transcribe::Engine::load(model, threads, use_gpu)?;
     engine.decoding = decoding;
     let mut state = engine.state()?;
@@ -352,25 +366,29 @@ fn run(
     };
     emit(&Event::Model {
         device: engine.device.to_string(),
+        device_name: engine.device_name.clone(),
         threads,
         language: language.clone(),
         windows: segments.len(),
     });
+    timings.load = phase.elapsed().as_secs_f64();
 
-    emit(&Event::Step {
-        step: Step::Transcribe,
-    });
+    emit(&Event::Step { step: Step::Transcribe });
     let mut writer = output::Writer::create(output, timestamps)?;
     let mut position = 0.0f64;
     for (done, (track, speaker, window)) in segments.iter().enumerate() {
+        let phase = Instant::now();
         let text = engine.transcribe(&mut state, &tracks[*track][window.start..window.end], &language)?;
+        timings.transcribe += phase.elapsed().as_secs_f64();
         emit(&Event::Line {
             start: window.start_seconds(),
             end: window.end_seconds(),
             text: text.clone(),
             speaker: *speaker,
         });
+        let phase = Instant::now();
         writer.append(window, speaker.and_then(|s| speakers.get(s)).map(String::as_str), &text)?;
+        timings.write += phase.elapsed().as_secs_f64();
         position = position.max(window.end_seconds());
         emit(&Event::Progress {
             done: done + 1,
@@ -380,11 +398,14 @@ fn run(
     }
 
     emit(&Event::Step { step: Step::Write });
+    let phase = Instant::now();
     let (lines, file) = writer.finish()?;
+    timings.write += phase.elapsed().as_secs_f64();
     emit(&Event::Done {
         lines,
         elapsed: started.elapsed().as_secs_f64(),
         file,
+        timings,
     });
     Ok(())
 }

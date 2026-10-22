@@ -6,6 +6,17 @@ function play(events: Parameters<typeof reduce>[1][]): RunState {
 }
 
 describe("run reducer", () => {
+  it("reports the selected GPU and a CPU retry without ending the run", () => {
+    const started = reduce(idle, { type: "start", audio: "/x/meeting.m4a", folder: "/x", modelName: "Thai (fast)", timestamps: true, autoLanguage: false, now: 0 });
+    const retry = reduce(started, { type: "engine", event: { event: "retry", message: "Metal could not load the model. Retrying on CPU." }, now: 1 });
+    expect(retry.status).toBe("running");
+    const cpu = reduce(retry, { type: "engine", event: { event: "model", device: "cpu", threads: 4, language: "en", windows: 1 }, now: 2 });
+    expect(cpu.retryReason).toContain("using the CPU");
+    expect(cpu.retryReason).toContain("Metal");
+    const gpu = reduce(started, { type: "engine", event: { event: "model", device: "vulkan", device_name: "GPU", threads: 4, language: "en", windows: 1 }, now: 2 });
+    expect(gpu.deviceName).toBe("GPU");
+  });
+
   it("follows the engine from start to done", () => {
     const state = play([
       { type: "start", audio: "/x/meeting.m4a", folder: "/x", modelName: "Thai (fast)", timestamps: true, autoLanguage: false, now: 1000 },

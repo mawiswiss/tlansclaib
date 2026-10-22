@@ -10,13 +10,28 @@ pub const SWAP_GROWTH_LIMIT: u64 = 2 * GIB;
 /// Speaker detection peaked at 1.3 GB on a 107-minute recording. It runs before the model loads.
 pub const DETECTION_RAM: u64 = 3 << 29;
 
+const AUDIO_BYTES_PER_SECOND: u64 = 16_000 * 4 * 3;
+
+pub fn decoded_audio_bytes(sample_seconds: f64) -> u64 {
+    if !sample_seconds.is_finite() || sample_seconds < 0.0 {
+        return u64::MAX;
+    }
+    (sample_seconds.ceil() * AUDIO_BYTES_PER_SECOND as f64) as u64
+}
+
+pub fn can_start_recording(free: u64, model: u64, detection: u64, sample_seconds: Option<f64>) -> Result<(), String> {
+    let audio = sample_seconds.map(decoded_audio_bytes).unwrap_or(0);
+    can_start(free, model.max(detection).saturating_add(audio))
+}
+
 pub fn can_start(free: u64, needed: u64) -> Result<(), String> {
-    if free >= needed + RUN_HEADROOM {
+    let minimum = needed.saturating_add(RUN_HEADROOM);
+    if needed.checked_add(RUN_HEADROOM).is_some_and(|minimum| free >= minimum) {
         return Ok(());
     }
     Err(format!(
-        "This transcription needs about {} of free RAM and {} is free. Close other programs or choose a smaller model.",
-        gb(needed + RUN_HEADROOM),
+        "This transcription needs about {} of free RAM and {} is free. Close other programs, choose a smaller model, or use a shorter recording.",
+        gb(minimum),
         gb(free)
     ))
 }
@@ -77,6 +92,15 @@ mod tests {
         let refused = can_start(3 * GIB - 1, 2 * GIB).unwrap_err();
         assert!(refused.contains("3.0 GB of free RAM"), "{refused}");
         assert!(refused.contains("smaller model"));
+    }
+
+    #[test]
+    fn long_audio_adds_to_model_memory_without_overflow() {
+        assert_eq!(decoded_audio_bytes(3600.0), 691_200_000);
+        assert!(can_start_recording(3 * GIB, GIB, 0, Some(3600.0)).is_ok());
+        assert!(can_start_recording(2 * GIB, GIB, 0, Some(3600.0)).is_err());
+        assert!(can_start_recording(u64::MAX, GIB, 0, Some(f64::INFINITY)).is_err());
+        assert!(can_start_recording(GIB, GIB, 0, Some(f64::INFINITY)).is_err());
     }
 
     #[test]

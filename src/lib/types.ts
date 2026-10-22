@@ -71,14 +71,17 @@ export type Step = "decode" | "speakers" | "load" | "transcribe" | "write";
 
 export type SpeakerDetection = { available: boolean; installed: boolean; downloading: boolean; download_bytes: number; disk_bytes: number };
 
+export type Timings = { decode: number; speakers: number; load: number; transcribe: number; write: number };
+
 export type EngineEvent =
   | { event: "step"; step: Step }
   | { event: "audio"; seconds: number; speakers?: string[]; video?: boolean }
-  | { event: "model"; device: string; threads: number; language: string; windows: number }
+  | { event: "model"; device: string; device_name?: string; threads: number; language: string; windows: number }
   | { event: "line"; start: number; end: number; text: string; speaker?: number }
   | { event: "speakers"; speakers: string[] }
   | { event: "speaker_progress"; done: number; total: number }
   | { event: "progress"; done: number; total: number; position: number }
-  | { event: "done"; lines: number; elapsed: number; file: string }
+  | { event: "done"; lines: number; elapsed: number; file: string; timings?: Timings }
   | { event: "error"; message: string }
+  | { event: "retry"; message: string }
   | { event: "cancelled" };

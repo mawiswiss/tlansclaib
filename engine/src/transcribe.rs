@@ -1,4 +1,6 @@
+use std::ffi::{CStr, c_char, c_void};
 use std::path::Path;
+use std::sync::Mutex;
 
 use anyhow::{Result, anyhow};
 use whisper_rs::{
@@ -11,7 +13,39 @@ pub struct Engine {
     context: WhisperContext,
     pub threads: usize,
     pub device: &'static str,
+    pub device_name: Option<String>,
     pub decoding: Decoding,
+}
+
+static BACKEND_NAME: Mutex<Option<String>> = Mutex::new(None);
+
+unsafe extern "C" fn whisper_log(level: whisper_rs::whisper_rs_sys::ggml_log_level, text: *const c_char, _: *mut c_void) {
+    if text.is_null() {
+        return;
+    }
+    let message = unsafe { CStr::from_ptr(text) }.to_string_lossy();
+    let message = message.trim();
+    if let Some(name) = selected_backend(message) {
+        if let Ok(mut backend) = BACKEND_NAME.lock() {
+            *backend = Some(name.to_string());
+        }
+        return;
+    } else if message.starts_with("whisper_backend_init_gpu: failed to initialize ")
+        && let Ok(mut backend) = BACKEND_NAME.lock()
+    {
+        *backend = None;
+    }
+    use whisper_rs::whisper_rs_sys as sys;
+    match level {
+        sys::ggml_log_level_GGML_LOG_LEVEL_ERROR => log::error!(target: "whisper", "{message}"),
+        sys::ggml_log_level_GGML_LOG_LEVEL_WARN => log::warn!(target: "whisper", "{message}"),
+        sys::ggml_log_level_GGML_LOG_LEVEL_DEBUG => log::debug!(target: "whisper", "{message}"),
+        _ => log::info!(target: "whisper", "{message}"),
+    }
+}
+
+fn selected_backend(message: &str) -> Option<&str> {
+    message.strip_prefix("whisper_backend_init_gpu: using ")?.strip_suffix(" backend")
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -39,6 +73,9 @@ pub fn default_threads() -> usize {
 
 impl Engine {
     pub fn load(model: &Path, threads: usize, use_gpu: bool) -> Result<Engine> {
+        whisper_rs::install_logging_hooks();
+        unsafe { whisper_rs::set_log_callback(Some(whisper_log), std::ptr::null_mut()) };
+        *BACKEND_NAME.lock().unwrap() = None;
         let path = model
             .to_str()
             .ok_or_else(|| anyhow!("the model path is not valid UTF-8"))?;
@@ -52,19 +89,11 @@ impl Engine {
                 model.file_name().map(|n| n.to_string_lossy()).unwrap_or_default()
             )
         })?;
-        let device = if !use_gpu {
-            "cpu"
-        } else if cfg!(target_os = "macos") {
-            "metal"
-        } else if cfg!(all(target_os = "windows", feature = "vulkan")) {
-            "vulkan"
-        } else {
-            "cpu"
-        };
         Ok(Engine {
             context,
             threads,
-            device,
+            device: "cpu",
+            device_name: None,
             decoding: Decoding::default(),
         })
     }
@@ -73,8 +102,19 @@ impl Engine {
         self.context.is_multilingual()
     }
 
-    pub fn state(&self) -> Result<WhisperState> {
-        Ok(self.context.create_state()?)
+    pub fn state(&mut self) -> Result<WhisperState> {
+        let state = self.context.create_state()?;
+        self.device_name = BACKEND_NAME.lock().unwrap().clone();
+        self.device = if self.device_name.is_none() {
+            "cpu"
+        } else if cfg!(target_os = "macos") {
+            "metal"
+        } else if cfg!(all(target_os = "windows", feature = "vulkan")) {
+            "vulkan"
+        } else {
+            "cpu"
+        };
+        Ok(state)
     }
 
     pub fn detect_language(&self, state: &mut WhisperState, samples: &[f32]) -> Result<String> {
@@ -169,4 +209,15 @@ pub fn languages() -> Vec<(String, String)> {
             ))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod backend_tests {
+    use super::selected_backend;
+
+    #[test]
+    fn reads_the_device_whisper_actually_initialized() {
+        assert_eq!(selected_backend("whisper_backend_init_gpu: using Apple M4 backend"), Some("Apple M4"));
+        assert_eq!(selected_backend("whisper_backend_init_gpu: no GPU found"), None);
+    }
 }
