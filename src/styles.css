@@ -2742,12 +2742,21 @@ button.setup-mode.selected {
 
 .setup-badges {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   min-height: 22px;
 }
 
 .setup-badges .chip.ok {
   background: linear-gradient(var(--ok-soft), var(--ok-soft)), var(--surface);
+}
+
+.setup-badges .chip.warn {
+  background: linear-gradient(var(--warn-soft), var(--warn-soft)), var(--surface);
+}
+
+.setup-badges .chip.high {
+  background: linear-gradient(var(--problem-soft), var(--problem-soft)), var(--surface);
 }
 
 .setup-wave {

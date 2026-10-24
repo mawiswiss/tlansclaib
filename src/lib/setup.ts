@@ -18,8 +18,9 @@ export type Setup = { mode: Mode; language: SetupLanguage; added: string[]; remo
 export const SEVERAL: SetupLanguage = { code: "auto", variant: null };
 
 const GIB = 2 ** 30;
-const PRECISE_DOWNLOAD_SECONDS = 600;
-const PRECISE_MEMORY = 16 * GIB;
+const PRECISE_DOWNLOAD_SECONDS = 1800;
+// Windows reports RAM minus what the hardware reserves, so a 16 GB PC shows less.
+const PRECISE_MEMORY = 14 * GIB;
 
 export function languageKey(language: SetupLanguage): string {
   return language.variant ? `${language.code}|${language.variant}` : language.code;
@@ -118,7 +119,7 @@ export function recommend({ speed, gpu, memoryTotal, preciseBytes, preciseRamGb 
   if (speed === "measuring" || gpu === null || memoryTotal === null) return null;
   if (speed === "offline" || !gpu.usable || memoryTotal < PRECISE_MEMORY) return "essential";
   if (ramFit(preciseRamGb, memoryTotal).level !== "ok") return "essential";
-  return downloadSeconds(preciseBytes, speed) <= PRECISE_DOWNLOAD_SECONDS ? "precise" : "essential";
+  return downloadSeconds(preciseBytes, speed) < PRECISE_DOWNLOAD_SECONDS ? "precise" : "essential";
 }
 
 export type LanguageOption = { value: string; label: string };

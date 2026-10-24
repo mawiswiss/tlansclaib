@@ -41,15 +41,17 @@ On the first start it asks two things:
   only the model for all languages.
 - A setup:
   - Precise: the most accurate results, with the biggest models and the better
-    speaker detection. For a computer with a graphics chip and a fast
-    connection. About 3.3 GB, more with a language of its own.
+    speaker detection. For a computer with a graphics chip and 16 GB RAM.
+    About 3.3 GB, more with a language of its own.
   - Essential: mid-sized models and basic speaker detection, for older
     computers or a slower connection. About 900 MB.
   - Minimal: the smallest model and no speaker detection, for testing or when
     the others do not run. 78 MB.
 
 The app measures the connection, checks for a graphics chip and marks one
-setup "Recommended for this computer". Any setup can be chosen. "Download and
+setup "Recommended for this computer". A download of 10 minutes or more
+shows a "Longer download" chip on the setup. Precise stays recommended up to 30
+minutes, because the models download once. Any setup can be chosen. "Download and
 start" fetches the models in the background, the model for your language
 first, and a line below the settings shows how far it is. A transcription can
 start as soon as the first model is in.

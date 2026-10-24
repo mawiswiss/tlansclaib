@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { downloadSeconds } from "../lib/fit";
+import { downloadFit, downloadSeconds } from "../lib/fit";
 import { bytes, wholeGb } from "../lib/format";
 import { languageKey, missingBytes, MODE_DETECTION, MODE_NAMES, MODES, parseLanguage, recommend, SEVERAL, setupLanguages, wanted, type Mode, type Setup, type SetupLanguage } from "../lib/setup";
 import type { DiskSpace, Gpu, Language, ModelStatus, SpeakerDetection, Stats } from "../lib/types";
@@ -125,6 +125,7 @@ export function SetupView(props: Props) {
         {MODES.map((mode) => {
           const size = sizes[mode];
           const time = size > 0 ? timeText(size, speed) : null;
+          const slow = size > 0 && typeof speed === "number" ? downloadFit(downloadSeconds(size, speed)) : null;
           const ram = memory(mode);
           return (
             <button
@@ -144,6 +145,11 @@ export function SetupView(props: Props) {
                 <span className="setup-badges">
                   {badge === mode && <span className="chip recommended">Recommended</span>}
                   {setup?.mode === mode && languageKey(setup.language) === languageValue && <span className="chip ok">Your setup</span>}
+                  {slow && slow.level !== "ok" && (
+                    <span className={`chip ${slow.level}`} title={slow.tip ?? undefined}>
+                      Longer download
+                    </span>
+                  )}
                 </span>
                 <Wave mode={mode} />
               </span>

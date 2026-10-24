@@ -109,11 +109,17 @@ describe("recommend", () => {
     expect(recommend(base)).toBe("precise");
   });
 
+  it("keeps Precise on a 16 GB Windows PC and when the download takes under 30 minutes", () => {
+    expect(recommend({ ...base, memoryTotal: 15.7 * GIB })).toBe("precise");
+    expect(recommend({ ...base, speed: 2e6 })).toBe("precise");
+  });
+
   it("recommends Essential without a GPU, offline, on a slow line or with little memory", () => {
     expect(recommend({ ...base, gpu: { ...gpu, backend: null, usable: false } })).toBe("essential");
     expect(recommend({ ...base, speed: "offline" })).toBe("essential");
-    expect(recommend({ ...base, speed: 2e6 })).toBe("essential");
+    expect(recommend({ ...base, speed: 1.5e6 })).toBe("essential");
     expect(recommend({ ...base, memoryTotal: 8 * GIB })).toBe("essential");
+    expect(recommend({ ...base, memoryTotal: 12 * GIB })).toBe("essential");
   });
 
   it("waits while measuring and never recommends Minimal", () => {

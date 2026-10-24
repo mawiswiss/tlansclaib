@@ -389,9 +389,11 @@ start again as "Speaker 1" and so on.
   (`wanted` in `lib/setup.ts`). The tables are in `docs/models.md`.
 - Each setup shows what it still has to download and how long that takes at
   the measured speed. "Recommended for this computer" marks Precise when the
-  graphics chip can run its model, the computer has 16 GB RAM or more, the
-  model's RAM rates green and its downloads take at most 10 minutes.
-  Otherwise it marks Essential, also offline (`recommend`). Nothing is
+  graphics chip can run its model, the computer reports 14 GB RAM or more (a
+  16 GB Windows PC reports less than 16), the model's RAM rates green and its
+  downloads take less than 30 minutes. Otherwise it marks Essential, also
+  offline (`recommend`). A setup whose downloads take 10 minutes or more
+  carries a "Longer download" chip, orange, red from an hour. Nothing is
   selected while the check runs, then the marked setup is, unless the user
   already clicked one. Offline, the download button waits for "Try again".
 - "Download and start" or "Apply" saves the setup in the settings and
