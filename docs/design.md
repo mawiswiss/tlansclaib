@@ -158,9 +158,12 @@ because progress reporting and other work are outside those stages.
     its MIT licence are extracted. The model's OpenMDW 1.1 licence and origin
     notice are saved beside it.
 - `gpu.rs`: whether the computer can run the Precise model on its graphics
-  chip, for the setup's recommendation. Apple silicon counts as Metal, an
-  Intel Mac as no fast GPU. Windows asks the Vulkan sidecar for free memory,
-  as before a run.
+  chip, for the setup's recommendation. `tlansclaib-engine probe` starts the
+  GPU whisper.cpp would pick and prints its backend, name and free memory, or
+  null. On Windows the Vulkan sidecar answers, as before a run. A probe that
+  hangs is killed after 10 seconds and counts as no GPU. Apple silicon is
+  usable when Metal starts, an Intel Mac never, Windows when the model fits
+  in the free memory.
 - `validate.rs`: no model file is accepted unvalidated. Every file passes the
   header check. A file for a list entry must also match the entry's size and
   SHA-256. See `models.md`.

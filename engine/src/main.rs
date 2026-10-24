@@ -79,9 +79,8 @@ enum Command {
     },
     /// Print the languages whisper supports as JSON
     Languages,
-    #[cfg(all(target_os = "windows", feature = "vulkan"))]
-    /// Print free Vulkan memory in bytes, or null when no GPU is usable
-    GpuMemory,
+    /// Start the GPU whisper.cpp would use and print it as JSON, or null when there is none
+    Probe,
     /// Print who speaks when, using the speaker detection files in a folder
     Speakers {
         audio: PathBuf,
@@ -182,9 +181,8 @@ fn main() {
             result
         }
         Command::Check { file } => check(&file),
-        #[cfg(all(target_os = "windows", feature = "vulkan"))]
-        Command::GpuMemory => {
-            println!("{}", json!(transcribe::vulkan_free_memory()));
+        Command::Probe => {
+            println!("{}", json!(transcribe::gpu()));
             Ok(())
         }
         Command::Decode { audio, output } => audio::load(&audio).and_then(|samples| {

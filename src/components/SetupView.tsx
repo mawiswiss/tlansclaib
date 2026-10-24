@@ -47,10 +47,12 @@ function timeText(size: number, speed: Props["speed"]): string | null {
   return minutes < 60 ? `about ${minutes} min` : `about ${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 }
 
-function graphics(gpu: Gpu | null): string {
+function runsOn(gpu: Gpu | null): string {
   if (!gpu) return "Checking…";
-  if (!gpu.usable) return "No fast graphics chip";
-  return gpu.name ?? (gpu.backend === "metal" ? "Metal" : "Vulkan");
+  if (!gpu.backend) return "CPU";
+  const backend = gpu.backend === "metal" ? "Metal" : "Vulkan";
+  const device = gpu.name ? `${backend} · ${gpu.name}` : backend;
+  return gpu.backend === "vulkan" && !gpu.usable ? `${device}, CPU for Precise` : device;
 }
 
 function connection(speed: Props["speed"]): string {
@@ -77,7 +79,7 @@ export function SetupView(props: Props) {
     return Math.max(0, ...models.filter((m) => ids.includes(m.id)).map((m) => m.ram_gb));
   };
   const computer = [
-    { label: "Graphics", value: graphics(gpu) },
+    { label: "Runs on", value: runsOn(gpu) },
     { label: "Memory", value: stats ? wholeGb(stats.memory_total) : "Checking…" },
     { label: "Free disk", value: props.disk ? wholeGb(props.disk.free) : "Checking…" },
     { label: "Connection", value: connection(speed) },

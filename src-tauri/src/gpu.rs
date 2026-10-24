@@ -1,38 +1,63 @@
-use serde::Serialize;
+use std::time::Duration;
+
+use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
+use tauri_plugin_shell::ShellExt;
+use tauri_plugin_shell::process::CommandEvent;
+
+const PROBE_LIMIT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Gpu {
-    pub backend: Option<&'static str>,
+    pub backend: Option<String>,
     pub name: Option<String>,
     pub free_bytes: Option<u64>,
     pub usable: bool,
 }
 
-#[cfg(windows)]
-pub async fn vulkan_free(app: &AppHandle) -> Option<u64> {
-    use tauri_plugin_shell::ShellExt;
-    let probe = app.shell().sidecar("tlansclaib-engine-vulkan").ok()?.arg("gpu-memory").output().await;
-    probe
-        .ok()
-        .filter(|output| output.status.success())
-        .and_then(|output| serde_json::from_slice::<Option<u64>>(&output.stdout).ok())
-        .flatten()
+#[derive(Clone, Debug, Deserialize)]
+pub struct Device {
+    pub backend: String,
+    pub name: String,
+    pub free_bytes: u64,
 }
 
-#[cfg(windows)]
-pub async fn probe(app: &AppHandle, ram_bytes: u64) -> Gpu {
-    let free = vulkan_free(app).await;
-    Gpu { backend: free.map(|_| "vulkan"), name: None, free_bytes: free, usable: free.is_some_and(|free| crate::guard::can_use_gpu(free, ram_bytes)) }
-}
-
-#[cfg(not(windows))]
-pub async fn probe(_app: &AppHandle, _ram_bytes: u64) -> Gpu {
-    if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-        let mut system = sysinfo::System::new();
-        system.refresh_cpu_all();
-        let name = system.cpus().first().map(|cpu| cpu.brand().trim().to_string()).filter(|name| !name.is_empty());
-        return Gpu { backend: Some("metal"), name, free_bytes: None, usable: true };
+/// The GPU the engine sidecar starts, or None when it has none, fails or hangs.
+pub async fn device(app: &AppHandle) -> Option<Device> {
+    let sidecar = if cfg!(windows) { "tlansclaib-engine-vulkan" } else { "tlansclaib-engine" };
+    let (mut events, child) = app.shell().sidecar(sidecar).ok()?.arg("probe").spawn().ok()?;
+    let read = async {
+        let mut stdout = Vec::new();
+        while let Some(event) = events.recv().await {
+            match event {
+                CommandEvent::Stdout(line) => stdout.extend(line),
+                CommandEvent::Terminated(payload) => return (payload.code == Some(0)).then_some(stdout),
+                _ => {}
+            }
+        }
+        None
+    };
+    match tokio::time::timeout(PROBE_LIMIT, read).await {
+        Ok(stdout) => serde_json::from_slice::<Option<Device>>(&stdout?).ok().flatten(),
+        Err(_) => {
+            log::warn!("The GPU probe did not answer within {} s.", PROBE_LIMIT.as_secs());
+            let _ = child.kill();
+            None
+        }
     }
-    Gpu { backend: None, name: None, free_bytes: None, usable: false }
+}
+
+#[cfg_attr(not(windows), allow(unused_variables))]
+pub async fn probe(app: &AppHandle, ram_bytes: u64) -> Gpu {
+    let device = device(app).await;
+    #[cfg(windows)]
+    let usable = device.as_ref().is_some_and(|device| crate::guard::can_use_gpu(device.free_bytes, ram_bytes));
+    #[cfg(not(windows))]
+    let usable = device.is_some() && cfg!(all(target_os = "macos", target_arch = "aarch64"));
+    Gpu {
+        backend: device.as_ref().map(|d| d.backend.clone()),
+        name: device.as_ref().map(|d| d.name.clone()),
+        free_bytes: device.map(|d| d.free_bytes),
+        usable,
+    }
 }

@@ -60,7 +60,7 @@ jobs:
         shell: bash
         run: |
           cargo build -p tlansclaib-engine --features vulkan
-          "$CARGO_TARGET_DIR/debug/tlansclaib-engine.exe" --help | grep gpu-memory
+          grep -qa "No suitable queue family index found" "$CARGO_TARGET_DIR/debug/tlansclaib-engine.exe"
       - name: Cache the tiny model
         id: tiny
         uses: actions/cache@v4

@@ -157,7 +157,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     }
     #[cfg(windows)]
     let engine_name = {
-        if crate::gpu::vulkan_free(app).await.is_some_and(|free| guard::can_use_gpu(free, entry.ram_bytes())) {
+        if crate::gpu::device(app).await.is_some_and(|gpu| guard::can_use_gpu(gpu.free_bytes, entry.ram_bytes())) {
             "tlansclaib-engine-vulkan"
         } else {
             "tlansclaib-engine"

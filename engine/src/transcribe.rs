@@ -3,6 +3,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use anyhow::{Result, anyhow};
+use serde::Serialize;
 use whisper_rs::whisper_rs_sys as sys;
 use whisper_rs::{
     FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState,
@@ -81,7 +82,7 @@ impl Engine {
             .ok_or_else(|| anyhow!("the model path is not valid UTF-8"))?;
         let mut params = WhisperContextParameters::default();
         #[cfg(all(target_os = "windows", feature = "vulkan"))]
-        let use_gpu = use_gpu && vulkan_free_memory().is_some();
+        let use_gpu = use_gpu && gpu().is_some();
         params.use_gpu(use_gpu);
         let context = WhisperContext::new_with_params(path, params).map_err(|error| {
             anyhow!(
@@ -176,6 +177,41 @@ impl Engine {
     }
 }
 
+#[derive(Debug, Serialize)]
+pub struct Gpu {
+    pub backend: String,
+    pub name: String,
+    pub free_bytes: u64,
+    pub total_bytes: u64,
+}
+
+/// The GPU whisper.cpp would pick, started once to prove it works.
+pub fn gpu() -> Option<Gpu> {
+    register_vulkan();
+    unsafe {
+        let device = (0..sys::ggml_backend_dev_count()).map(|i| sys::ggml_backend_dev_get(i)).find(|&device| {
+            matches!(
+                sys::ggml_backend_dev_type(device),
+                sys::ggml_backend_dev_type_GGML_BACKEND_DEVICE_TYPE_GPU | sys::ggml_backend_dev_type_GGML_BACKEND_DEVICE_TYPE_IGPU
+            )
+        })?;
+        let backend = sys::ggml_backend_dev_init(device, std::ptr::null());
+        if backend.is_null() {
+            return None;
+        }
+        sys::ggml_backend_free(backend);
+        let (mut free, mut total) = (0usize, 0usize);
+        sys::ggml_backend_dev_memory(device, &mut free, &mut total);
+        let text = |ptr: *const c_char| (!ptr.is_null()).then(|| CStr::from_ptr(ptr).to_string_lossy().into_owned());
+        Some(Gpu {
+            backend: text(sys::ggml_backend_reg_name(sys::ggml_backend_dev_backend_reg(device)))?.to_lowercase(),
+            name: text(sys::ggml_backend_dev_description(device))?,
+            free_bytes: free as u64,
+            total_bytes: total as u64,
+        })
+    }
+}
+
 fn describe(device_name: &str) -> Option<String> {
     let name = std::ffi::CString::new(device_name).ok()?;
     unsafe {
@@ -186,8 +222,8 @@ fn describe(device_name: &str) -> Option<String> {
 }
 
 #[cfg(all(target_os = "windows", feature = "vulkan"))]
-pub fn vulkan_free_memory() -> Option<u64> {
-    let registered = unsafe {
+fn register_vulkan() {
+    unsafe {
         if sys::ggml_backend_reg_by_name(c"Vulkan".as_ptr()).is_null() {
             // MSVC static builds can omit Vulkan during registry initialization.
             let backend = sys::ggml_backend_vk_reg();
@@ -195,13 +231,11 @@ pub fn vulkan_free_memory() -> Option<u64> {
                 sys::ggml_backend_register(backend);
             }
         }
-        !sys::ggml_backend_reg_by_name(c"Vulkan".as_ptr()).is_null()
-    };
-    if !registered {
-        return None;
     }
-    whisper_rs::vulkan::list_devices().into_iter().next().map(|device| device.vram.free as u64)
 }
+
+#[cfg(not(all(target_os = "windows", feature = "vulkan")))]
+fn register_vulkan() {}
 
 const NEAR_TOKEN_LIMIT: i32 = 200;
 
