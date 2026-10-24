@@ -28,6 +28,12 @@ instead of a vanished app. The same binary works from a terminal.
 Before a run, the CPU sidecar estimates decoded audio memory from the file's
 track durations. If Metal or Vulkan fails before the model is ready, the app
 retries once on the CPU. The retry never starts after transcription begins.
+An engine that sends no event and uses under 250 ms of CPU time and reads
+under 4 MB from disk for 45 s is stuck, for instance on a graphics chip that
+never answers. The app kills it. While the model loads on Metal or Vulkan
+that counts as a failure and the CPU retry follows. Anywhere else the run
+ends with an error that names the step. After a gap of over 5 s in the
+once-a-second check, such as a sleeping computer, the 45 s start again.
 
 ## The engine
 
@@ -113,6 +119,7 @@ The binary prints one JSON object per line on stdout:
 {"event":"audio","seconds":6427.3,"speakers":["Speaker 1","Speaker 2"]}
 {"event":"speaker_progress","done":12,"total":40}
 {"event":"speakers","speakers":["Speaker 1","Speaker 2","Speaker 3"]}
+{"event":"loading","part":"device|language"}
 {"event":"model","device":"metal|vulkan|cpu","device_name":"<GPU name>","threads":9,"language":"th","windows":323,"heard":[{"code":"th","probability":0.97}]}
 {"event":"line","start":0.0,"end":17.2,"text":"...","speaker":1}
 {"event":"progress","done":8,"total":323,"position":180.5}
@@ -126,6 +133,9 @@ lowers its own process priority at start and uses all physical cores but
 one, so the computer stays usable during a run.
 The model event names the backend and GPU that whisper.cpp initialized, and
 the three languages heard most, which an English-only model leaves out.
+Between `load` and `model`, `loading` marks the start of the GPU or CPU
+backend and each of up to three language probes, so no part of the load runs
+long without an event.
 The done event reports time spent decoding, finding speakers, loading the
 model, transcribing, and writing. The sum can be lower than elapsed time
 because progress reporting and other work are outside those stages.
@@ -176,7 +186,10 @@ because progress reporting and other work are outside those stages.
   so late events of a cancelled or restarted engine go nowhere. A restart in
   another language kills the engine, drops its lines without a history entry,
   waits up to 3 s for the process to end so the memory check sees its memory
-  free, and starts again with the same settings.
+  free, and starts again with the same settings. Each step logs the seconds
+  since the start, so a stuck run shows where it stopped.
+- `stall.rs`: decides from the engine's events, CPU time and disk reads
+  whether it is stuck, as a pure function with tests. The guard tick feeds it.
 - `history.rs`: every finished run, and every stopped run with at least one
   line, lands in `history.json` in the app data folder, newest first, at most
   500 entries. It indexes the private JSON records. Each record also keeps its
@@ -203,9 +216,10 @@ because progress reporting and other work are outside those stages.
   them together plus 1 GB, so a full disk never ends with half a setup. During a run the engine
   is stopped when free memory falls under 400 MB or swap has grown by more
   than 2 GB since the start.
-- `system.rs`: CPU, memory, swap and the engine's memory, once a second, for
-  the footer and the guard. Free memory is total minus used. On macOS
-  sysinfo's own "available" also counts pages apps are using.
+- `system.rs`: CPU, memory, swap and the engine's memory, CPU time and disk
+  reads, once a second, for the footer, the guard and the stall check. Free
+  memory is total minus used. On macOS sysinfo's own "available" also counts
+  pages apps are using.
 
 ## The window
 
@@ -269,9 +283,10 @@ top bar picks one.
   title, and the detail below never widens its step, so nothing moves while
   details change. In a narrow window the titles shorten ("Audio",
   "Speakers", "Model"). "Finding the speakers" shows a percentage, then the
-  number of people. Below, a progress bar with elapsed and remaining time and
-  speed, and the transcript growing without moving the scroll position
-  unless it is scrolled to the end.
+  number of people. "Loading the model" shows its part: reading the file,
+  starting up, the language check. Below, a progress bar with elapsed and
+  remaining time and speed, and the transcript growing without moving the
+  scroll position unless it is scrolled to the end.
 - When the model hears another language than the chosen recording language,
   a note under the progress bar says so and offers "Restart in English". The
   heard language needs 60% or more and the chosen one under 10%

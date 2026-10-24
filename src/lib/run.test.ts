@@ -17,6 +17,16 @@ describe("run reducer", () => {
     expect(gpu.deviceName).toBe("GPU");
   });
 
+  it("tracks the part of the model load and forgets it on the next step", () => {
+    const loading = play([
+      { type: "start", audio: "a.m4a", folder: ".", modelName: "model", timestamps: true, autoLanguage: false, now: 0 },
+      { type: "engine", event: { event: "step", step: "load" }, now: 1 },
+      { type: "engine", event: { event: "loading", part: "language" }, now: 2 },
+    ]);
+    expect(loading.loadPart).toBe("language");
+    expect(reduce(loading, { type: "engine", event: { event: "step", step: "load" }, now: 3 }).loadPart).toBeNull();
+  });
+
   it("keeps transcribing when an audio track is skipped", () => {
     const started = reduce(idle, { type: "start", audio: "recording.m4a", folder: ".", modelName: "model", timestamps: true, autoLanguage: false, now: 0 });
     const warned = reduce(started, { type: "engine", event: { event: "warning", message: "An audio track was skipped." }, now: 1 });

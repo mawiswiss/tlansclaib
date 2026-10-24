@@ -76,6 +76,7 @@ export type DiskSpace = { free: number; minimum: number; reserve: number };
 export type DownloadProgress = { id: string; bytes: number; total: number };
 
 export type Step = "decode" | "speakers" | "load" | "transcribe" | "write";
+export type LoadPart = "device" | "language";
 
 export type SpeakerBackend = "sherpa" | "nemotron";
 
@@ -87,6 +88,7 @@ export type Timings = { decode: number; speakers: number; load: number; transcri
 
 export type EngineEvent =
   | { event: "step"; step: Step }
+  | { event: "loading"; part: LoadPart }
   | { event: "audio"; seconds: number; speakers?: string[]; video?: boolean }
   | { event: "model"; device: string; device_name?: string; threads: number; language: string; windows: number; heard?: Heard[] }
   | { event: "line"; start: number; end: number; text: string; speaker?: number }

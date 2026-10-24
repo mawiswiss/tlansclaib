@@ -1,4 +1,4 @@
-import type { EngineEvent, Heard, HistoryEntry, Match, Step, Timings } from "./types";
+import type { EngineEvent, Heard, HistoryEntry, LoadPart, Match, Step, Timings } from "./types";
 import { titleOf } from "./format";
 
 export type Line = { start: number; end: number; text: string; speaker?: number };
@@ -12,6 +12,7 @@ export type RunState = {
   timestamps: boolean;
   autoLanguage: boolean;
   step: Step | null;
+  loadPart: LoadPart | null;
   audioSeconds: number | null;
   speakers: string[];
   detecting: boolean;
@@ -51,6 +52,7 @@ export const idle: RunState = {
   timestamps: true,
   autoLanguage: false,
   step: null,
+  loadPart: null,
   audioSeconds: null,
   speakers: [],
   detecting: false,
@@ -181,8 +183,11 @@ export function reduce(state: RunState, action: RunAction): RunState {
           return {
             ...state,
             step: e.step,
+            loadPart: null,
             transcribeStartedAt: e.step === "transcribe" ? action.now : state.transcribeStartedAt,
           };
+        case "loading":
+          return { ...state, loadPart: e.part };
         case "audio":
           return { ...state, audioSeconds: e.seconds, speakers: e.speakers ?? [], video: e.video ?? false };
         case "model":

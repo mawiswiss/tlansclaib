@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
-use engine::protocol::{Event, Heard, Step, Timings, emit};
+use engine::protocol::{Event, Heard, LoadPart, Step, Timings, emit};
 use engine::speakers::{nemotron, sherpa};
 use engine::{audio, model_file, output, speakers, transcribe, windows};
 use serde_json::json;
@@ -367,6 +367,7 @@ fn run(
     emit(&Event::Step { step: Step::Load });
     let phase = Instant::now();
     let mut engine = transcribe::Engine::load(model, threads, use_gpu)?;
+    emit(&Event::Loading { part: LoadPart::Device });
     engine.decoding = decoding;
     let mut state = engine.state()?;
     let (language, heard) = if !engine.is_multilingual() {
@@ -453,6 +454,7 @@ fn detect(
 ) -> Result<Vec<Heard>> {
     let mut probes = Vec::new();
     for (track, window) in segments.iter().take(3) {
+        emit(&Event::Loading { part: LoadPart::Language });
         probes.push(engine.language_probabilities(state, &tracks[*track][window.start..window.end])?);
     }
     Ok(transcribe::rank_languages(&probes, 3)

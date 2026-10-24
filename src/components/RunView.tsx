@@ -21,6 +21,8 @@ const STEPS: { step: Step; title: string; short: string }[] = [
   { step: "write", title: "Saving", short: "Saving" },
 ];
 
+const LOAD_PARTS = { file: "Reading the file", device: "Starting up", language: "Language check" };
+
 function deviceName(device: string | null): string {
   return device === "metal" ? "Metal" : device === "vulkan" ? "Vulkan" : "CPU";
 }
@@ -61,6 +63,7 @@ export function RunView({ run, showTimes, languageName, onCancel, onRestart }: P
         if (run.voices !== null) return run.voices > 1 ? `${run.voices} people` : "1 person";
         return run.speakerProgress === null && run.speakers.length > 1 ? "One per audio track" : "";
       case "load": {
+        if (run.step === "load" && !run.device) return LOAD_PARTS[run.loadPart ?? "file"];
         if (!run.device) return "";
         const device = run.deviceName ? `${deviceName(run.device)}: ${run.deviceName}` : deviceName(run.device);
         return run.language ? `${device} · ${languageName(run.language)}` : device;

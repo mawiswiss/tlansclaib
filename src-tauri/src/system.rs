@@ -5,6 +5,8 @@ use serde::Serialize;
 use sysinfo::{MemoryRefreshKind, Pid, ProcessStatus, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter};
 
+use crate::stall::Usage;
+
 #[derive(Clone, Debug, Serialize)]
 pub struct Stats {
     pub cpu: f32,
@@ -15,6 +17,8 @@ pub struct Stats {
     pub swap_used: u64,
     pub app_memory: u64,
     pub engine_memory: u64,
+    #[serde(skip)]
+    pub engine_usage: Option<Usage>,
 }
 
 // sysinfo's available memory on macOS also counts pages apps are using, so free is total minus used.
@@ -66,6 +70,13 @@ impl Monitor {
             swap_used: system.used_swap(),
             app_memory: memory_of(own),
             engine_memory: engine_pid.map(|p| memory_of(Pid::from_u32(p))).unwrap_or(0),
+            engine_usage: engine_pid.and_then(|pid| {
+                system.process(Pid::from_u32(pid)).map(|p| Usage {
+                    pid,
+                    cpu_ms: p.accumulated_cpu_time(),
+                    read_bytes: p.disk_usage().total_read_bytes,
+                })
+            }),
         }
     }
 

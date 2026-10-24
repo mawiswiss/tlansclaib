@@ -255,6 +255,8 @@ export function mockBackend(): Backend {
         for (let i = 1; i <= 10; i++) setTimeout(() => send({ event: "speaker_progress", done: i, total: 10 }), 700 + i * 230);
       }
       setTimeout(() => send({ event: "step", step: "load" }), 700 + lag);
+      setTimeout(() => send({ event: "loading", part: "device" }), 1300 + lag);
+      setTimeout(() => send({ event: "loading", part: "language" }), 1700 + lag);
       setTimeout(() => {
         send({ event: "model", device: "metal", threads: 9, language: language === "auto" ? "th" : language, windows: total, heard });
         if (speakers) send({ event: "speakers", speakers: voices });

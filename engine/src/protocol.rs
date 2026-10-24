@@ -13,6 +13,13 @@ pub enum Step {
     Write,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoadPart {
+    Device,
+    Language,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Timings {
     pub decode: f64,
@@ -33,6 +40,9 @@ pub struct Heard {
 pub enum Event {
     Step {
         step: Step,
+    },
+    Loading {
+        part: LoadPart,
     },
     Audio {
         seconds: f64,
@@ -119,6 +129,8 @@ mod tests {
         assert_eq!(json, r#"{"event":"speaker_progress","done":3,"total":40}"#);
         let json = serde_json::to_string(&Event::Step { step: Step::Speakers }).unwrap();
         assert_eq!(json, r#"{"event":"step","step":"speakers"}"#);
+        let json = serde_json::to_string(&Event::Loading { part: LoadPart::Language }).unwrap();
+        assert_eq!(json, r#"{"event":"loading","part":"language"}"#);
         let json = serde_json::to_string(&Event::Warning { message: "one track skipped".into() }).unwrap();
         assert_eq!(json, r#"{"event":"warning","message":"one track skipped"}"#);
     }

@@ -5,6 +5,7 @@ mod guard;
 mod history;
 mod models;
 mod run;
+mod stall;
 mod system;
 mod transcript;
 mod validate;
