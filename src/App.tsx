@@ -81,7 +81,6 @@ export default function App() {
   const [aboutFocus, setAboutFocus] = useState<"update" | null>(null);
   const [rerunTarget, setRerunTarget] = useState<{
     entry: HistoryEntry;
-    replaces: boolean;
     focus: "speakers" | "language" | null;
     missingModel: string | null;
     initial: RerunChoice;
@@ -420,7 +419,7 @@ export default function App() {
     }
   };
 
-  const openRerun = (entry: HistoryEntry, replaces: boolean, options: RerunOptions = {}) => {
+  const openRerun = (entry: HistoryEntry, options: RerunOptions = {}) => {
     if (running) return;
     const usable = models.filter((m) => m.installed);
     const original = usable.find((m) => m.id === entry.model_id) ?? usable.find((m) => m.name === entry.model);
@@ -429,7 +428,6 @@ export default function App() {
     const rerunBackend = previous && detections.some((d) => d.backend === previous && d.installed) ? previous : speakerBackend;
     setRerunTarget({
       entry,
-      replaces,
       focus: options.focus ?? null,
       missingModel: original ? null : entry.model,
       initial: {
@@ -479,7 +477,7 @@ export default function App() {
   const rerunResult = (options: RerunOptions = {}) => {
     const file = run.result?.file;
     const entry = history.find((h) => h.file === file) ?? run.opened;
-    if (entry) openRerun(entry, true, options);
+    if (entry) openRerun(entry, options);
     else setResultError("This transcript is not in the history, so its settings are unknown.");
   };
 
@@ -1083,7 +1081,7 @@ export default function App() {
       {rerunTarget && (
         <RerunDialog
           title={rerunTarget.entry.title ?? titleOf(rerunTarget.entry.file)}
-          replaces={rerunTarget.replaces}
+          edited={rerunTarget.entry.edited !== false}
           tracks={!rerunTarget.entry.detected ? (rerunTarget.entry.speakers?.length ?? 0) : 0}
           models={models}
           languages={languageOptions}
@@ -1131,7 +1129,7 @@ export default function App() {
         error={historyError}
         onOpen={openHistory}
         onLocate={locateTranscript}
-        onRerun={(entry) => openRerun(entry, false)}
+        onRerun={(entry) => openRerun(entry)}
         onReveal={(path) => { void showInFolder(path); }}
         onRemove={(id) => { void removeHistory(id); }}
         onClose={() => {

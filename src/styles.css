@@ -2059,14 +2059,9 @@ button.icon-button.tiny {
   width: auto;
 }
 
-.rerun-warning {
-  margin: 0;
-  align-self: center;
-  font-size: 12.5px;
-}
-
 .rerun-actions {
   display: flex;
+  margin-left: auto;
   gap: 10px;
 }
 

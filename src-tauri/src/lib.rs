@@ -181,7 +181,7 @@ fn set_transcript_timestamps(
 ) -> Result<String, String> {
     let file = Path::new(&file);
     transcript::set_timestamps(file, &lines, timestamps, &speakers).map_err(|e| format!("{e:#}"))?;
-    remember_write(&app, &history, file, timestamps, &speakers)
+    remember_write(&app, &history, file, timestamps, &speakers, false)
 }
 
 #[tauri::command]
@@ -196,7 +196,7 @@ fn save_transcript(
 ) -> Result<String, String> {
     let file = Path::new(&file);
     transcript::save(file, &expected, &lines, timestamps, &speakers).map_err(|e| format!("{e:#}"))?;
-    remember_write(&app, &history, file, timestamps, &speakers)
+    remember_write(&app, &history, file, timestamps, &speakers, true)
 }
 
 #[tauri::command]
@@ -232,8 +232,8 @@ fn export_transcript(
         .map_err(|error| format!("{error:#}"))
 }
 
-fn remember_write(app: &AppHandle, history: &History, file: &Path, timestamps: bool, speakers: &[String]) -> Result<String, String> {
-    if let Err(error) = history.written(file, timestamps, speakers) {
+fn remember_write(app: &AppHandle, history: &History, file: &Path, timestamps: bool, speakers: &[String], edited: bool) -> Result<String, String> {
+    if let Err(error) = history.written(file, timestamps, speakers, edited) {
         report_history_error(app, "The transcript was saved", &error);
     }
     let _ = app.emit("history-changed", ());

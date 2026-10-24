@@ -55,6 +55,8 @@ pub struct Entry {
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub heard: Vec<engine::protocol::Heard>,
+    #[serde(default)]
+    pub edited: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -230,10 +232,13 @@ impl History {
         })
     }
 
-    pub fn written(&self, file: &Path, timestamps: bool, speakers: &[String]) -> Result<()> {
+    pub fn written(&self, file: &Path, timestamps: bool, speakers: &[String], edited: bool) -> Result<()> {
         let hash = crate::fingerprint::transcript(file).ok();
         self.change(|mut entries| {
             for entry in entries.iter_mut().filter(|e| e.file == file) {
+                if edited {
+                    entry.edited = Some(true);
+                }
                 entry.timestamps = timestamps;
                 entry.speakers = speakers.to_vec();
                 entry.file_sha256 = hash.clone();
@@ -316,6 +321,7 @@ mod tests {
             speaker_backend: None,
             title: None,
             heard: Vec::new(),
+            edited: Some(false),
         }
     }
 
@@ -345,7 +351,7 @@ mod tests {
         let history = History::new(dir.join("history.json"));
         history.add(entry(1, "/a.txt")).unwrap();
         history.add(entry(2, "/b.txt")).unwrap();
-        history.written(Path::new("/a.txt"), false, &["Marc".into(), "Client".into()]).unwrap();
+        history.written(Path::new("/a.txt"), false, &["Marc".into(), "Client".into()], true).unwrap();
         history.remove(2).unwrap();
         let listed = history.list().unwrap();
         assert_eq!(listed.len(), 1);
@@ -412,8 +418,10 @@ mod tests {
         let opened = fingerprint::transcript(&file).unwrap();
         let lines = vec![Line { start: 0.0, end: 12.75, text: "first, corrected".into(), speaker: None }];
         transcript::save(&file, &opened, &lines, true, &[]).unwrap();
-        history.written(&file, true, &[]).unwrap();
+        history.written(&file, true, &[], true).unwrap();
         assert_eq!(fingerprint::compare(stored().as_deref(), &file, fingerprint::transcript), Match::Same);
+        history.written(&file, false, &[], false).unwrap();
+        assert_eq!(history.get(1).unwrap().unwrap().edited, Some(true));
 
         std::fs::write(&file, "changed in another editor\n").unwrap();
         assert_eq!(fingerprint::compare(stored().as_deref(), &file, fingerprint::transcript), Match::Different);
@@ -440,7 +448,7 @@ mod tests {
         let edited = vec![Line { text: "Hello there".into(), ..lines[0].clone() }];
         let hash = crate::fingerprint::transcript(&file).unwrap();
         let new_hash = transcript::save(&file, &hash, &edited, false, &["Host".into()]).unwrap();
-        history.written(&file, false, &["Host".into()]).unwrap();
+        history.written(&file, false, &["Host".into()], true).unwrap();
         assert_eq!(history.get(1).unwrap().unwrap().file_sha256.as_deref(), Some(new_hash.as_str()));
         transcript::rename(&file, "Weekly sync").unwrap();
         history.titled(&file, "Weekly sync").unwrap();

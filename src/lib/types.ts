@@ -47,6 +47,7 @@ export type HistoryEntry = {
   speaker_precision?: string | null;
   heard?: Heard[];
   speaker_backend?: SpeakerBackend | null;
+  edited?: boolean | null;
   exists: boolean;
   audio_exists: boolean;
 };

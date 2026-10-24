@@ -16,7 +16,7 @@ export type RerunChoice = {
 
 type Props = {
   title: string;
-  replaces: boolean;
+  edited: boolean;
   tracks: number;
   models: ModelStatus[];
   languages: LanguageOption[];
@@ -127,9 +127,9 @@ export function RerunDialog(props: Props) {
               </span>
             )}
           </div>
+          {props.edited && <p className="note">Replaces this result and its corrections in history. Files outside the app stay where they are.</p>}
         </div>
         <footer className="modal-foot">
-          <p className="faint rerun-warning">{props.replaces ? "Replaces this result and its corrections in history. Files outside the app stay where they are." : ""}</p>
           <span className="rerun-actions">
             <button type="button" onClick={props.onClose}>
               Cancel

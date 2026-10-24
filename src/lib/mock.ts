@@ -278,7 +278,7 @@ export function mockBackend(): Backend {
               {
                 id: Date.now(), audio, file, title: name, model: models.find((x) => x.id === modelId)?.name ?? modelId,
                 language: language === "auto" ? "th" : language, audio_seconds: total * 12.9, lines: total - 8, elapsed: 9.4,
-                finished_at: Math.floor(Date.now() / 1000), status: "done", timestamps, speakers: voices, detected: voices.length > 0,
+                finished_at: Math.floor(Date.now() / 1000), status: "done", timestamps, speakers: voices, detected: voices.length > 0, edited: false,
                 model_id: modelId, speaker_mode: speakers, speaker_precision: speakers ? speakerPrecision : null, speaker_backend: speakers ? speakerBackend : null, heard, exists: true, audio_exists: true,
               },
               ...history.filter((h) => h.file !== outputFile),
@@ -319,7 +319,7 @@ export function mockBackend(): Backend {
       if (speakers.some((s) => s.includes(":"))) throw new Error("A speaker name cannot contain a colon, because the colon ends the name in the transcript.");
       const taken = speakers.find((s, i) => speakers.slice(0, i).some((o) => o.toLowerCase() === s.toLowerCase()));
       if (taken) throw new Error(`Two speakers cannot both be called ${taken}.`);
-      history = history.map((h) => (h.file === file ? { ...h, speakers } : h));
+      history = history.map((h) => (h.file === file ? { ...h, speakers, edited: true } : h));
       emit("history", null);
       return `mock-${Date.now()}`;
     },
