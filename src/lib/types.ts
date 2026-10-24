@@ -20,6 +20,7 @@ export type ModelStatus = {
   label: string | null;
   custom: boolean;
   linked: boolean;
+  too_heavy?: string | null;
 };
 
 export type Language = { code: string; name: string };

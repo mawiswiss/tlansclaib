@@ -155,6 +155,8 @@ because progress reporting and other work are outside those stages.
   taken from a listed model of the same architecture and quantization, or
   estimated from the size, and shows with "≈". Files copied into the models
   folder by older versions still list as custom and can be deleted.
+  `too-heavy.json` in the models folder keeps, per model id, why a model
+  failed on this computer. Deleting or unlinking the model removes the entry.
 - `detection.rs`: two speaker detections, each a download pinned by size and
   SHA-256, for Apple silicon, Intel Mac or Windows x64. Each stages in
   `<folder>.part` and is renamed once complete, and a `version.txt` ties it
@@ -188,6 +190,13 @@ because progress reporting and other work are outside those stages.
   waits up to 3 s for the process to end so the memory check sees its memory
   free, and starts again with the same settings. Each step logs the seconds
   since the start, so a stuck run shows where it stopped.
+  A model that fails while loading or transcribing, through a crash, a stall,
+  the memory guard or an engine error before the language check, is marked too
+  heavy (`too_heavy`), and the error adds that Automatic skips it from now on.
+  A failure on Metal or Vulkan that the CPU retry follows marks nothing, and
+  neither does an engine error in the language check or a failure while
+  reading the audio or finding the speakers, which depend on the recording. A run with
+  the model that finishes clears the mark.
 - `stall.rs`: decides from the engine's events, CPU time and disk reads
   whether it is stuck, as a pure function with tests. The guard tick feeds it.
 - `history.rs`: every finished run, and every stopped run with at least one
@@ -255,14 +264,17 @@ top bar picks one.
   German once its model is installed, which runs the engine with `de`. The
   model starts at "Automatic", which names the chosen model's language in
   small text: the setup's model for the language when installed, otherwise
-  one for all languages (`modelFor` in `lib/setup.ts`). Picking a model pins
-  it, and a pinned single-language model fixes the language. It shows only before a transcription. Timecodes
+  one for all languages (`modelFor` in `lib/setup.ts`). It never takes a
+  model marked too heavy, which the menu lists with "(failed here)". Picking a
+  model pins it, and a pinned single-language model fixes the language. It shows only before a transcription. Timecodes
   are not a setting there: the switch
   above a finished transcript decides and is remembered for the next.
 - The model carries a fit label from `lib/fit.ts`: its listed RAM need
   against the computer's total RAM, green below 70%, orange below 90%, red
   above. It ignores what is in use right now, which the start check covers,
-  so the label does not change while other programs come and go.
+  so the label does not change while other programs come and go. A pinned
+  model marked too heavy shows a red "Failed here" instead, with the reason in
+  its tooltip.
 - Menus (`Select.tsx`) are drawn by the app and follow the ARIA combobox
   pattern, a button with a listbox. Tab reaches them, the arrows, Home, End
   and Page Up or Down move, Enter or Space picks, typing jumps to a matching
@@ -407,7 +419,8 @@ start again as "Speaker 1" and so on.
   graphics chip can run its model, the computer reports 14 GB RAM or more (a
   16 GB Windows PC reports less than 16), the model's RAM rates green and its
   downloads take less than 30 minutes. Otherwise it marks Essential, also
-  offline (`recommend`). A setup whose downloads take 10 minutes or more
+  offline or when Precise's model for the language is installed and marked too
+  heavy (`recommend`). A setup whose downloads take 10 minutes or more
   carries a "Longer download" chip, orange, red from an hour. Nothing is
   selected while the check runs, then the marked setup is, unless the user
   already clicked one. Offline, the download button waits for "Try again".
@@ -441,7 +454,8 @@ start again as "Speaker 1" and so on.
   the list shows what "Apply" will fetch.
 - Then a link to the model page, a description of at most two lines, and
   chips for language, architecture, size, RAM and download time, coloured by
-  `lib/fit.ts`.
+  `lib/fit.ts`. A model marked too heavy, listed or custom, leads with a red
+  "Failed on this computer" chip that gives the reason.
   RAM: orange from 70% of total RAM, red from 90%, green when it fits. Size:
   orange when less than 10 GB would stay free, red when the model does not
   fit with 1 GB to spare, which also disables its button. Download: orange

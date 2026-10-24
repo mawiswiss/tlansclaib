@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, anyhow};
-use engine::protocol::{Event, Heard, Step};
+use engine::protocol::{Event, Heard, LoadPart, Step};
 use engine::speakers::Backend;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -22,6 +22,7 @@ pub struct ActiveRun {
     pid: u32,
     swap_at_start: u64,
     saw_error: bool,
+    step: Option<Step>,
     watch: Watch,
     stalled: bool,
     record: Record,
@@ -82,6 +83,41 @@ fn stall_message(step: Option<Step>) -> String {
         "The transcription stopped responding while {doing}, so it was ended after {} s without progress. Try again. If it happens again, the log file has details.",
         stall::LIMIT.as_secs()
     )
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Failure {
+    Crash,
+    Stall,
+    Memory,
+    EngineError,
+}
+
+const SKIPPED: &str = "Automatic skips this model from now on. You can still pick it in the Model menu.";
+
+/// Why a failure shows the model is too much for this computer. Any other step fails for the recording or speaker detection.
+/// An engine error in the language check is about the recording too.
+fn too_heavy(failure: Failure, step: Option<Step>, probing: bool) -> Option<&'static str> {
+    match (step?, failure) {
+        (Step::Load, Failure::Memory) => Some("Memory ran low while it loaded."),
+        (Step::Load, Failure::Stall) => Some("It stopped responding while it loaded."),
+        (Step::Load, Failure::Crash) => Some("It could not be loaded."),
+        (Step::Load, Failure::EngineError) if !probing => Some("It could not be loaded."),
+        (Step::Transcribe, Failure::Memory) => Some("Memory ran low while it transcribed."),
+        (Step::Transcribe, Failure::Stall) => Some("It stopped responding while it transcribed."),
+        (Step::Transcribe, Failure::Crash) => Some("It stopped unexpectedly while it transcribed."),
+        _ => None,
+    }
+}
+
+fn mark_too_heavy(app: &AppHandle, model_id: &str, reason: &str) {
+    match app.state::<Models>().mark_too_heavy(model_id, reason) {
+        Ok(()) => {
+            log::warn!("marked {model_id} as too heavy for this computer: {reason}");
+            let _ = app.emit("models-changed", ());
+        }
+        Err(error) => log::warn!("could not mark {model_id} as too heavy: {error:#}"),
+    }
 }
 
 fn retry_on_cpu(gpu_attempt: bool, step: Option<Step>, model_ready: bool, code: Option<i32>) -> bool {
@@ -213,6 +249,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         child: Some(child),
         swap_at_start,
         saw_error: false,
+        step: None,
         watch: Watch::new(pid, Instant::now()),
         stalled: false,
         record: Record {
@@ -247,6 +284,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         let started = Instant::now();
         let mut step = None;
         let mut model_ready = false;
+        let mut probing = false;
         let mut pending_gpu_error = None;
         let mut process_error = None;
         while let Some(event) = events.recv().await {
@@ -259,9 +297,13 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                         match &event {
                             Event::Step { step: next } => {
                                 step = Some(*next);
+                                with_own(&app, id, |run| run.step = step);
                                 log::info!("step {next:?} after {:.1} s", started.elapsed().as_secs_f64());
                             }
-                            Event::Loading { part } => log::info!("loading part {part:?} after {:.1} s", started.elapsed().as_secs_f64()),
+                            Event::Loading { part } => {
+                                probing |= *part == LoadPart::Language;
+                                log::info!("loading part {part:?} after {:.1} s", started.elapsed().as_secs_f64());
+                            }
                             _ => {}
                         }
                         if matches!(&event, Event::Model { .. }) {
@@ -273,6 +315,18 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                             pending_gpu_error = Some(message.clone());
                             continue;
                         }
+                        let event = match event {
+                            Event::Error { message } => match too_heavy(Failure::EngineError, step, probing) {
+                                Some(reason) => {
+                                    if let Some(model_id) = with_own(&app, id, |run| run.record.model_id.clone()) {
+                                        mark_too_heavy(&app, &model_id, reason);
+                                    }
+                                    Event::Error { message: format!("{message} {SKIPPED}") }
+                                }
+                                None => Event::Error { message },
+                            },
+                            event => event,
+                        };
                         let forwarded = with_own(&app, id, |run| {
                             let event = match &event {
                                 Event::Done { lines, elapsed, timings, .. } => match finish(&app, run, *lines, *elapsed) {
@@ -325,10 +379,12 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                                     run.stalled = false;
                                     run.child = Some(child);
                                     run.saw_error = false;
+                                    run.step = None;
                                     events = new_events;
                                     gpu_attempt = false;
                                     step = None;
                                     model_ready = false;
+                                    probing = false;
                                     pending_gpu_error = None;
                                     process_error = None;
                                     continue;
@@ -349,10 +405,14 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                     }
                     if let Some(run) = take_own(&app, id) {
                         if !run.saw_error && (payload.code != Some(0) || !run.record.saved) {
-                            let _ = app.emit(
-                                "engine-event",
-                                Event::Error {
-                                    message: stalled.then(|| stall_message(step)).or_else(|| pending_gpu_error.take()).or_else(|| process_error.take().map(|error| format!("Could not read the transcription process: {error}"))).unwrap_or_else(|| {
+                            let failure = if stalled { Some(Failure::Stall) } else if payload.code != Some(0) { Some(Failure::Crash) } else { None };
+                            let marked = failure
+                                .filter(|_| !retry_on_cpu(gpu_attempt, step, model_ready, payload.code))
+                                .and_then(|failure| too_heavy(failure, step, probing));
+                            if let Some(reason) = marked {
+                                mark_too_heavy(&app, &run.record.model_id, reason);
+                            }
+                            let message = stalled.then(|| stall_message(step)).or_else(|| pending_gpu_error.take()).or_else(|| process_error.take().map(|error| format!("Could not read the transcription process: {error}"))).unwrap_or_else(|| {
                                         if payload.code == Some(0) {
                                             return "The transcription process ended without saving a result.".into();
                                         }
@@ -360,9 +420,9 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                                             "The engine stopped unexpectedly (exit code {}). The log file has details.",
                                             payload.code.map(|c| c.to_string()).unwrap_or_else(|| "none".into())
                                         )
-                                    }),
-                                },
-                            );
+                                    });
+                            let message = if marked.is_some() { format!("{message} {SKIPPED}") } else { message };
+                            let _ = app.emit("engine-event", Event::Error { message });
                         }
                         remember_incomplete(&app, &run.record);
                     }
@@ -440,6 +500,14 @@ fn finish(app: &AppHandle, run: &mut ActiveRun, lines: usize, elapsed: f64) -> R
     let entry = entry(record, history::Status::Done, lines, elapsed);
     remember(app, entry, &record.transcript_lines)?;
     record.saved = true;
+    match app.state::<Models>().clear_too_heavy(&record.model_id) {
+        Ok(true) => {
+            log::info!("{} finished a run, so it is no longer marked too heavy", record.model_id);
+            let _ = app.emit("models-changed", ());
+        }
+        Ok(false) => {}
+        Err(error) => log::warn!("could not clear the too-heavy mark of {}: {error:#}", record.model_id),
+    }
     if let Some(id) = record.replace_id && let Err(error) = app.state::<History>().remove(id) {
         crate::report_history_error(app, "The new transcription was saved", &error);
     }
@@ -573,11 +641,15 @@ pub fn guard_tick(app: &AppHandle, stats: &Stats) {
             None => None,
         }
     };
-    if let Some(message) = stop {
+    if let Some(mut message) = stop {
         let run = app.state::<RunState>().0.lock().unwrap().take();
         if let Some(mut run) = run {
             if let Some(child) = run.child.take() {
                 let _ = child.kill();
+            }
+            if let Some(reason) = too_heavy(Failure::Memory, run.step, false) {
+                mark_too_heavy(app, &run.record.model_id, reason);
+                message = format!("{message} {SKIPPED}");
             }
             remember_incomplete(app, &run.record);
         }
@@ -597,5 +669,21 @@ mod tests {
         assert!(!retry_on_cpu(true, Some(Step::Load), true, Some(1)));
         assert!(!retry_on_cpu(true, Some(Step::Load), false, Some(0)));
         assert!(!retry_on_cpu(false, Some(Step::Load), false, Some(1)));
+    }
+
+    #[test]
+    fn only_a_failure_while_loading_or_transcribing_marks_the_model() {
+        for failure in [Failure::Crash, Failure::Stall, Failure::Memory, Failure::EngineError] {
+            assert!(too_heavy(failure, Some(Step::Load), false).is_some());
+            for step in [None, Some(Step::Decode), Some(Step::Speakers), Some(Step::Write)] {
+                assert_eq!(too_heavy(failure, step, false), None);
+            }
+        }
+        assert!(too_heavy(Failure::Crash, Some(Step::Load), true).is_some());
+        assert_eq!(too_heavy(Failure::EngineError, Some(Step::Load), true), None);
+        assert!(too_heavy(Failure::Crash, Some(Step::Transcribe), false).is_some());
+        assert!(too_heavy(Failure::Stall, Some(Step::Transcribe), false).is_some());
+        assert!(too_heavy(Failure::Memory, Some(Step::Transcribe), false).is_some());
+        assert_eq!(too_heavy(Failure::EngineError, Some(Step::Transcribe), false), None);
     }
 }

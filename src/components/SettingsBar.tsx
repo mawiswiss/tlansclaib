@@ -1,8 +1,8 @@
 import { DETECTION } from "../lib/detection";
-import { FIT_LABEL, ramFit } from "../lib/fit";
+import { failedFit, FIT_LABEL, ramFit } from "../lib/fit";
 import type { LanguageOption } from "../lib/setup";
 import type { ModelStatus, SpeakerBackend, Stats } from "../lib/types";
-import { languagesOf } from "./ModelsPanel";
+import { languagesOf, menuLabel } from "./ModelsPanel";
 import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
 
@@ -30,8 +30,8 @@ const SET_UP = "set-up";
 export function SettingsBar(props: Props) {
   const { models, modelId, model, onModel, languages, language, onLanguage, locked, backend, stats, busy } = props;
   const installed = models.filter((m) => m.installed);
-  const fit = model && stats ? ramFit(model.ram_gb, stats.memory_total) : null;
-  const pill = fit && <span className={`fit ${fit.level}`}>{FIT_LABEL[fit.level]}</span>;
+  const fit = model?.too_heavy ? failedFit(model.too_heavy) : model && stats ? ramFit(model.ram_gb, stats.memory_total) : null;
+  const pill = fit && <span className={`fit ${fit.level}`}>{model?.too_heavy ? "Failed here" : FIT_LABEL[fit.level]}</span>;
   const pinned = installed.some((m) => m.id === modelId) ? modelId : "auto";
   return (
     <section className="settings" aria-label="Transcription settings">
@@ -53,13 +53,13 @@ export function SettingsBar(props: Props) {
           trigger={(selected) => (
             <span className="select-value">
               {selected?.label ?? ""}
-              {selected?.value === "auto" && model && <span className="select-sub">{languagesOf(model)}</span>}
+              {selected?.value === "auto" && (model || installed.some((m) => m.too_heavy)) && <span className="select-sub">{model ? languagesOf(model) : "None that works here"}</span>}
             </span>
           )}
           options={
             installed.length === 0
               ? [{ value: "", label: "No model installed" }]
-              : [{ value: "auto", label: "Automatic" }, ...installed.map((m) => ({ value: m.id, label: m.custom ? `${m.name} (custom)` : m.name }))]
+              : [{ value: "auto", label: "Automatic" }, ...installed.map((m) => ({ value: m.id, label: menuLabel(m) }))]
           }
         />
       </label>

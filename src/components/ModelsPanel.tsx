@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { DETECTION } from "../lib/detection";
-import { diskFit, downloadFit, downloadSeconds, ramFit, type Rating } from "../lib/fit";
+import { diskFit, downloadFit, downloadSeconds, failedFit, ramFit, type Rating } from "../lib/fit";
 import { bytes, capitalize, fileName, folderOf } from "../lib/format";
 import { DETECTION_IDS, installed as isInstalled, MODE_NAMES, sizeOf, wanted, type Setup } from "../lib/setup";
 import type { DiskSpace, DownloadProgress, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "../lib/types";
@@ -49,6 +49,11 @@ export function languagesOf(m: ModelStatus): string {
   if (m.language_name) return m.language_name;
   if (m.languages.includes("all")) return "All languages";
   return m.languages.map((l) => LANGUAGE_NAMES[l] ?? capitalize(l)).join(", ");
+}
+
+export function menuLabel(m: ModelStatus): string {
+  const notes = [m.custom && "custom", m.too_heavy && "failed here"].filter(Boolean);
+  return notes.length ? `${m.name} (${notes.join(", ")})` : m.name;
 }
 
 function repoOf(url: string): string {
@@ -252,6 +257,7 @@ export function ModelDetails(props: DetailsProps) {
         </p>
         <div className="chips">
           <span className="chip custom">Custom</span>
+          {m.too_heavy && <Chip rating={failedFit(m.too_heavy)}>Failed on this computer</Chip>}
           {m.label && <span className="chip">{m.label}</span>}
           {m.installed && <span className="chip">{m.languages.includes("all") ? "Multilingual" : "English only"}</span>}
           {m.installed && <span className="chip">{bytes(m.size_bytes)} size</span>}
@@ -312,6 +318,7 @@ export function ModelDetails(props: DetailsProps) {
         </div>
         <p className="model-about">{m.recommended}</p>
         <div className="chips">
+          {m.too_heavy && <Chip rating={failedFit(m.too_heavy)}>Failed on this computer</Chip>}
           {membership(m.id, m.installed)}
           {m.architecture && <span className="chip">{[m.architecture, m.quantization].filter(Boolean).join(", ")}</span>}
           <Chip rating={critical(space)}>{bytes(m.size_bytes)} size</Chip>

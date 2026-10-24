@@ -27,6 +27,10 @@ export function ramFit(ramGb: number, totalMemory: number): Rating {
   return { level: "ok", tip: null };
 }
 
+export function failedFit(reason: string): Rating {
+  return { level: "high", tip: `${reason} Automatic skips it until a transcription with it finishes.` };
+}
+
 export function diskFit(size: number, free: number, minimum: number, reserve: number): Rating {
   if (free < size + minimum) return { level: "high", tip: "Not enough free disk space. Make room first." };
   if (free < size + reserve) return { level: "warn", tip: "Leaves less than 10 GB free on the disk." };

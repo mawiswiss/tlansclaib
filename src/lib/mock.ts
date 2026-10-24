@@ -56,8 +56,9 @@ export function mockBackend(): Backend {
   };
   const query = new URLSearchParams(location.search);
   const fresh = query.has("fresh");
+  const heavy = query.has("heavy") ? "Memory ran low while it transcribed." : null;
   const models: ModelStatus[] = [
-    model("thai-fast", "Thai (fast)", ["th"], ["essential"], "Thai recordings on any computer", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh),
+    { ...model("thai-fast", "Thai (fast)", ["th"], ["essential"], "Thai recordings on any computer", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh), too_heavy: heavy },
     model("thai-best", "Thai (best quality)", ["th"], ["precise"], "Thai recordings when time does not matter", 1656538283, 2.4, "large-v3", "q8_0", false),
     model("german-fast", "German (fast)", ["de"], null, "German recordings, more accurate than the stock large model", 574041195, 0.9, "large-v3-turbo", "q5_0", false),
     model("german-full", "German (fast, full precision)", ["de"], ["essential", "precise"], "Like German (fast), slightly more accurate, three times the size", 1624555275, 2.2, "large-v3-turbo", "f16", false),
@@ -430,6 +431,6 @@ function model(id: string, name: string, languages: string[], setups: string[] |
   return {
     id, name, languages, language_name: null, setups, recommended, file: `ggml-${id}.bin`, size_bytes: size, sha256: null, ram_gb: ram, url: "https://example.invalid",
     architecture, quantization, source: "https://huggingface.co/ggerganov/whisper.cpp", license: "MIT",
-    installed, path: installed ? `/models/ggml-${id}.bin` : null, label: installed ? `${architecture}, ${quantization}` : null, custom: false, linked: false,
+    installed, path: installed ? `/models/ggml-${id}.bin` : null, label: installed ? `${architecture}, ${quantization}` : null, custom: false, linked: false, too_heavy: null,
   };
 }

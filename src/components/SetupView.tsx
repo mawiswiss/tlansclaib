@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { downloadFit, downloadSeconds } from "../lib/fit";
 import { bytes, wholeGb } from "../lib/format";
-import { languageKey, missingBytes, MODE_DETECTION, MODE_NAMES, MODES, parseLanguage, recommend, SEVERAL, setupLanguages, wanted, type Mode, type Setup, type SetupLanguage } from "../lib/setup";
+import { defaultModel, languageKey, missingBytes, MODE_DETECTION, MODE_NAMES, MODES, parseLanguage, recommend, SEVERAL, setupLanguages, wanted, type Mode, type Setup, type SetupLanguage } from "../lib/setup";
 import type { DiskSpace, Gpu, Language, ModelStatus, SpeakerDetection, Stats } from "../lib/types";
 import { ChevronDown } from "./icons";
 import { Select } from "./Select";
@@ -84,7 +84,7 @@ export function SetupView(props: Props) {
   const language = parseLanguage(languageValue);
   const sizes = Object.fromEntries(MODES.map((mode) => [mode, missingBytes(wanted(models, draft(mode, language, setup)), models, detections)])) as Record<Mode, number>;
   const precise = models.find((m) => (m.setups ?? []).includes("precise") && m.languages.includes("all"));
-  const badge = recommend({ speed, gpu, memoryTotal: stats?.memory_total ?? null, preciseBytes: sizes.precise, preciseRamGb: precise?.ram_gb ?? 0 });
+  const badge = recommend({ speed, gpu, memoryTotal: stats?.memory_total ?? null, preciseBytes: sizes.precise, preciseRamGb: precise?.ram_gb ?? 0, preciseModel: defaultModel(models, draft("precise", language, setup)) });
   const selected = clicked ?? setup?.mode ?? badge;
   const next = selected ? draft(selected, language, setup) : null;
   const unchanged = next !== null && next === setup;

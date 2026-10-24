@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -17,6 +17,7 @@ use crate::validate;
 
 const BUNDLED: &str = include_str!("../resources/models.json");
 const LINKS: &str = "custom-models.json";
+const TOO_HEAVY: &str = "too-heavy.json";
 
 /// A model file added by the user, used where it lies and never deleted by the app.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -75,6 +76,8 @@ pub struct ModelStatus {
     pub label: Option<String>,
     pub custom: bool,
     pub linked: bool,
+    /// Why the model failed on this computer. Automatic skips it until a run with it finishes.
+    pub too_heavy: Option<String>,
 }
 
 pub struct Models {
@@ -121,6 +124,7 @@ impl Models {
                     entry: entry.clone(),
                     custom: false,
                     linked: false,
+                    too_heavy: None,
                 }
             })
             .collect();
@@ -136,7 +140,50 @@ impl Models {
         custom.sort_by(|a, b| a.entry.name.cmp(&b.entry.name));
         list.extend(custom);
         list.extend(self.links()?.iter().map(|link| linked_entry(link, &registry)));
+        let marks = self.too_heavy();
+        for model in &mut list {
+            model.too_heavy = marks.get(&model.entry.id).cloned();
+        }
         Ok(list)
+    }
+
+    fn too_heavy(&self) -> BTreeMap<String, String> {
+        let text = match std::fs::read_to_string(self.dir.join(TOO_HEAVY)) {
+            Ok(text) => text,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return BTreeMap::new(),
+            Err(error) => {
+                log::warn!("could not open {TOO_HEAVY}: {error}");
+                return BTreeMap::new();
+            }
+        };
+        serde_json::from_str(&text).unwrap_or_else(|error| {
+            log::warn!("could not read {TOO_HEAVY}: {error}");
+            BTreeMap::new()
+        })
+    }
+
+    fn save_too_heavy(&self, marks: &BTreeMap<String, String>) -> Result<()> {
+        std::fs::create_dir_all(&self.dir)?;
+        let part = self.dir.join(format!("{TOO_HEAVY}.part"));
+        std::fs::write(&part, serde_json::to_vec_pretty(marks)?)?;
+        std::fs::rename(&part, self.dir.join(TOO_HEAVY))?;
+        Ok(())
+    }
+
+    pub fn mark_too_heavy(&self, id: &str, reason: &str) -> Result<()> {
+        let mut marks = self.too_heavy();
+        marks.insert(id.to_string(), reason.to_string());
+        self.save_too_heavy(&marks)
+    }
+
+    /// Returns whether the model was marked.
+    pub fn clear_too_heavy(&self, id: &str) -> Result<bool> {
+        let mut marks = self.too_heavy();
+        if marks.remove(id).is_none() {
+            return Ok(false);
+        }
+        self.save_too_heavy(&marks)?;
+        Ok(true)
     }
 
     pub fn links(&self) -> Result<Vec<Link>> {
@@ -176,7 +223,9 @@ impl Models {
         if links.len() == before {
             return Err(anyhow!("This model is not a linked file."));
         }
-        self.save_links(&links)
+        self.save_links(&links)?;
+        self.clear_too_heavy(id)?;
+        Ok(())
     }
 
     pub fn rename(&self, id: &str, name: &str) -> Result<()> {
@@ -304,6 +353,7 @@ impl Models {
         }
         let (_, path) = self.installed_path(id)?;
         std::fs::remove_file(&path)?;
+        self.clear_too_heavy(id)?;
         Ok(())
     }
 }
@@ -367,6 +417,7 @@ fn linked_entry(link: &Link, registry: &[ModelEntry]) -> ModelStatus {
         label: info.map(|i| i.label()),
         custom: true,
         linked: true,
+        too_heavy: None,
     }
 }
 
@@ -398,6 +449,7 @@ fn custom_entry(path: &Path, registry: &[ModelEntry]) -> Option<ModelStatus> {
         label: Some(info.label()),
         custom: true,
         linked: false,
+        too_heavy: None,
     })
 }
 
@@ -638,6 +690,29 @@ mod tests {
         assert!(old.custom && old.installed);
         assert_eq!(old.entry.name, "tiny");
         assert!(list.iter().filter(|m| m.installed).count() == 2);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_model_marked_too_heavy_lists_its_reason_until_cleared_or_deleted() {
+        let dir = std::env::temp_dir().join(format!("tlansclaib-too-heavy-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let header: Vec<u8> = [0x67676d6cu32, 51866, 1500, 1280, 20, 32, 448, 1280, 20, 4, 128, 1008].iter().flat_map(|w| w.to_le_bytes()).collect();
+        std::fs::write(dir.join("ggml-large-v3-turbo-q5_0.bin"), &header).unwrap();
+        let models = Models::new(dir.clone());
+        let reason = |models: &Models| models.find("large-v3-turbo-q5_0").unwrap().too_heavy;
+        assert_eq!(reason(&models), None);
+        models.mark_too_heavy("large-v3-turbo-q5_0", "It ran out of memory.").unwrap();
+        assert_eq!(reason(&models).as_deref(), Some("It ran out of memory."));
+        assert!(models.clear_too_heavy("large-v3-turbo-q5_0").unwrap());
+        assert!(!models.clear_too_heavy("large-v3-turbo-q5_0").unwrap());
+        assert_eq!(reason(&models), None);
+        models.mark_too_heavy("large-v3-turbo-q5_0", "It ran out of memory.").unwrap();
+        models.delete("large-v3-turbo-q5_0").unwrap();
+        std::fs::write(dir.join("ggml-large-v3-turbo-q5_0.bin"), &header).unwrap();
+        assert_eq!(reason(&models), None);
+        std::fs::write(dir.join(TOO_HEAVY), "not json").unwrap();
+        assert_eq!(reason(&models), None);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

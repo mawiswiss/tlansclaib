@@ -49,8 +49,9 @@ On the first start it asks two things:
     when the others do not run. About 570 MB.
 
 The app measures the connection, checks for a graphics chip and marks one
-setup "Recommended for this computer". A download of 10 minutes or more
-shows a "Longer download" chip on the setup. Precise stays recommended up to 30
+setup "Recommended for this computer". If the Precise model failed on this
+computer before, Essential is recommended instead. A download of 10 minutes or
+more shows a "Longer download" chip on the setup. Precise stays recommended up to 30
 minutes, because the models download once. Any setup can be chosen. "Download and
 start" fetches the models in the background, the model for your language
 first, and a line below the settings shows how far it is. A transcription can
@@ -116,7 +117,11 @@ gives each line its speaker, such as
    only when Auto-detect picks the wrong one. The model is "Automatic": it
    takes your setup's model for the language, such as the Swiss German model
    for Swiss German, and otherwise the model for all languages. Pick a model
-   there to use it instead.
+   there to use it instead. A model that ran out of memory, stopped
+   responding or crashed on this computer is no longer taken by Automatic.
+   The menu lists it with "(failed here)" and Models with a red "Failed on
+   this computer" chip. Pick it to try again: once a transcription with it
+   finishes, Automatic takes it again.
 2. Drop the recording on the window, or click "Choose a file…". m4a, mp3,
    wav, mp4, flac and most other formats work. The recording waits with the
    settings it will use. Check them, change them in the row above if needed,
@@ -180,7 +185,8 @@ or dark. The "i" tells what the app is and who makes it.
 
 The model in the settings row is labelled "Fits", "Tight" or "Could
 overload": what the model needs against the computer's total RAM, by the
-same rule as in the models list.
+same rule as in the models list. A model that failed on this computer is
+labelled "Failed here", and its tooltip says why.
 
 The bar at the bottom shows the processor and the RAM, green below 70%,
 orange from 70% and red from 90%. Orange and red add a warning sign that

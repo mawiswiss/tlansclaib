@@ -66,6 +66,14 @@ describe("modelFor", () => {
     expect(modelFor(installed, setup("minimal"), parseLanguage("auto"))?.id).toBe("tiny");
   });
 
+  it("skips a model that failed here unless it is pinned", () => {
+    const installed = with_(["thai-fast", "turbo-q8"]).map((m) => (m.id === "thai-fast" ? { ...m, too_heavy: "Memory ran low while it loaded." } : m));
+    expect(modelFor(installed, setup("essential", "th"), parseLanguage("th"))?.id).toBe("turbo-q8");
+    expect(modelFor(installed, setup("essential", "th"), parseLanguage("th"), "thai-fast")?.id).toBe("thai-fast");
+    const allFailed = installed.map((m) => ({ ...m, too_heavy: "It could not be loaded." }));
+    expect(modelFor(allFailed, setup("essential", "th"), parseLanguage("th"))).toBeNull();
+  });
+
   it("respects a pinned model and ignores one that is gone", () => {
     const installed = with_(["large-v3", "tiny"]);
     expect(modelFor(installed, setup("precise"), parseLanguage("auto"), "tiny")?.id).toBe("tiny");
@@ -103,7 +111,7 @@ describe("downloads", () => {
 });
 
 describe("recommend", () => {
-  const base = { speed: 50e6, gpu, memoryTotal: 32 * GIB, preciseBytes: 3.3e9, preciseRamGb: 4 };
+  const base = { speed: 50e6, gpu, memoryTotal: 32 * GIB, preciseBytes: 3.3e9, preciseRamGb: 4, preciseModel: null };
 
   it("recommends Precise with a GPU, enough memory and a fast line", () => {
     expect(recommend(base)).toBe("precise");
@@ -120,6 +128,13 @@ describe("recommend", () => {
     expect(recommend({ ...base, speed: 1.5e6 })).toBe("essential");
     expect(recommend({ ...base, memoryTotal: 8 * GIB })).toBe("essential");
     expect(recommend({ ...base, memoryTotal: 12 * GIB })).toBe("essential");
+  });
+
+  it("recommends Essential when the Precise model failed on this computer", () => {
+    const failed = model("large-v3", ["all"], ["precise"], { installed: true, too_heavy: "It crashed on this computer." });
+    expect(recommend({ ...base, preciseModel: failed })).toBe("essential");
+    expect(recommend({ ...base, preciseModel: { ...failed, too_heavy: null } })).toBe("precise");
+    expect(recommend({ ...base, preciseModel: { ...failed, installed: false } })).toBe("precise");
   });
 
   it("waits while measuring and never recommends Minimal", () => {

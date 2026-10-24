@@ -59,16 +59,17 @@ export function wantedBackend(setup: Setup | null, detections: SpeakerDetection[
   return installed.includes("nemotron") ? "nemotron" : installed.includes("sherpa") ? "sherpa" : null;
 }
 
-/** The model Automatic uses for a language: its own model, otherwise one for all languages. Setup members come first. */
+/** The model Automatic uses for a language: its own model, otherwise one for all languages. Setup members come first, models that failed here never. */
 export function modelFor(models: ModelStatus[], setup: Setup | null, language: SetupLanguage, pinned = "auto"): ModelStatus | null {
   const installed = models.filter((m) => m.installed);
   if (pinned !== "auto") {
     const chosen = installed.find((m) => m.id === pinned);
     if (chosen) return chosen;
   }
+  const usable = installed.filter((m) => !m.too_heavy);
   const member = (m: ModelStatus) => (setup ? wanted(models, setup).includes(m.id) : false);
   const best = (list: ModelStatus[]) => list.find(member) ?? list[0] ?? null;
-  return best(installed.filter((m) => speaks(m, language))) ?? best(installed.filter(multilingual));
+  return best(usable.filter((m) => speaks(m, language))) ?? best(usable.filter(multilingual));
 }
 
 export function defaultModel(models: ModelStatus[], setup: Setup): ModelStatus | null {
@@ -113,11 +114,12 @@ export function leftovers(models: ModelStatus[], detections: SpeakerDetection[],
   return [...listed, ...detectionIds];
 }
 
-export type Recommendation = { speed: number | "measuring" | "offline"; gpu: Gpu | null; memoryTotal: number | null; preciseBytes: number; preciseRamGb: number };
+export type Recommendation = { speed: number | "measuring" | "offline"; gpu: Gpu | null; memoryTotal: number | null; preciseBytes: number; preciseRamGb: number; preciseModel: ModelStatus | null };
 
-export function recommend({ speed, gpu, memoryTotal, preciseBytes, preciseRamGb }: Recommendation): Mode | null {
+export function recommend({ speed, gpu, memoryTotal, preciseBytes, preciseRamGb, preciseModel }: Recommendation): Mode | null {
   if (speed === "measuring" || gpu === null || memoryTotal === null) return null;
   if (speed === "offline" || !gpu.usable || memoryTotal < PRECISE_MEMORY) return "essential";
+  if (preciseModel?.installed && preciseModel.too_heavy) return "essential";
   if (ramFit(preciseRamGb, memoryTotal).level !== "ok") return "essential";
   return downloadSeconds(preciseBytes, speed) < PRECISE_DOWNLOAD_SECONDS ? "precise" : "essential";
 }

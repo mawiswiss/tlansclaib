@@ -3,6 +3,7 @@ import { DETECTION } from "../lib/detection";
 import { parseLanguage, type LanguageOption } from "../lib/setup";
 import type { ModelStatus, SpeakerBackend } from "../lib/types";
 import { Close, Retry } from "./icons";
+import { menuLabel } from "./ModelsPanel";
 import { Select } from "./Select";
 
 export type RerunChoice = {
@@ -72,7 +73,7 @@ export function RerunDialog(props: Props) {
               value={choice.modelId}
               onChange={(value) => set({ modelId: value })}
               label="Model"
-              options={installed.map((m) => ({ value: m.id, label: m.custom ? `${m.name} (custom)` : m.name }))}
+              options={installed.map((m) => ({ value: m.id, label: menuLabel(m) }))}
             />
           </label>
           <label className={`field${focus === "language" ? " focused" : ""}`} htmlFor="rerun-language">
