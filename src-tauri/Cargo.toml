@@ -19,6 +19,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 anyhow = "1"
+bzip2 = "0.6.1"
 flate2 = "1"
 engine = { package = "tlansclaib-engine", path = "../engine", default-features = false }
 futures-util = "0.3"

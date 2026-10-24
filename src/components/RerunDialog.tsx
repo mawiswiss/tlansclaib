@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { capitalize } from "../lib/format";
-import type { Language, ModelStatus } from "../lib/types";
+import { DETECTION } from "../lib/detection";
+import { parseLanguage, type LanguageOption } from "../lib/setup";
+import type { ModelStatus, SpeakerBackend } from "../lib/types";
 import { Close, Retry } from "./icons";
 import { Select } from "./Select";
 
@@ -8,6 +9,8 @@ export type RerunChoice = {
   modelId: string;
   language: string;
   speakers: string;
+  precision: "standard" | "fast";
+  backend: SpeakerBackend | null;
   timestamps: boolean;
 };
 
@@ -16,8 +19,7 @@ type Props = {
   replaces: boolean;
   tracks: number;
   models: ModelStatus[];
-  languages: Language[];
-  detection: boolean;
+  languages: LanguageOption[];
   initial: RerunChoice;
   focus: "speakers" | "language" | null;
   missingModel: string | null;
@@ -26,15 +28,13 @@ type Props = {
   onClose: () => void;
 };
 
-const COUNTS = ["2", "3", "4", "5", "6", "7", "8"];
-
 export function RerunDialog(props: Props) {
-  const { models, languages, detection, focus } = props;
+  const { models, languages, focus } = props;
   const [choice, setChoice] = useState<RerunChoice>(props.initial);
   const installed = models.filter((m) => m.installed);
   const model = installed.find((m) => m.id === choice.modelId);
-  const locked = model && !model.languages.includes("all") ? model.languages[0] : null;
-  const sorted = [...languages].sort((a, b) => a.name.localeCompare(b.name));
+  const locked = model && !model.languages.includes("all") ? (model.language_name ? `${model.languages[0]}|${model.language_name}` : model.languages[0]) : null;
+  const backend = choice.backend;
   const set = (patch: Partial<RerunChoice>) => setChoice((c) => ({ ...c, ...patch }));
 
   useLayoutEffect(() => {
@@ -84,14 +84,14 @@ export function RerunDialog(props: Props) {
               disabled={locked !== null}
               onChange={(value) => set({ language: value })}
               label="Recording language"
-              options={[{ value: "auto", label: "Auto-detect" }, ...sorted.map((l) => ({ value: l.code, label: capitalize(l.name) }))]}
+              options={locked && !languages.some((l) => l.value === locked) ? [...languages, { value: locked, label: model?.language_name ?? locked }] : languages}
             />
           </label>
           <div className={`field wide${focus === "speakers" ? " focused" : ""}`}>
             <span className="label">Speakers</span>
             {props.tracks > 1 ? (
               <span className="field-note">One per audio track, {props.tracks} tracks</span>
-            ) : detection ? (
+            ) : backend ? (
               <span className="field-row">
                 <Select
                   id="rerun-speakers"
@@ -102,9 +102,21 @@ export function RerunDialog(props: Props) {
                   options={[
                     { value: "off", label: "Disabled" },
                     { value: "auto", label: "Auto" },
-                    ...COUNTS.map((n) => ({ value: n, label: `Up to ${n} people` })),
+                    ...DETECTION[backend].counts.map((n) => ({ value: String(n), label: backend === "nemotron" ? `Up to ${n} people` : `${n} people` })),
                   ]}
                 />
+                {backend === "sherpa" && choice.speakers !== "off" && (
+                  <Select
+                    className="field-select"
+                    value={choice.precision}
+                    onChange={(value) => set({ precision: value as RerunChoice["precision"] })}
+                    label="Precision of speaker detection"
+                    options={[
+                      { value: "standard", label: "Standard" },
+                      { value: "fast", label: "Fast" },
+                    ]}
+                  />
+                )}
               </span>
             ) : (
               <span className="field-note">
@@ -122,7 +134,7 @@ export function RerunDialog(props: Props) {
             <button type="button" onClick={props.onClose}>
               Cancel
             </button>
-            <button type="button" className="primary" onClick={() => props.onRun({ ...choice, language: locked ?? choice.language })} disabled={!model}>
+            <button type="button" className="primary" onClick={() => props.onRun({ ...choice, language: parseLanguage(locked ?? choice.language).code })} disabled={!model}>
               <Retry size={15} />
               Transcribe again
             </button>

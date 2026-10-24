@@ -3,12 +3,14 @@ import { AboutDialog } from "./components/AboutDialog";
 import { DropZone } from "./components/DropZone";
 import { ErrorView } from "./components/ErrorView";
 import { HistoryDrawer } from "./components/HistoryDrawer";
-import { ModelsPanel } from "./components/ModelsPanel";
+import { ModelDetails, ModelsDialog } from "./components/ModelsPanel";
 import { RerunDialog, type RerunChoice } from "./components/RerunDialog";
 import { ResultView } from "./components/ResultView";
 import { SupportDialog } from "./components/SupportDialog";
 import { RunView } from "./components/RunView";
 import { SettingsBar } from "./components/SettingsBar";
+import { SetupProgress } from "./components/SetupProgress";
+import { SetupView } from "./components/SetupView";
 import { SystemBar } from "./components/SystemBar";
 import { TopBar } from "./components/TopBar";
 import { capitalize, titleOf, transcriptText } from "./lib/format";
@@ -20,8 +22,12 @@ import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from
 import { parseTranscript, withTimes } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
 import { checkDue, topBarLabel, type UpdateState } from "./lib/update";
-import { DETECTION_ID } from "./lib/detection";
-import type { DiskSpace, DownloadProgress, FileKind, HistoryEntry, Language, ModelStatus, SpeakerDetection, Stats } from "./lib/types";
+import { DETECTION_IDS, downloadOrder, installed as isInstalled, languageKey, leftovers, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, sizeOf, wanted, wantedBackend, type Setup } from "./lib/setup";
+import type { DiskSpace, DownloadProgress, FileKind, Gpu, HistoryEntry, Language, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "./lib/types";
+
+function backendOf(id: string): SpeakerBackend | undefined {
+  return (Object.keys(DETECTION_IDS) as SpeakerBackend[]).find((b) => DETECTION_IDS[b] === id);
+}
 
 type RerunOptions = { focus?: "speakers" | "language"; speakers?: string; language?: string };
 
@@ -59,7 +65,12 @@ export default function App() {
   const [panelError, setPanelError] = useState<string | null>(null);
   const [resultError, setResultError] = useState<string | null>(null);
   const [downloads, setDownloads] = useState<Record<string, DownloadProgress>>({});
-  const [detection, setDetection] = useState<SpeakerDetection | null>(null);
+  const [detections, setDetections] = useState<SpeakerDetection[]>([]);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [gpu, setGpu] = useState<Gpu | null>(null);
+  const [failed, setFailed] = useState<Record<string, string>>({});
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [batch, setBatch] = useState<{ sizes: Record<string, number>; total: number } | null>(null);
   const [update, setUpdate] = useState<UpdateState>({ status: "idle" });
   const [dragging, setDragging] = useState(false);
   const [run, dispatch] = useReducer(reduce, idle);
@@ -77,12 +88,18 @@ export default function App() {
   } | null>(null);
 
   const installed = useMemo(() => models.filter((m) => m.installed), [models]);
-  const model = installed.find((m) => m.id === settings.modelId) ?? installed[0] ?? null;
-  const locked = model && !model.languages.includes("all") ? model.languages[0] : null;
+  const setup = settings.setup;
+  const runLanguage = parseLanguage(settings.language);
+  const model = modelFor(models, setup, runLanguage, settings.modelId);
+  const pinned = installed.some((m) => m.id === settings.modelId);
+  const locked = pinned && model && !model.languages.includes("all") ? languageKey({ code: model.languages[0], variant: model.language_name ?? null }) : null;
+  const speakerBackend = wantedBackend(setup, detections);
+  const firstRun = modelsLoaded && !setup && installed.length === 0;
+  const languageOptions = useMemo(() => runLanguages(models, languages), [models, languages]);
   const running = run.status === "running";
   const updateWait = running
     ? "Updating waits until the transcription has finished."
-    : Object.keys(downloads).length > 0 || detection?.downloading
+    : Object.keys(downloads).length > 0 || detections.some((d) => d.downloading)
       ? "Updating waits until the download has finished."
       : null;
   const updateWaitLatest = useRef(updateWait);
@@ -91,6 +108,7 @@ export default function App() {
     (code: string) => capitalize(languages.find((l) => l.code === code)?.name ?? code),
     [languages],
   );
+  const languageLabel = (key: string) => parseLanguage(key).variant ?? languageName(parseLanguage(key).code);
   const showError = useCallback((message: string) => {
     setAppErrors((current) => current.includes(message) ? current : [...current, message].slice(-10));
   }, []);
@@ -151,9 +169,11 @@ export default function App() {
   }, []);
 
   const measured = useRef(false);
+  const [measureAgain, setMeasureAgain] = useState(0);
+  const looking = panel === "models" || firstRun;
   useEffect(() => {
     const b = backend.current;
-    if (panel !== "models" || !b || measured.current) return;
+    if (!looking || !b || measured.current) return;
     measured.current = true;
     setSpeed("measuring");
     b.measureSpeed()
@@ -162,11 +182,15 @@ export default function App() {
         measured.current = false;
         setSpeed("offline");
       });
-  }, [panel]);
+    const precise = models.find((m) => (m.setups ?? []).includes("precise") && m.languages.includes("all"));
+    b.gpuInfo(precise?.id ?? null)
+      .then(setGpu)
+      .catch((error) => reportError("Could not check the graphics chip", error));
+  }, [looking, measureAgain, models, reportError]);
 
   useEffect(() => {
-    if (panel === "models") backend.current?.diskSpace().then(setDisk).catch((error) => reportError("Could not check disk space", error));
-  }, [panel, models, reportError]);
+    if (looking) backend.current?.diskSpace().then(setDisk).catch((error) => reportError("Could not check disk space", error));
+  }, [looking, models, reportError]);
 
   const openUrl = (url: string) => {
     void Promise.resolve().then(() => requireBackend().openUrl(url)).catch((error) => reportError("Could not open the link", error));
@@ -231,7 +255,7 @@ export default function App() {
         ["app errors", b.onAppError(showError)],
         ["model changes", b.onModelsChanged(() => {
           void refreshModels();
-          void b.speakerDetection().then(setDetection).catch((error) => reportError("Could not refresh speaker detection", error));
+          void b.speakerDetection().then(setDetections).catch((error) => reportError("Could not refresh speaker detection", error));
         })],
         ["history changes", b.onHistoryChanged(() => {
           void b.listHistory().then(setHistory).catch((error) => reportError("Could not refresh history", error));
@@ -251,9 +275,12 @@ export default function App() {
         } else if (active) reportError(`Could not listen for ${listeners[index][0]}`, result.reason);
       });
       if (!active) return;
-      void b.listModels().then(setModels).catch((error) => reportError("Could not load models", error));
+      void b.listModels().then((list) => {
+        setModels(list);
+        setModelsLoaded(true);
+      }).catch((error) => reportError("Could not load models", error));
       void b.modelsFolder().then(setFolder).catch((error) => reportError("Could not find the models folder", error));
-      void b.speakerDetection().then(setDetection).catch((error) => reportError("Could not load speaker detection", error));
+      void b.speakerDetection().then(setDetections).catch((error) => reportError("Could not load speaker detection", error));
       void b.listLanguages().then(setLanguages).catch((error) => reportError("Could not load languages", error));
       void b.listHistory().then((entries) => {
         setHistory(entries);
@@ -282,19 +309,19 @@ export default function App() {
       }
       let current: ModelStatus[];
       try {
-        current = (await b.listModels()).filter((m) => m.installed);
+        current = await b.listModels();
       } catch (error) {
         reportError("Could not check installed models", error);
         return;
       }
-      const chosen = current.find((m) => m.id === settings.modelId) ?? current[0];
+      const chosen = modelFor(current, settings.setup, parseLanguage(settings.language), settings.modelId);
       if (!chosen) {
         setPanel("models");
         return;
       }
       const multilingual = chosen.languages.includes("all");
-      const language = multilingual ? settings.language : chosen.languages[0];
-      const speakers = settings.speakers !== "off" && detection?.installed ? settings.speakers : null;
+      const language = multilingual ? parseLanguage(settings.language).code : chosen.languages[0];
+      const speakers = settings.speakers !== "off" && speakerBackend ? settings.speakers : null;
       setResultError(null);
       dispatch({
         type: "start",
@@ -307,12 +334,12 @@ export default function App() {
         now: Date.now(),
       });
       try {
-        await b.startRun(audio, chosen.id, language, settings.timestamps, speakers, null);
+        await b.startRun(audio, chosen.id, language, settings.timestamps, speakers, speakers && speakerBackend === "sherpa" ? settings.speakerPrecision : null, speakers ? speakerBackend : null);
       } catch (error) {
         dispatch({ type: "fail", message: String(error) });
       }
     },
-    [settings, detection, reportError, showError],
+    [settings, speakerBackend, reportError, showError],
   );
   startLatest.current = start;
 
@@ -397,6 +424,9 @@ export default function App() {
     if (running) return;
     const usable = models.filter((m) => m.installed);
     const original = usable.find((m) => m.id === entry.model_id) ?? usable.find((m) => m.name === entry.model);
+    const precision = entry.speaker_precision === "fast" || entry.speaker_precision === "standard" ? entry.speaker_precision : settings.speakerPrecision;
+    const previous = entry.speaker_backend ?? (entry.speaker_mode ? "sherpa" : null);
+    const rerunBackend = previous && detections.some((d) => d.backend === previous && d.installed) ? previous : speakerBackend;
     setRerunTarget({
       entry,
       replaces,
@@ -406,6 +436,8 @@ export default function App() {
         modelId: original?.id ?? usable[0]?.id ?? "",
         language: options.language ?? entry.language ?? "auto",
         speakers: options.speakers ?? entry.speaker_mode ?? (entry.detected ? "auto" : "off"),
+        precision,
+        backend: rerunBackend,
         timestamps: entry.timestamps,
       },
     });
@@ -423,7 +455,7 @@ export default function App() {
       showError("The selected model is no longer installed. Choose another model.");
       return;
     }
-    const speakers = choice.speakers !== "off" && detection?.installed ? choice.speakers : null;
+    const speakers = choice.speakers !== "off" && choice.backend ? choice.speakers : null;
     setResultError(null);
     setHistoryError(null);
     setHistoryOpen(false);
@@ -438,7 +470,7 @@ export default function App() {
       now: Date.now(),
     });
     try {
-      await b.startRun(entry.audio, model.id, choice.language, choice.timestamps, speakers, null, entry.file);
+      await b.startRun(entry.audio, model.id, choice.language, choice.timestamps, speakers, speakers && choice.backend === "sherpa" ? choice.precision : null, speakers ? choice.backend : null, entry.file);
     } catch (error) {
       dispatch({ type: "fail", message: String(error) });
     }
@@ -506,46 +538,166 @@ export default function App() {
     }
   };
 
-  const download = async (id: string) => {
-    setPanelError(null);
+  const refreshDetections = useCallback(() => {
+    void backend.current?.speakerDetection().then(setDetections).catch((error) => reportError("Could not refresh speaker detection", error));
+  }, [reportError]);
+
+  const fetchItem = useCallback(async (id: string) => {
+    const b = requireBackend();
+    const detection = backendOf(id);
     try {
-      await requireBackend().downloadModel(id);
-    } catch (error) {
-      setPanelError(String(error));
+      if (detection) {
+        await b.downloadSpeakerDetection(detection);
+        setSettings((s) => (s.speakers === "off" ? { ...s, speakers: "auto" } : s));
+      } else {
+        await b.downloadModel(id);
+      }
     } finally {
       setDownloads((d) => {
         const { [id]: _, ...rest } = d;
         return rest;
       });
       void refreshModels();
+      refreshDetections();
+    }
+  }, [requireBackend, refreshModels, refreshDetections]);
+
+  const cancelItem = async (id: string) => {
+    const detection = backendOf(id);
+    if (detection) await requireBackend().cancelSpeakerDetection(detection);
+    else await requireBackend().cancelDownload(id);
+  };
+
+  const deleteItem = async (id: string) => {
+    const detection = backendOf(id);
+    if (detection) {
+      await requireBackend().removeSpeakerDetection(detection);
+      if (!detections.some((d) => d.installed && d.backend !== detection)) setSettings((s) => ({ ...s, speakers: "off" }));
+    } else {
+      await requireBackend().deleteModel(id);
     }
   };
 
-  const downloadDetection = async () => {
+  const include = (id: string) =>
+    setSettings((s) => (s.setup ? { ...s, setup: { ...s.setup, added: s.setup.added.includes(id) ? s.setup.added : [...s.setup.added, id], removed: s.setup.removed.filter((r) => r !== id) } } : s));
+
+  const exclude = (id: string) =>
+    setSettings((s) => (s.setup ? { ...s, setup: { ...s.setup, added: s.setup.added.filter((a) => a !== id), removed: s.setup.removed.includes(id) ? s.setup.removed : [...s.setup.removed, id] } } : s));
+
+  const queue = useRef({ busy: false, checked: "" });
+  const setupKey = setup ? JSON.stringify(setup) : "";
+  useEffect(() => {
+    const b = backend.current;
+    if (!b || !setup || !modelsLoaded || queue.current.busy) return;
+    const pending = missing(downloadOrder(models, setup), models, detections).filter((id) => !failed[id]);
+    if (pending.length === 0) {
+      setBatch(null);
+      return;
+    }
+    queue.current.busy = true;
+    const key = setupKey;
+    void (async () => {
+      const first = queue.current.checked !== key;
+      try {
+        if (first) {
+          const modelIds = pending.filter((id) => !backendOf(id));
+          await b.checkSetupDownloads(modelIds, pending.map(backendOf).find(Boolean) ?? null);
+          queue.current.checked = key;
+          setSetupError(null);
+          const sizes = Object.fromEntries(pending.map((id) => [id, sizeOf(id, models, detections)]));
+          setBatch({ sizes, total: Object.values(sizes).reduce((sum, size) => sum + size, 0) });
+        }
+        await fetchItem(pending[0]);
+      } catch (error) {
+        const message = String(error);
+        if (first) {
+          setSetupError(message);
+          setFailed((f) => ({ ...f, ...Object.fromEntries(pending.map((id) => [id, message])) }));
+        } else {
+          setFailed((f) => ({ ...f, [pending[0]]: message }));
+        }
+      } finally {
+        queue.current.busy = false;
+        void refreshModels();
+        refreshDetections();
+      }
+    })();
+  }, [setup, setupKey, models, detections, failed, modelsLoaded, fetchItem, refreshModels, refreshDetections]);
+
+  const applySetup = (next: Setup) => {
+    const ids = wanted(models, next);
+    for (const id of Object.keys(downloads)) {
+      if (!ids.includes(id)) void cancelItem(id).catch((error) => reportError("Could not cancel a download", error));
+    }
+    setFailed({});
+    setSetupError(null);
+    setPanelError(null);
+    setSettings((s) => ({ ...s, setup: next, modelId: "auto", language: languageKey(next.language) }));
+    setPanel(null);
+    setModelsFocus(null);
+  };
+
+  const pendingIds = setup ? missing(wanted(models, setup), models, detections) : [];
+  const failure = setupError ?? pendingIds.map((id) => failed[id]).find(Boolean) ?? null;
+  const percent = batch && batch.total > 0
+    ? Math.min(100, Math.round((Object.entries(batch.sizes).reduce((sum, [id, size]) => sum + (isInstalled(id, models, detections) ? size : (downloads[id]?.bytes ?? 0)), 0) / batch.total) * 100))
+    : 0;
+  const preparing = setup && pendingIds.length > 0 && (batch || failure) ? { percent, failure } : null;
+
+  const leftoverIds = setup ? leftovers(models, detections, setup) : [];
+  const leftoverBytes = leftoverIds.reduce((sum, id) => sum + sizeOf(id, models, detections), 0);
+
+  const removeLeftovers = async () => {
     setPanelError(null);
     try {
-      await requireBackend().downloadSpeakerDetection();
-      setSettings((s) => (s.speakers === "off" ? { ...s, speakers: "auto" } : s));
+      const b = requireBackend();
+      if (!(await b.confirm(`Delete ${leftoverIds.length === 1 ? "one model" : `${leftoverIds.length} models`} no longer in your setup? They can be downloaded again later.`, "Delete"))) return;
+      for (const id of leftoverIds) await deleteItem(id);
     } catch (error) {
       setPanelError(String(error));
-    } finally {
-      setDownloads((d) => {
-        const { [DETECTION_ID]: _, ...rest } = d;
-        return rest;
-      });
-      void backend.current?.speakerDetection().then(setDetection).catch((error) => reportError("Could not refresh speaker detection", error));
+    }
+    void refreshModels();
+    refreshDetections();
+  };
+
+  const download = async (id: string) => {
+    setPanelError(null);
+    if (setup) {
+      setFailed(({ [id]: _, ...rest }) => rest);
+      include(id);
+      return;
+    }
+    try {
+      await fetchItem(id);
+    } catch (error) {
+      setPanelError(String(error));
     }
   };
 
-  const removeDetection = async () => {
+  const downloadDetection = (detection: SpeakerBackend) => download(DETECTION_IDS[detection]);
+
+  const leaveSetup = async (id: string) => {
     setPanelError(null);
+    exclude(id);
     try {
-      await requireBackend().removeSpeakerDetection();
-      setSettings((s) => ({ ...s, speakers: "off" }));
+      if (downloads[id]) await cancelItem(id);
+      else if (isInstalled(id, models, detections)) await deleteItem(id);
     } catch (error) {
       setPanelError(String(error));
     }
-    void backend.current?.speakerDetection().then(setDetection).catch((error) => reportError("Could not refresh speaker detection", error));
+    void refreshModels();
+    refreshDetections();
+  };
+
+  const removeDetection = async (detection: SpeakerBackend) => {
+    setPanelError(null);
+    exclude(DETECTION_IDS[detection]);
+    try {
+      await deleteItem(DETECTION_IDS[detection]);
+    } catch (error) {
+      setPanelError(String(error));
+    }
+    refreshDetections();
   };
 
   const addFile = async (id: string | null) => {
@@ -568,6 +720,7 @@ export default function App() {
 
   const remove = async (id: string) => {
     setPanelError(null);
+    exclude(id);
     try {
       await requireBackend().deleteModel(id);
     } catch (error) {
@@ -683,18 +836,11 @@ export default function App() {
   };
 
   const cancelDownload = async (id: string) => {
+    exclude(id);
     try {
-      await requireBackend().cancelDownload(id);
+      await cancelItem(id);
     } catch (error) {
       setPanelError(`Could not cancel the download: ${String(error)}`);
-    }
-  };
-
-  const cancelDetection = async () => {
-    try {
-      await requireBackend().cancelSpeakerDetection();
-    } catch (error) {
-      setPanelError(`Could not cancel speaker detection: ${String(error)}`);
     }
   };
 
@@ -756,7 +902,7 @@ export default function App() {
             onRename={renameTranscript}
             onRenameSpeaker={renameSpeaker}
             onRerun={rerunResult}
-            detectionInstalled={detection?.installed ?? false}
+            detectionInstalled={speakerBackend !== null}
             onSetUpDetection={setUpDetection}
             onClose={() => dispatch({ type: "reset" })}
             onAnother={() => dispatch({ type: "reset" })}
@@ -779,17 +925,43 @@ export default function App() {
           />
         );
       default:
+        if (firstRun) {
+          return (
+            <SetupView
+              variant="page"
+              models={models}
+              detections={detections}
+              languages={languages}
+              setup={null}
+              speed={speed}
+              gpu={gpu}
+              stats={stats}
+              disk={disk}
+              busy={running}
+              error={setupError ?? panelError}
+              leftoverBytes={0}
+              showDetails={settings.showDetails}
+              onApply={applySetup}
+              onMeasureAgain={() => setMeasureAgain((n) => n + 1)}
+              onRemoveLeftovers={() => {}}
+              onToggleDetails={() => setSettings((s) => ({ ...s, showDetails: !s.showDetails }))}
+            >
+              {details}
+            </SetupView>
+          );
+        }
         return (
           <DropZone
-            ready={installed.length > 0}
+            ready={model !== null}
+            preparing={preparing && setup ? { percent, label: `Downloading the ${MODE_NAMES[setup.mode]} models. A transcription can start once the first model is in.` } : null}
             dragging={dragging}
             pending={pending}
             summary={[
               model?.name ?? "",
-              locked ? languageName(locked) : settings.language === "auto" ? "Auto-detect" : languageName(settings.language),
-              !detection?.installed || settings.speakers === "off"
+              locked ? languageLabel(locked) : settings.language === "auto" ? "Auto-detect" : languageLabel(settings.language),
+              !speakerBackend || settings.speakers === "off"
                 ? "Speakers not named"
-                : settings.speakers === "auto" ? "Speakers detected" : `Up to ${settings.speakers} people`,
+                : `${settings.speakers === "auto" ? "Speakers detected" : speakerBackend === "nemotron" ? `Up to ${settings.speakers} people` : `${settings.speakers} people`}${speakerBackend === "sherpa" && settings.speakerPrecision === "fast" ? ", fast" : ""}`,
               "Saved in app history",
             ]}
             onGo={go}
@@ -800,6 +972,34 @@ export default function App() {
         );
     }
   };
+
+  const details = (
+    <ModelDetails
+      focus={modelsFocus}
+      models={models}
+      detections={detections}
+      downloads={downloads}
+      failed={failed}
+      setup={setup}
+      stats={stats}
+      disk={disk}
+      speed={speed}
+      busy={running}
+      folder={folder}
+      onDownload={(id) => { void download(id); }}
+      onCancelDownload={(id) => { void cancelDownload(id); }}
+      onAddFile={addFile}
+      onDelete={remove}
+      onUnlink={unlink}
+      onRename={renameModel}
+      onShowFolder={() => { void showInFolder(folder); }}
+      onOpenUrl={openUrl}
+      onDownloadDetection={(b) => { void downloadDetection(b); }}
+      onCancelDetection={(b) => { void cancelDownload(DETECTION_IDS[b]); }}
+      onRemoveDetection={removeDetection}
+      onLeaveSetup={leaveSetup}
+    />
+  );
 
   return (
     <div className="app">
@@ -821,51 +1021,64 @@ export default function App() {
         busy={running}
       />
       <main>
-        {run.status !== "running" && run.status !== "done" && (
+        {run.status !== "running" && run.status !== "done" && !firstRun && (
         <SettingsBar
           models={models}
-          modelId={model?.id ?? ""}
+          modelId={settings.modelId}
+          model={model}
           onModel={(id) => setSettings((s) => ({ ...s, modelId: id }))}
-          languages={languages}
+          languages={languageOptions.some((o) => o.value === settings.language) ? languageOptions : [...languageOptions, { value: settings.language, label: languageLabel(settings.language) }]}
           language={settings.language}
-          onLanguage={(code) => setSettings((s) => ({ ...s, language: code }))}
+          onLanguage={(key) => setSettings((s) => ({ ...s, language: key }))}
           locked={locked}
           speakers={settings.speakers}
-          detection={detection?.installed ?? false}
+          backend={speakerBackend}
           onSpeakers={(value) => setSettings((s) => ({ ...s, speakers: value }))}
+          speakerPrecision={settings.speakerPrecision}
+          onSpeakerPrecision={(value) => setSettings((s) => ({ ...s, speakerPrecision: value }))}
           onSetUpSpeakers={setUpDetection}
           stats={stats}
           busy={running}
         />
         )}
+        {preparing && setup && run.status !== "running" && run.status !== "done" && (
+          <SetupProgress
+            mode={MODE_NAMES[setup.mode]}
+            percent={percent}
+            ready={model !== null}
+            error={preparing.failure}
+            onRetry={() => {
+              setFailed({});
+              setSetupError(null);
+            }}
+            onDetails={() => setPanel("models")}
+          />
+        )}
         <div className="stage">{main()}</div>
       </main>
       <SystemBar stats={stats} running={running} onCredit={() => setPanel("support")} />
       {panel === "models" && (
-        <ModelsPanel
-          focus={modelsFocus}
-          models={models}
-          downloads={downloads}
-          stats={stats}
-          disk={disk}
-          speed={speed}
-          busy={running}
-          error={panelError}
-          folder={folder}
-          onDownload={download}
-          onCancelDownload={(id) => { void cancelDownload(id); }}
-          onAddFile={addFile}
-          onDelete={remove}
-          onUnlink={unlink}
-          onRename={renameModel}
-          onShowFolder={() => { void showInFolder(folder); }}
-          onOpenUrl={openUrl}
-          detection={detection}
-          onDownloadDetection={downloadDetection}
-          onCancelDetection={() => { void cancelDetection(); }}
-          onRemoveDetection={removeDetection}
-          onClose={closePanel}
-        />
+        <ModelsDialog error={panelError} onClose={closePanel}>
+          <SetupView
+            variant="dialog"
+            models={models}
+            detections={detections}
+            languages={languages}
+            setup={setup}
+            speed={speed}
+            gpu={gpu}
+            stats={stats}
+            disk={disk}
+            busy={running}
+            error={setupError}
+            leftoverBytes={leftoverBytes}
+            onApply={applySetup}
+            onMeasureAgain={() => setMeasureAgain((n) => n + 1)}
+            onRemoveLeftovers={() => { void removeLeftovers(); }}
+          >
+            {details}
+          </SetupView>
+        </ModelsDialog>
       )}
       {rerunTarget && (
         <RerunDialog
@@ -873,8 +1086,7 @@ export default function App() {
           replaces={rerunTarget.replaces}
           tracks={!rerunTarget.entry.detected ? (rerunTarget.entry.speakers?.length ?? 0) : 0}
           models={models}
-          languages={languages}
-          detection={detection?.installed ?? false}
+          languages={languageOptions}
           initial={rerunTarget.initial}
           focus={rerunTarget.focus}
           missingModel={rerunTarget.missingModel}

@@ -31,21 +31,40 @@ An update waits while a transcription or a download runs. On a Mac the app
 has to be in Applications. When an update fails, "Download from GitHub" leads
 to the installers.
 
-## Get a model
+## Set up
 
-The app transcribes with a speech model, which is not part of the installer.
-Open Models at the top right. "Recommended and installed" comes first, with
-speaker detection at its top. "For one language" and "More models" open with
-a click. Each card names its language in a chip.
+The app transcribes with speech models, which are not part of the installer.
+On the first start it asks two things:
 
-- Thai: download "Fast", 874 MB. "Best quality" is 1.66 GB and takes about
-  three times as long.
-- Swiss German: the Swiss German model under "For one language". It writes
-  what is said as Standard German.
-- German, English or French alone: the matching model under "For one
-  language". These are more accurate for their language than the general
-  models.
-- Any other language: "Fast" for all languages, 574 MB.
+- The language you mostly transcribe. Thai, Swiss German, German, English and
+  French have models of their own, which come along. "Several languages" takes
+  only the model for all languages.
+- A setup:
+  - Precise: the most accurate results, with the biggest models and the better
+    speaker detection. For a computer with a graphics chip and a fast
+    connection. About 3.3 GB, more with a language of its own.
+  - Essential: mid-sized models and basic speaker detection, for older
+    computers or a slower connection. About 900 MB.
+  - Minimal: the smallest model and no speaker detection, for testing or when
+    the others do not run. 78 MB.
+
+The app measures the connection, checks for a graphics chip and marks one
+setup "Recommended for this computer". Any setup can be chosen. "Download and
+start" fetches the models in the background, the model for your language
+first, and a line below the settings shows how far it is. A transcription can
+start as soon as the first model is in.
+
+Models at the top right opens the same choice later. Switching to a smaller
+setup deletes nothing by itself: the dialog offers to remove the models no
+longer in it.
+
+### Models and details
+
+"Show models and details" below the setups is for technical users. It shows
+what the app measured, every model and speaker detection in your setup with
+its file and status, the full list of models and both speaker detections, and
+your own model files. Downloading a model from the list adds it to your
+setup, and the bin takes one out.
 
 Chips show the size, the RAM a model needs and, before the download, how
 long it takes. RAM is green when it fits. Orange and red mark a problem and
@@ -66,13 +85,19 @@ model deletes the file.
 
 ## Speaker detection
 
-Speaker detection is an optional download of about 202 MB, at the top of the
-models dialog. It tells who speaks when in a recording with one audio track,
-such as a meeting room, and runs offline like the models. Once it is there,
-"Speakers" in the settings row offers "Auto" or a cap of 2 to 8 people. Auto
-estimates the number of voices. Giving a cap can suppress an extra label, but
-cannot recover a voice the model missed. Short replies can still be assigned
-to the wrong person. Detection speed depends on the computer and recording.
+Speaker detection tells who speaks when in a recording with one audio track,
+such as a meeting room, and runs offline like the models. The setup brings it:
+
+- Essential: basic detection, about 38 MB. "Speakers" in the settings row
+  offers "Auto" or 2 to 6 people, and giving the number is more reliable. The
+  small "Standard" next to "Speakers" can be switched to "Fast", which takes
+  about a third of the time and gets a few more speaker changes wrong. Very
+  short replies such as "yes" often go to the wrong person. Detection runs on
+  the processor: on a recent Mac about 2 to 4 minutes for a 25-minute call,
+  and 10 minutes for a 107-minute meeting.
+- Precise: better detection, about 202 MB, which keeps short replies apart.
+  "Speakers" offers "Auto" or a cap of 2 to 8 people. A cap can suppress an
+  extra label, but cannot recover a voice the model missed.
 
 Calls need none of this when each side is on its own track. Screen and call
 recordings often keep your microphone on one track and the computer's sound,
@@ -82,10 +107,12 @@ gives each line its speaker, such as
 
 ## Transcribe
 
-1. Pick the model and the recording language in the row below the top bar.
-   The Thai models fix the language to Thai. For the others, leave Recording
-   language on "Auto-detect", which finds the language in most recordings.
-   Choose one only when Auto-detect picks the wrong one.
+1. Check the recording language in the row below the top bar. Leave it on
+   "Auto-detect", which finds the language in most recordings, and choose one
+   only when Auto-detect picks the wrong one. The model is "Automatic": it
+   takes your setup's model for the language, such as the Swiss German model
+   for Swiss German, and otherwise the model for all languages. Pick a model
+   there to use it instead.
 2. Drop the recording on the window, or click "Choose a file…". m4a, mp3,
    wav, mp4, flac and most other formats work. The recording waits with the
    settings it will use. Check them, change them in the row above if needed,
@@ -149,7 +176,7 @@ or dark. The "i" tells what the app is and who makes it.
 
 The model in the settings row is labelled "Fits", "Tight" or "Could
 overload": what the model needs against the computer's total RAM, by the
-same rule as in the models dialog.
+same rule as in the models list.
 
 The bar at the bottom shows the processor and the RAM, green below 70%,
 orange from 70% and red from 90%. Orange and red add a warning sign that
@@ -159,10 +186,11 @@ and the RAM figure adds how much of it the transcription uses.
 ## Privacy
 
 Recordings and transcripts never leave the computer, and there are no
-analytics. The app goes online only for a download you start, for four
-seconds when you first open Models after a start, to measure how long a
-download would take, and once a day on start to ask GitHub for the newest
-version number, unless you turn that off under Updates in About.
+analytics. The app goes online only for the downloads of your setup or one
+you start, for four seconds on the first start or when you first open Models
+after a start, to measure how long a download would take, and once a day on
+start to ask GitHub for the newest version number, unless you turn that off
+under Updates in About.
 
 ## How long it takes
 

@@ -1,5 +1,6 @@
 mod detection;
 mod fingerprint;
+mod gpu;
 mod guard;
 mod history;
 mod models;
@@ -10,6 +11,7 @@ mod validate;
 
 use std::path::{Path, PathBuf};
 
+use engine::speakers::Backend;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_shell::ShellExt;
 
@@ -113,6 +115,7 @@ async fn start_run(
     timestamps: bool,
     speakers: Option<String>,
     speaker_precision: Option<String>,
+    speaker_backend: Option<String>,
     output_file: Option<String>,
 ) -> Result<(), String> {
     let audio = PathBuf::from(audio);
@@ -126,6 +129,7 @@ async fn start_run(
             timestamps,
             speakers: speakers.as_deref(),
             speaker_precision: speaker_precision.as_deref(),
+            speaker_backend: speaker_backend.as_deref(),
             transcript: output_file.as_deref(),
         },
     )
@@ -134,24 +138,24 @@ async fn start_run(
 }
 
 #[tauri::command]
-fn speaker_detection(detection: State<detection::Detection>) -> detection::Status {
-    detection.status()
+fn speaker_detection(detections: State<detection::Detections>) -> Vec<detection::Status> {
+    detections.status()
 }
 
 #[tauri::command]
-async fn download_speaker_detection(app: AppHandle) -> Result<(), String> {
-    let detection = app.state::<detection::Detection>();
-    detection.download(&app).await.map_err(|e| format!("{e:#}"))
+async fn download_speaker_detection(app: AppHandle, backend: Backend) -> Result<(), String> {
+    let detections = app.state::<detection::Detections>();
+    detections.get(backend).download(&app).await.map_err(|e| format!("{e:#}"))
 }
 
 #[tauri::command]
-fn cancel_speaker_detection(detection: State<detection::Detection>) {
-    detection.cancel();
+fn cancel_speaker_detection(detections: State<detection::Detections>, backend: Backend) {
+    detections.get(backend).cancel();
 }
 
 #[tauri::command]
-fn remove_speaker_detection(app: AppHandle, detection: State<detection::Detection>) -> Result<(), String> {
-    detection.remove(&app).map_err(|e| format!("{e:#}"))
+fn remove_speaker_detection(app: AppHandle, detections: State<detection::Detections>, backend: Backend) -> Result<(), String> {
+    detections.get(backend).remove(&app).map_err(|e| format!("{e:#}"))
 }
 
 #[tauri::command]
@@ -250,6 +254,33 @@ fn disk_space(models: State<Models>) -> DiskSpace {
         minimum: guard::DISK_MINIMUM,
         reserve: guard::DISK_RESERVE,
     }
+}
+
+#[tauri::command]
+async fn gpu_info(app: AppHandle, model_id: Option<String>) -> Result<gpu::Gpu, String> {
+    let ram = match model_id {
+        Some(id) => app.state::<Models>().find(&id).map_err(|e| format!("{e:#}"))?.entry.ram_bytes(),
+        None => 0,
+    };
+    Ok(gpu::probe(&app, ram).await)
+}
+
+/// Refuses a setup whose missing downloads do not fit on the disk together, and returns their size.
+#[tauri::command]
+fn check_setup_downloads(models: State<Models>, detections: State<detection::Detections>, model_ids: Vec<String>, backend: Option<Backend>) -> Result<u64, String> {
+    let list = models.list().map_err(|e| format!("{e:#}"))?;
+    let sizes: Vec<u64> = model_ids
+        .iter()
+        .map(|id| list.iter().find(|m| &m.entry.id == id).ok_or_else(|| format!("unknown model {id}")))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter(|m| !m.installed)
+        .map(|m| m.entry.size_bytes)
+        .collect();
+    let detection = backend.map(|b| detections.get(b)).filter(|d| !d.installed()).map(|d| d.download_bytes());
+    let total = guard::setup_download_bytes(&sizes, detection);
+    guard::can_download(models::free_disk(&models.dir), total)?;
+    Ok(total)
 }
 
 #[tauri::command]
@@ -398,7 +429,7 @@ pub fn run() {
             let data = app.path().app_data_dir()?;
             let dir = data.join("models");
             std::fs::create_dir_all(&dir)?;
-            app.manage(detection::Detection::new(&dir));
+            app.manage(detection::Detections::new(&dir));
             app.manage(Models::new(dir));
             let history = History::new(data.join("history.json"));
             if let Err(error) = history.recover() {
@@ -445,6 +476,8 @@ pub fn run() {
             disk_space,
             measure_speed,
             update_blocker,
+            gpu_info,
+            check_setup_downloads,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

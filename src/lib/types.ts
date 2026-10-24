@@ -4,8 +4,8 @@ export type ModelStatus = {
   title?: string | null;
   languages: string[];
   language_name: string | null;
+  setups?: string[] | null;
   recommended: string;
-  featured: boolean;
   file: string;
   size_bytes: number;
   sha256: string | null;
@@ -46,6 +46,7 @@ export type HistoryEntry = {
   speaker_mode?: string | null;
   speaker_precision?: string | null;
   heard?: Heard[];
+  speaker_backend?: SpeakerBackend | null;
   exists: boolean;
   audio_exists: boolean;
 };
@@ -73,7 +74,11 @@ export type DownloadProgress = { id: string; bytes: number; total: number };
 
 export type Step = "decode" | "speakers" | "load" | "transcribe" | "write";
 
-export type SpeakerDetection = { available: boolean; installed: boolean; downloading: boolean; download_bytes: number; disk_bytes: number };
+export type SpeakerBackend = "sherpa" | "nemotron";
+
+export type SpeakerDetection = { backend: SpeakerBackend; available: boolean; installed: boolean; downloading: boolean; download_bytes: number; disk_bytes: number };
+
+export type Gpu = { backend: "metal" | "vulkan" | null; name: string | null; free_bytes: number | null; usable: boolean };
 
 export type Timings = { decode: number; speakers: number; load: number; transcribe: number; write: number };
 

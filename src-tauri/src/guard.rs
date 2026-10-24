@@ -1,3 +1,5 @@
+use engine::speakers::Backend;
+
 const GIB: u64 = 1 << 30;
 const MIB: u64 = 1 << 20;
 
@@ -7,7 +9,16 @@ pub const DISK_RESERVE: u64 = 10 * GIB;
 pub const DEFAULT_MEMORY_FLOOR: u64 = 400 * MIB;
 pub const SWAP_GROWTH_LIMIT: u64 = 2 * GIB;
 
-pub const DETECTION_RAM: u64 = 3 << 29;
+/// sherpa-onnx detection peaked at 1.3 GB on a 107-minute recording. It runs before the model loads.
+pub const SHERPA_DETECTION_RAM: u64 = 3 << 29;
+pub const NEMOTRON_DETECTION_RAM: u64 = 3 << 29;
+
+pub fn detection_ram(backend: Backend) -> u64 {
+    match backend {
+        Backend::Sherpa => SHERPA_DETECTION_RAM,
+        Backend::Nemotron => NEMOTRON_DETECTION_RAM,
+    }
+}
 
 const AUDIO_BYTES_PER_SECOND: u64 = 16_000 * 4 * 3;
 const TRANSCRIPT_BYTES_PER_SECOND: u64 = 4096;
@@ -61,7 +72,7 @@ pub fn can_use_gpu(free: u64, needed: u64) -> bool {
 }
 
 pub fn can_download(free_disk: u64, size: u64) -> Result<(), String> {
-    if free_disk >= size + DISK_MINIMUM {
+    if size.checked_add(DISK_MINIMUM).is_some_and(|needed| free_disk >= needed) {
         return Ok(());
     }
     Err(format!(
@@ -81,6 +92,11 @@ pub fn can_update(free_disk: u64) -> Result<(), String> {
         gb(DISK_MINIMUM),
         gb(free_disk)
     ))
+}
+
+/// Bytes a setup still has to download. Speaker detection counts twice, as in its own download check.
+pub fn setup_download_bytes(models: &[u64], detection: Option<u64>) -> u64 {
+    models.iter().fold(0u64, |sum, size| sum.saturating_add(*size)).saturating_add(detection.unwrap_or(0).saturating_mul(2))
 }
 
 pub fn should_stop(free: u64, swap_used: u64, swap_at_start: u64, floor: u64) -> Option<String> {
@@ -135,8 +151,10 @@ mod tests {
 
     #[test]
     fn speaker_detection_reserves_memory_before_loading_whisper() {
-        assert!(can_start_recording(3 * GIB, GIB, DETECTION_RAM, Some(1059.0)).is_ok());
-        assert!(can_start_recording(2 * GIB, GIB, DETECTION_RAM, Some(1059.0)).is_err());
+        for backend in [Backend::Sherpa, Backend::Nemotron] {
+            assert!(can_start_recording(3 * GIB, GIB, detection_ram(backend), Some(1059.0)).is_ok());
+            assert!(can_start_recording(2 * GIB, GIB, detection_ram(backend), Some(1059.0)).is_err());
+        }
     }
 
     #[test]
@@ -158,6 +176,16 @@ mod tests {
         assert!(can_update(GIB).is_ok());
         let refused = can_update(GIB - 1).unwrap_err();
         assert!(refused.contains("needs 1.0 GB to spare"), "{refused}");
+    }
+
+    #[test]
+    fn a_setup_needs_room_for_all_its_downloads_at_once() {
+        let models = [GIB, 2 * GIB];
+        assert!(models.iter().all(|size| can_download(3 * GIB, *size).is_ok()));
+        assert_eq!(setup_download_bytes(&models, Some(100 * MIB)), 3 * GIB + 200 * MIB);
+        assert!(can_download(3 * GIB, setup_download_bytes(&models, None)).is_err());
+        assert!(can_download(4 * GIB, setup_download_bytes(&models, None)).is_ok());
+        assert_eq!(setup_download_bytes(&[u64::MAX], Some(1)), u64::MAX);
     }
 
     #[test]

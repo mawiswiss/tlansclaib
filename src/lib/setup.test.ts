@@ -1,0 +1,138 @@
+import { describe, expect, it } from "vitest";
+import { defaultModel, downloadOrder, leftovers, missingBytes, modelFor, parseLanguage, recommend, runLanguages, setupLanguages, wanted, wantedBackend, type Setup } from "./setup";
+import type { Gpu, ModelStatus, SpeakerDetection } from "./types";
+
+const GIB = 2 ** 30;
+
+function model(id: string, languages: string[], setups: string[] | null, extra: Partial<ModelStatus> = {}): ModelStatus {
+  return {
+    id, name: id, languages, language_name: null, setups, recommended: "", file: `ggml-${id}.bin`, size_bytes: GIB, sha256: null, ram_gb: 1,
+    url: "https://example.invalid", architecture: null, quantization: null, source: null, license: null, installed: false, path: null, label: null,
+    custom: false, linked: false, ...extra,
+  };
+}
+
+const models = [
+  model("thai-fast", ["th"], ["essential"]),
+  model("thai-best", ["th"], ["precise"]),
+  model("german-fast", ["de"], ["essential"]),
+  model("swiss-german", ["de"], ["essential", "precise"], { language_name: "Swiss German" }),
+  model("turbo-q8", ["all"], ["essential"]),
+  model("large-v3", ["all"], ["precise"], { size_bytes: 3 * GIB, ram_gb: 4 }),
+  model("tiny", ["all"], ["minimal"]),
+  model("base", ["all"], null),
+];
+
+const detections: SpeakerDetection[] = [
+  { backend: "sherpa", available: true, installed: false, downloading: false, download_bytes: 38e6, disk_bytes: 0 },
+  { backend: "nemotron", available: true, installed: false, downloading: false, download_bytes: 202e6, disk_bytes: 0 },
+];
+
+const setup = (mode: Setup["mode"], key = "auto", changes: Partial<Setup> = {}): Setup => ({ mode, language: parseLanguage(key), added: [], removed: [], ...changes });
+
+const with_ = (installed: string[]) => models.map((m) => ({ ...m, installed: installed.includes(m.id) }));
+
+const gpu: Gpu = { backend: "metal", name: "Apple M5", free_bytes: null, usable: true };
+
+describe("wanted", () => {
+  it("takes the mode's all-language model and speaker detection", () => {
+    expect(wanted(models, setup("essential"))).toEqual(["turbo-q8", "speaker-detection"]);
+    expect(wanted(models, setup("precise"))).toEqual(["large-v3", "speaker-detection-nemotron"]);
+    expect(wanted(models, setup("minimal"))).toEqual(["tiny"]);
+  });
+
+  it("adds the chosen language's model, and German never pulls in Swiss German", () => {
+    expect(wanted(models, setup("essential", "de"))).toEqual(["german-fast", "turbo-q8", "speaker-detection"]);
+    expect(wanted(models, setup("precise", "de|Swiss German"))).toEqual(["swiss-german", "large-v3", "speaker-detection-nemotron"]);
+    expect(wanted(models, setup("precise", "de"))).toEqual(["large-v3", "speaker-detection-nemotron"]);
+  });
+
+  it("keeps what a technical user added or removed by hand", () => {
+    expect(wanted(models, setup("essential", "th", { added: ["base"], removed: ["speaker-detection"] }))).toEqual(["thai-fast", "turbo-q8", "base"]);
+  });
+});
+
+describe("modelFor", () => {
+  it("picks the Swiss German model for Swiss German", () => {
+    const installed = with_(["swiss-german", "german-fast", "large-v3"]);
+    expect(modelFor(installed, setup("precise", "de|Swiss German"), parseLanguage("de|Swiss German"))?.id).toBe("swiss-german");
+    expect(modelFor(installed, setup("precise", "de|Swiss German"), parseLanguage("de"))?.id).toBe("german-fast");
+  });
+
+  it("falls back to the all-language model for an uninstalled language model and for Auto", () => {
+    const installed = with_(["large-v3", "tiny"]);
+    expect(modelFor(installed, setup("precise", "th"), parseLanguage("th"))?.id).toBe("large-v3");
+    expect(modelFor(installed, setup("precise", "th"), parseLanguage("auto"))?.id).toBe("large-v3");
+    expect(modelFor(installed, setup("minimal"), parseLanguage("auto"))?.id).toBe("tiny");
+  });
+
+  it("respects a pinned model and ignores one that is gone", () => {
+    const installed = with_(["large-v3", "tiny"]);
+    expect(modelFor(installed, setup("precise"), parseLanguage("auto"), "tiny")?.id).toBe("tiny");
+    expect(modelFor(installed, setup("precise"), parseLanguage("auto"), "thai-best")?.id).toBe("large-v3");
+    expect(modelFor(with_([]), null, parseLanguage("auto"))).toBeNull();
+  });
+});
+
+describe("downloads", () => {
+  it("fetches the language's model first, then speaker detection", () => {
+    expect(defaultModel(models, setup("essential", "th"))?.id).toBe("thai-fast");
+    expect(downloadOrder(models, setup("essential", "th"))).toEqual(["thai-fast", "speaker-detection", "turbo-q8"]);
+    expect(downloadOrder(models, setup("precise"))).toEqual(["large-v3", "speaker-detection-nemotron"]);
+  });
+
+  it("counts only what is not installed yet", () => {
+    const ids = wanted(models, setup("precise"));
+    expect(missingBytes(ids, models, detections)).toBe(3 * GIB + 202e6);
+    expect(missingBytes(ids, with_(["large-v3"]), detections)).toBe(202e6);
+  });
+
+  it("lists leftovers after switching down, never custom or linked files", () => {
+    const installed = [...with_(["large-v3", "turbo-q8", "thai-best"]), model("custom:mine", ["all"], null, { installed: true, custom: true }), model("linked:abc", ["all"], null, { installed: true, custom: true, linked: true })];
+    const both = detections.map((d) => ({ ...d, installed: true }));
+    expect(leftovers(installed, both, setup("essential"))).toEqual(["thai-best", "large-v3", "speaker-detection-nemotron"]);
+  });
+
+  it("runs the setup's speaker detection when installed, else the other", () => {
+    const both = detections.map((d) => ({ ...d, installed: true }));
+    expect(wantedBackend(setup("essential"), both)).toBe("sherpa");
+    expect(wantedBackend(setup("precise"), both)).toBe("nemotron");
+    expect(wantedBackend(setup("precise"), [{ ...detections[0], installed: true }, detections[1]])).toBe("sherpa");
+    expect(wantedBackend(null, detections)).toBeNull();
+  });
+});
+
+describe("recommend", () => {
+  const base = { speed: 50e6, gpu, memoryTotal: 32 * GIB, preciseBytes: 3.3e9, preciseRamGb: 4 };
+
+  it("recommends Precise with a GPU, enough memory and a fast line", () => {
+    expect(recommend(base)).toBe("precise");
+  });
+
+  it("recommends Essential without a GPU, offline, on a slow line or with little memory", () => {
+    expect(recommend({ ...base, gpu: { ...gpu, backend: null, usable: false } })).toBe("essential");
+    expect(recommend({ ...base, speed: "offline" })).toBe("essential");
+    expect(recommend({ ...base, speed: 2e6 })).toBe("essential");
+    expect(recommend({ ...base, memoryTotal: 8 * GIB })).toBe("essential");
+  });
+
+  it("waits while measuring and never recommends Minimal", () => {
+    expect(recommend({ ...base, speed: "measuring" })).toBeNull();
+    expect(recommend({ ...base, gpu: null })).toBeNull();
+    const cases = [50e6, 1e5, "offline" as const].flatMap((speed) => [8, 16, 64].map((gb) => recommend({ ...base, speed, memoryTotal: gb * GIB })));
+    expect(cases).not.toContain("minimal");
+  });
+});
+
+describe("languages", () => {
+  const whisper = [{ code: "en", name: "english" }, { code: "de", name: "german" }, { code: "th", name: "thai" }, { code: "it", name: "italian" }];
+
+  it("lists several languages, then those with their own model, then the rest", () => {
+    expect(setupLanguages(models, whisper).map((o) => o.label)).toEqual(["Several languages", "German", "Swiss German", "Thai", "English", "Italian"]);
+  });
+
+  it("offers Swiss German in the settings row once its model is installed", () => {
+    expect(runLanguages(models, whisper).map((o) => o.value)).not.toContain("de|Swiss German");
+    expect(runLanguages(with_(["swiss-german"]), whisper).map((o) => o.value)).toEqual(["auto", "en", "de", "it", "de|Swiss German", "th"]);
+  });
+});

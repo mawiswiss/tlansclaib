@@ -36,10 +36,11 @@ pub struct ModelEntry {
     pub languages: Vec<String>,
     #[serde(default)]
     pub language_name: Option<String>,
+    /// The setup modes this model belongs to: minimal, essential, precise. Missing in an override keeps the bundled value.
+    #[serde(default)]
+    pub setups: Option<Vec<String>>,
     #[serde(default)]
     pub recommended: String,
-    #[serde(default)]
-    pub featured: bool,
     pub file: String,
     #[serde(default)]
     pub size_bytes: u64,
@@ -311,7 +312,10 @@ fn merge(bundled: Vec<ModelEntry>, extra: Vec<ModelEntry>) -> Vec<ModelEntry> {
     let mut merged = bundled;
     for entry in extra {
         match merged.iter_mut().find(|e| e.id == entry.id) {
-            Some(existing) => *existing = entry,
+            Some(existing) => {
+                let setups = entry.setups.clone().or_else(|| existing.setups.take());
+                *existing = ModelEntry { setups, ..entry };
+            }
             None => merged.push(entry),
         }
     }
@@ -343,8 +347,8 @@ fn linked_entry(link: &Link, registry: &[ModelEntry]) -> ModelStatus {
             title: None,
             languages: vec![if info.as_ref().is_none_or(|i| i.multilingual) { "all" } else { "en" }.to_string()],
             language_name: None,
+            setups: None,
             recommended: String::new(),
-            featured: false,
             file: link.path.to_string_lossy().into_owned(),
             size_bytes: size,
             sha256: None,
@@ -377,8 +381,8 @@ fn custom_entry(path: &Path, registry: &[ModelEntry]) -> Option<ModelStatus> {
             title: None,
             languages: vec![if info.multilingual { "all" } else { "en" }.to_string()],
             language_name: None,
+            setups: None,
             recommended: "Added from a file".into(),
-            featured: false,
             file,
             size_bytes: size,
             sha256: None,
@@ -583,6 +587,36 @@ mod tests {
         let merged = merge(bundled, extra);
         let names: Vec<&str> = merged.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(names, vec!["A", "B2", "C"]);
+    }
+
+    #[test]
+    fn an_override_without_setups_keeps_the_bundled_modes() {
+        let mut bundled = entry("a", "A");
+        bundled.setups = Some(vec!["essential".into()]);
+        let merged = merge(vec![bundled.clone()], vec![entry("a", "A2")]);
+        assert_eq!(merged[0].setups, bundled.setups);
+        let mut moved = entry("a", "A3");
+        moved.setups = Some(vec![]);
+        assert_eq!(merge(vec![bundled], vec![moved])[0].setups, Some(vec![]));
+    }
+
+    #[test]
+    fn every_mode_has_one_all_language_model_and_one_model_per_language() {
+        let list: Vec<ModelEntry> = serde_json::from_str(BUNDLED).unwrap();
+        for mode in ["minimal", "essential", "precise"] {
+            let members: Vec<&ModelEntry> = list.iter().filter(|e| e.setups.as_ref().is_some_and(|s| s.iter().any(|m| m == mode))).collect();
+            assert_eq!(members.iter().filter(|e| e.languages == ["all"]).count(), 1, "{mode}");
+            let mut seen: Vec<(String, Option<String>)> = Vec::new();
+            for member in members.iter().filter(|e| e.languages != ["all"]) {
+                for language in &member.languages {
+                    let key = (language.clone(), member.language_name.clone());
+                    assert!(!seen.contains(&key), "{mode} has two models for {key:?}");
+                    seen.push(key);
+                }
+            }
+        }
+        let modes = ["minimal", "essential", "precise"];
+        assert!(list.iter().flat_map(|e| e.setups.iter().flatten()).all(|m| modes.contains(&m.as_str())));
     }
 
     #[test]

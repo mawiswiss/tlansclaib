@@ -22,9 +22,10 @@ On a Mac, open the disk image and drag tlansclaib into Applications. On
 Windows, run the installer. SmartScreen asks once, because the installer is
 not signed. Click "More info", then "Run anyway".
 
-The app comes without a speech model. On the first start, open Models and
-download one for your language. They range from 78 MB to 3.1 GB, and the
-recommended ones are listed first. The [user guide](docs/user-guide.md) walks
+The app comes without a speech model. On the first start it asks for the
+language you mostly transcribe and one of three setups, Precise, Essential or
+Minimal, and marks the one that suits the computer. The models download in the
+background. The [user guide](docs/user-guide.md) walks
 through the rest. Every version is on the
 [releases page](https://github.com/mawiswiss/tlansclaib/releases), and the app
 updates itself from there: About, "Check for updates".
@@ -36,7 +37,7 @@ updates itself from there: About, "Check for updates".
   Click a line and the recording jumps there.
 - Timecodes on every line, switched on or off at any time.
 - Lines can be corrected, speakers renamed and the text searched.
-- Tells who speaks when, with an optional download of 38 MB.
+- Tells who speaks when, offline, in the Precise and Essential setups.
 - Keeps a history of every transcript, and transcribes a recording again with
   other settings when the first try was off.
 - Exports text, SRT or WebVTT files when you choose a destination.
@@ -71,10 +72,10 @@ computer stays usable.
 
 ## Privacy
 
-The app goes online for the downloads you start, for four seconds when you
-first open Models after a start, to measure how long a download would take,
-and once a day on start to ask GitHub for the newest version number, which
-About can turn off. That's it.
+The app goes online for the downloads of your setup, for four seconds on the
+first start or when you first open Models after a start, to measure how long a
+download would take, and once a day on start to ask GitHub for the newest
+version number, which About can turn off. That's it.
 
 > Once a model is there, the app works without internet.
 
@@ -111,7 +112,13 @@ pnpm tauri dev
   [primeline](https://huggingface.co/primeline), English by
   [distil-whisper](https://huggingface.co/distil-whisper), French by
   [bofenghuang](https://huggingface.co/bofenghuang).
-- Speaker detection, an optional download:
+- Basic speaker detection, in the Essential setup:
+  [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) by the k2-fsa team
+  (Apache 2.0) on [ONNX Runtime](https://onnxruntime.ai) (MIT), with
+  [pyannote segmentation 3.0](https://huggingface.co/pyannote/segmentation-3.0)
+  (MIT) and the CAM++ voice model of
+  [3D-Speaker](https://github.com/modelscope/3D-Speaker) (Apache 2.0).
+- Better speaker detection, in the Precise setup:
   [Nemotron 3 Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization)
   by NVIDIA (OpenMDW 1.1), converted to GGUF by
   [mudler](https://huggingface.co/mudler/Nemotron-3-Diarization-GGUF), with the

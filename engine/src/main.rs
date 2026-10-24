@@ -4,6 +4,7 @@ use std::time::Instant;
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
 use engine::protocol::{Event, Heard, Step, Timings, emit};
+use engine::speakers::{nemotron, sherpa};
 use engine::{audio, model_file, output, speakers, transcribe, windows};
 use serde_json::json;
 
@@ -45,9 +46,15 @@ enum Command {
         /// Name each line's speaker in a recording with one audio track: auto, or the number of people
         #[arg(long, value_parser = parse_speakers, requires = "speaker_models")]
         speakers: Option<SpeakerCount>,
-        /// Folder with the speaker detection library and GGUF model
+        /// Folder with the speaker detection files of --speaker-backend
         #[arg(long)]
         speaker_models: Option<PathBuf>,
+        /// sherpa: pyannote and CAM++ through sherpa-onnx. nemotron: Nemotron 3 Diarization through parakeet.cpp, at most 8 people
+        #[arg(long, default_value = "sherpa")]
+        speaker_backend: speakers::Backend,
+        /// sherpa only: standard, or fast for about a third of the time with somewhat rougher speaker changes
+        #[arg(long, default_value = "standard", value_parser = ["standard", "fast"])]
+        speaker_precision: String,
         /// Beams to keep while decoding, 1 is greedy and fastest
         #[arg(long, default_value_t = transcribe::Decoding::default().beam_size)]
         beam_size: usize,
@@ -78,12 +85,30 @@ enum Command {
     /// Print who speaks when, using the speaker detection files in a folder
     Speakers {
         audio: PathBuf,
-        /// Folder with lib/ and nemotron-3-diarization-f16.gguf
+        /// Folder with lib/ and the backend's model files
         #[arg(long)]
         models: PathBuf,
-        /// Maximum number of speakers, or leave out to detect it
+        /// sherpa or nemotron
+        #[arg(long, default_value = "sherpa")]
+        backend: speakers::Backend,
+        /// Number of speakers, a maximum for nemotron, or leave out to detect it
         #[arg(long)]
         speakers: Option<usize>,
+        /// sherpa only: distance below which two voices count as one, when the number is not given
+        #[arg(long, default_value_t = sherpa::DEFAULT_THRESHOLD)]
+        threshold: f32,
+        /// sherpa only: number of threads, default: physical cores minus one
+        #[arg(long)]
+        threads: Option<usize>,
+        /// sherpa only: step of the 10 s analysis window as a share of it
+        #[arg(long, default_value_t = sherpa::WINDOW_SHIFT)]
+        shift: f32,
+        /// sherpa only: shortest speech in seconds a turn keeps
+        #[arg(long, default_value_t = sherpa::MIN_ON)]
+        min_on: f32,
+        /// sherpa only: shortest gap in seconds between two turns of one speaker
+        #[arg(long, default_value_t = sherpa::MIN_OFF)]
+        min_off: f32,
     },
     /// Print how a recording would be cut into lines, and why each line ends
     Split {
@@ -119,6 +144,8 @@ fn main() {
             window,
             speakers,
             speaker_models,
+            speaker_backend,
+            speaker_precision,
             beam_size,
             temperature_inc,
             entropy_thold,
@@ -134,7 +161,12 @@ fn main() {
                 threads.unwrap_or_else(transcribe::default_threads),
                 !cpu,
                 window,
-                speakers.zip(speaker_models.as_deref()),
+                speakers.zip(speaker_models.as_deref()).map(|(count, folder)| SpeakerSetup {
+                    count,
+                    backend: speaker_backend,
+                    folder,
+                    window_shift: if speaker_precision == "fast" { sherpa::FAST_WINDOW_SHIFT } else { sherpa::WINDOW_SHIFT },
+                }),
                 transcribe::Decoding {
                     beam_size,
                     temperature_inc,
@@ -164,9 +196,20 @@ fn main() {
         Command::AudioInfo { audio } => audio::sample_seconds(&audio).map(|sample_seconds| {
             println!("{}", json!({ "sample_seconds": sample_seconds }));
         }),
-        Command::Speakers { audio, models, speakers: count } => audio::load(&audio).and_then(|samples| {
+        Command::Speakers { audio, models, backend, speakers: count, threshold, threads, shift, min_on, min_off } => audio::load(&audio).and_then(|samples| {
             let started = Instant::now();
-            let detection = speakers::Detection { folder: &models, speakers: count };
+            let detection = match backend {
+                speakers::Backend::Sherpa => speakers::Detection::Sherpa(sherpa::Detection {
+                    folder: &models,
+                    speakers: count,
+                    threshold,
+                    threads: threads.unwrap_or_else(transcribe::default_threads),
+                    window_shift: shift,
+                    min_on,
+                    min_off,
+                }),
+                speakers::Backend::Nemotron => speakers::Detection::Nemotron(nemotron::Detection { folder: &models, speakers: count }),
+            };
             let turns = speakers::detect(&samples, &detection, |_, _| {})?;
             for t in &turns {
                 println!("{}", json!({ "start": t.start, "end": t.end, "speaker": t.speaker }));
@@ -226,9 +269,16 @@ fn parse_speakers(text: &str) -> Result<SpeakerCount, String> {
         return Ok(SpeakerCount(None));
     }
     match text.parse::<usize>() {
-        Ok(n) if (2..=speakers::MAX_SPEAKERS).contains(&n) => Ok(SpeakerCount(Some(n))),
-        _ => Err("expected auto or a number of people from 2 to 8".into()),
+        Ok(n) if (2..=20).contains(&n) => Ok(SpeakerCount(Some(n))),
+        _ => Err("expected auto or a number of people from 2 to 20".into()),
     }
+}
+
+struct SpeakerSetup<'a> {
+    count: SpeakerCount,
+    backend: speakers::Backend,
+    folder: &'a Path,
+    window_shift: f32,
 }
 
 fn parse_window(text: &str) -> Result<(f32, f32), String> {
@@ -255,7 +305,7 @@ fn run(
     threads: usize,
     use_gpu: bool,
     window: Option<(f32, f32)>,
-    detection: Option<(SpeakerCount, &Path)>,
+    detection: Option<SpeakerSetup>,
     decoding: transcribe::Decoding,
 ) -> Result<()> {
     let started = Instant::now();
@@ -284,12 +334,23 @@ fn run(
             log::info!("{} audio tracks name the speakers, so speaker detection is skipped", tracks.len());
             None
         }
-        Some((SpeakerCount(count), folder)) => {
+        Some(SpeakerSetup { count: SpeakerCount(count), backend, folder, window_shift }) => {
             emit(&Event::Step { step: Step::Speakers });
             let phase = Instant::now();
-            let detection = speakers::Detection {
-                folder,
-                speakers: count,
+            let detection = match backend {
+                speakers::Backend::Sherpa => speakers::Detection::Sherpa(sherpa::Detection {
+                    folder,
+                    speakers: count,
+                    threshold: sherpa::DEFAULT_THRESHOLD,
+                    threads,
+                    window_shift,
+                    min_on: sherpa::MIN_ON,
+                    min_off: sherpa::MIN_OFF,
+                }),
+                speakers::Backend::Nemotron if count.is_some_and(|n| n > nemotron::MAX_SPEAKERS) => {
+                    return Err(anyhow!("Nemotron speaker detection names at most {} people", nemotron::MAX_SPEAKERS));
+                }
+                speakers::Backend::Nemotron => speakers::Detection::Nemotron(nemotron::Detection { folder, speakers: count }),
             };
             let mut reported = usize::MAX;
             let turns = speakers::detect(&tracks[0], &detection, |done, total| {

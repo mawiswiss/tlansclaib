@@ -1,7 +1,7 @@
 // A stand-in backend for opening the interface in a plain browser during development.
 import type { Backend } from "./ipc";
-import { DETECTION_ID } from "./detection";
-import type { DownloadProgress, EngineEvent, HistoryEntry, ModelStatus, SpeakerDetection, Stats } from "./types";
+import { DETECTION_IDS } from "./setup";
+import type { DownloadProgress, EngineEvent, HistoryEntry, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "./types";
 
 const THAI = "สวัสดีครับ วันนี้เราจะมาคุยกันเรื่องแผนงานของเดือนหน้า";
 const EN = "The quick brown fox jumps over the lazy dog, this is a short test of the transcription engine.";
@@ -54,19 +54,24 @@ export function mockBackend(): Backend {
     target.addEventListener(name, listener);
     return Promise.resolve(() => target.removeEventListener(name, listener));
   };
+  const query = new URLSearchParams(location.search);
+  const fresh = query.has("fresh");
   const models: ModelStatus[] = [
-    model("thai-fast", "Thai (fast)", ["th"], "Thai recordings on any computer", 874188075, 1.3, null, "large-v3-turbo", "q8_0", true),
-    model("thai-best", "Thai (best quality)", ["th"], "Thai recordings when time does not matter", 1656538283, 2.4, "https://example.invalid", "large-v3", "q8_0", false),
-    model("german-fast", "German (fast)", ["de"], "German recordings, more accurate than the stock large model", 574041195, 0.9, "https://example.invalid", "large-v3-turbo", "q5_0", false, false),
-    { ...model("swiss-german", "Swiss German", ["de"], "Swiss German speech written as Standard German", 874188075, 1.3, "https://example.invalid", "large-v3-turbo", "q8_0", false, false), language_name: "Swiss German" },
-    model("english-fast", "English (fast)", ["en"], "English meetings, as accurate as the large model and faster", 1519521155, 2.1, "https://example.invalid", "large-v3-distil-2", "f16", false, false),
-    model("large-v3-turbo-q5_0", "All languages (fast)", ["all"], "Most recordings in English and other languages", 574041195, 0.9, "https://example.invalid", "large-v3-turbo", "q5_0", true),
-    model("large-v3", "All languages (best quality, full precision)", ["all"], "The largest model, for a fast computer", 3095033483, 4.0, "https://example.invalid", "large-v3", "f16", false, false),
-    model("tiny", "All languages (smallest)", ["all"], "Testing only", 77691713, 0.4, "https://example.invalid", "tiny", "f16", false, false),
+    model("thai-fast", "Thai (fast)", ["th"], ["essential"], "Thai recordings on any computer", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh),
+    model("thai-best", "Thai (best quality)", ["th"], ["precise"], "Thai recordings when time does not matter", 1656538283, 2.4, "large-v3", "q8_0", false),
+    model("german-fast", "German (fast)", ["de"], ["essential"], "German recordings, more accurate than the stock large model", 574041195, 0.9, "large-v3-turbo", "q5_0", false),
+    model("german-full", "German (fast, full precision)", ["de"], ["precise"], "Like German (fast), slightly more accurate, three times the size", 1624555275, 2.2, "large-v3-turbo", "f16", false),
+    { ...model("swiss-german", "Swiss German", ["de"], ["essential", "precise"], "Swiss German speech, written as Standard German", 874188075, 1.3, "large-v3-turbo", "q8_0", false), language_name: "Swiss German" },
+    model("english-fast", "English (fast)", ["en"], ["precise"], "English meetings, as accurate as the large model and faster", 1519521155, 2.1, "large-v3-distil-2", "f16", false),
+    model("french", "French", ["fr"], ["essential"], "French recordings, fine-tuned large model", 1081140203, 1.8, "large-v3", "q5_0", false),
+    model("large-v3-turbo-q5_0", "All languages (fast)", ["all"], null, "Most recordings in English and other languages", 574041195, 0.9, "large-v3-turbo", "q5_0", !fresh),
+    model("large-v3-turbo-q8_0", "All languages (fast, near full precision)", ["all"], ["essential"], "Like the fast model, closer to full precision, half again the size", 874188075, 1.3, "large-v3-turbo", "q8_0", false),
+    model("large-v3", "All languages (best quality, full precision)", ["all"], ["precise"], "The largest model, for a fast computer with plenty of memory", 3095033483, 4.0, "large-v3", "f16", false),
+    model("tiny", "All languages (smallest)", ["all"], ["minimal"], "Testing only", 77691713, 0.4, "tiny", "f16", false),
   ];
   const titles: Record<string, string> = {
-    "thai-fast": "Fast", "thai-best": "Best quality", "german-fast": "Fast", "swiss-german": "Fast", "english-fast": "Fast",
-    "large-v3-turbo-q5_0": "Fast", "large-v3": "Best quality, full precision", tiny: "Smallest",
+    "thai-fast": "Fast", "thai-best": "Best quality", "german-fast": "Fast", "german-full": "Fast, full precision", "swiss-german": "Fast", "english-fast": "Fast",
+    french: "Best quality", "large-v3-turbo-q5_0": "Fast", "large-v3-turbo-q8_0": "Fast, near full precision", "large-v3": "Best quality, full precision", tiny: "Smallest",
   };
   for (const m of models) m.title = titles[m.id] ?? null;
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -77,8 +82,13 @@ export function mockBackend(): Backend {
     { code: "en", probability: 0.04 },
     { code: "lo", probability: 0.01 },
   ];
-  const detection: SpeakerDetection = { available: true, installed: false, downloading: false, download_bytes: 38_113_781, disk_bytes: 0 };
-  let detectionTimer: ReturnType<typeof setInterval> | null = null;
+  const detections: SpeakerDetection[] = [
+    { backend: "sherpa", available: true, installed: false, downloading: false, download_bytes: 38_113_781, disk_bytes: 0 },
+    { backend: "nemotron", available: true, installed: false, downloading: false, download_bytes: 202_061_718, disk_bytes: 0 },
+  ];
+  const detectionTimers: Partial<Record<SpeakerBackend, ReturnType<typeof setInterval>>> = {};
+  const downloadTimers: Record<string, ReturnType<typeof setInterval>> = {};
+  const cancels: Record<string, () => void> = {};
   let history: HistoryEntry[] = [
     {
       id: 1, audio: "/Users/someone/Recordings/team call.m4a", file: "/Users/someone/Recordings/team call_transcript.txt",
@@ -108,8 +118,8 @@ export function mockBackend(): Backend {
       }),
     ),
   ];
-  const stress = new URLSearchParams(location.search).has("stress");
-  const updateMode = new URLSearchParams(location.search).get("update");
+  const stress = query.has("stress");
+  const updateMode = query.get("update");
   setInterval(() => {
     const used = stress ? 13.6 : 9.7;
     const stats: Stats = {
@@ -131,11 +141,12 @@ export function mockBackend(): Backend {
       new Promise((resolve) => {
         const m = models.find((x) => x.id === id)!;
         let bytes = 0;
-        const step = setInterval(() => {
+        downloadTimers[id] = setInterval(() => {
           bytes = Math.min(m.size_bytes, bytes + m.size_bytes / 20);
           emit("download", { id, bytes, total: m.size_bytes } satisfies DownloadProgress);
           if (bytes >= m.size_bytes) {
-            clearInterval(step);
+            clearInterval(downloadTimers[id]);
+            delete downloadTimers[id];
             m.installed = true;
             m.path = `/models/${m.file}`;
             m.label = `${m.architecture}, ${m.quantization}`;
@@ -143,34 +154,45 @@ export function mockBackend(): Backend {
             resolve();
           }
         }, 300);
+        cancels[id] = () => {
+          clearInterval(downloadTimers[id]);
+          delete downloadTimers[id];
+          resolve();
+        };
       }),
-    cancelDownload: async () => {},
-    speakerDetection: async () => ({ ...detection }),
-    downloadSpeakerDetection: () =>
+    cancelDownload: async (id) => {
+      cancels[id]?.();
+      delete cancels[id];
+    },
+    speakerDetection: async () => detections.map((d) => ({ ...d })),
+    downloadSpeakerDetection: (backend) =>
       new Promise((resolve) => {
+        const detection = detections.find((d) => d.backend === backend)!;
         let bytes = 0;
         const total = detection.download_bytes;
         detection.downloading = true;
-        detectionTimer = setInterval(() => {
+        detectionTimers[backend] = setInterval(() => {
           bytes = Math.min(total, bytes + total / 15);
-          emit("download", { id: DETECTION_ID, bytes, total } satisfies DownloadProgress);
+          emit("download", { id: DETECTION_IDS[backend], bytes, total } satisfies DownloadProgress);
           if (bytes >= total) {
-            clearInterval(detectionTimer!);
-            detectionTimer = null;
-            Object.assign(detection, { installed: true, downloading: false, disk_bytes: 61_904_384 });
+            clearInterval(detectionTimers[backend]);
+            delete detectionTimers[backend];
+            Object.assign(detection, { installed: true, downloading: false, disk_bytes: backend === "sherpa" ? 61_904_384 : 203_000_000 });
             emit("models", null);
             resolve();
           }
         }, 250);
+        cancels[DETECTION_IDS[backend]] = resolve;
       }),
-    cancelSpeakerDetection: async () => {
-      if (detectionTimer) clearInterval(detectionTimer);
-      detectionTimer = null;
-      detection.downloading = false;
+    cancelSpeakerDetection: async (backend) => {
+      clearInterval(detectionTimers[backend]);
+      delete detectionTimers[backend];
+      detections.find((d) => d.backend === backend)!.downloading = false;
+      cancels[DETECTION_IDS[backend]]?.();
       emit("models", null);
     },
-    removeSpeakerDetection: async () => {
-      Object.assign(detection, { installed: false, disk_bytes: 0 });
+    removeSpeakerDetection: async (backend) => {
+      Object.assign(detections.find((d) => d.backend === backend)!, { installed: false, disk_bytes: 0 });
       emit("models", null);
     },
     addModelFile: async (id, path) => {
@@ -178,8 +200,8 @@ export function mockBackend(): Backend {
       if (id === null) {
         const name = path.split("/").pop()!.replace(/\.bin$/, "").replace(/^ggml-/, "");
         const linked: ModelStatus = {
-          ...model(`linked:${name}`, name, ["all"], "", 874188075, 1.3, null, "large-v3-turbo", "q8_0", true, false),
-          file: path, path, custom: true, linked: true, source: null, license: null,
+          ...model(`linked:${name}`, name, ["all"], null, "", 874188075, 1.3, "large-v3-turbo", "q8_0", true),
+          file: path, path, url: null, custom: true, linked: true, source: null, license: null,
         };
         models.push(linked);
         emit("models", null);
@@ -214,8 +236,8 @@ export function mockBackend(): Backend {
       { code: "fr", name: "french" },
       { code: "ja", name: "japanese" },
     ],
-    startRun: async (audio, modelId, language, timestamps, speakers, speakerPrecision, outputFile) => {
-      lastRun = [audio, modelId, language, timestamps, speakers, speakerPrecision, outputFile];
+    startRun: async (audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile) => {
+      lastRun = [audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile];
       const run = ++generation;
       const name = audio.split("/").pop()!.replace(/\.[^.]+$/, "");
       const file = `/AppData/transcripts/${Date.now()}.json`;
@@ -257,7 +279,7 @@ export function mockBackend(): Backend {
                 id: Date.now(), audio, file, title: name, model: models.find((x) => x.id === modelId)?.name ?? modelId,
                 language: language === "auto" ? "th" : language, audio_seconds: total * 12.9, lines: total - 8, elapsed: 9.4,
                 finished_at: Math.floor(Date.now() / 1000), status: "done", timestamps, speakers: voices, detected: voices.length > 0,
-                model_id: modelId, speaker_mode: speakers, speaker_precision: speakers ? speakerPrecision : null, heard, exists: true, audio_exists: true,
+                model_id: modelId, speaker_mode: speakers, speaker_precision: speakers ? speakerPrecision : null, speaker_backend: speakers ? speakerBackend : null, heard, exists: true, audio_exists: true,
               },
               ...history.filter((h) => h.file !== outputFile),
             ];
@@ -345,7 +367,20 @@ export function mockBackend(): Backend {
     },
     appVersion: async () => "0.1.0",
     diskSpace: async () => ({ free: (stress ? 10.8 : 214) * 2 ** 30, minimum: 2 ** 30, reserve: 10 * 2 ** 30 }),
-    measureSpeed: () => new Promise((resolve) => setTimeout(() => resolve(4.6e6), 1200)),
+    measureSpeed: () =>
+      new Promise((resolve, reject) =>
+        setTimeout(() => (query.has("offline") ? reject(new Error("no connection to the model server")) : resolve(query.has("slow") ? 1.2e6 : 42e6)), 1200),
+      ),
+    gpuInfo: async () =>
+      query.has("nogpu") ? { backend: null, name: null, free_bytes: null, usable: false } : { backend: "metal", name: "Apple M5", free_bytes: null, usable: true },
+    checkSetupDownloads: async (modelIds, backend) => {
+      const missingModels = models.filter((m) => modelIds.includes(m.id) && !m.installed).reduce((sum, m) => sum + m.size_bytes, 0);
+      const detection = detections.find((d) => d.backend === backend && !d.installed);
+      const total = missingModels + (detection ? detection.download_bytes * 2 : 0);
+      const free = (stress ? 10.8 : 214) * 2 ** 30;
+      if (free < total + 2 ** 30) throw new Error(`Not enough disk space: the models need ${(total / 2 ** 30).toFixed(1)} GB plus 1.0 GB to spare, and ${(free / 2 ** 30).toFixed(1)} GB is free. Make room on the disk first.`);
+      return total;
+    },
     checkUpdate: () =>
       new Promise((resolve, reject) =>
         setTimeout(() => {
@@ -389,9 +424,9 @@ export function mockBackend(): Backend {
   };
 }
 
-function model(id: string, name: string, languages: string[], recommended: string, size: number, ram: number, url: string | null, architecture: string, quantization: string, installed: boolean, featured = true): ModelStatus {
+function model(id: string, name: string, languages: string[], setups: string[] | null, recommended: string, size: number, ram: number, architecture: string, quantization: string, installed: boolean): ModelStatus {
   return {
-    id, name, languages, language_name: null, recommended, featured, file: `ggml-${id}.bin`, size_bytes: size, sha256: null, ram_gb: ram, url,
+    id, name, languages, language_name: null, setups, recommended, file: `ggml-${id}.bin`, size_bytes: size, sha256: null, ram_gb: ram, url: "https://example.invalid",
     architecture, quantization, source: "https://huggingface.co/ggerganov/whisper.cpp", license: "MIT",
     installed, path: installed ? `/models/ggml-${id}.bin` : null, label: installed ? `${architecture}, ${quantization}` : null, custom: false, linked: false,
   };

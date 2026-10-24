@@ -1,6 +1,6 @@
 import type { Update } from "@tauri-apps/plugin-updater";
 import type { Line } from "./run";
-import type { DiskSpace, DownloadProgress, EngineEvent, FileKind, HistoryEntry, Language, Match, ModelStatus, Opened, SpeakerDetection, Stats } from "./types";
+import type { DiskSpace, DownloadProgress, EngineEvent, FileKind, Gpu, HistoryEntry, Language, Match, ModelStatus, Opened, SpeakerBackend, SpeakerDetection, Stats } from "./types";
 
 export type Unlisten = () => void;
 
@@ -22,12 +22,13 @@ export type Backend = {
     timestamps: boolean,
     speakers: string | null,
     speakerPrecision: string | null,
+    speakerBackend: SpeakerBackend | null,
     outputFile?: string | null,
   ): Promise<void>;
-  speakerDetection(): Promise<SpeakerDetection>;
-  downloadSpeakerDetection(): Promise<void>;
-  cancelSpeakerDetection(): Promise<void>;
-  removeSpeakerDetection(): Promise<void>;
+  speakerDetection(): Promise<SpeakerDetection[]>;
+  downloadSpeakerDetection(backend: SpeakerBackend): Promise<void>;
+  cancelSpeakerDetection(backend: SpeakerBackend): Promise<void>;
+  removeSpeakerDetection(backend: SpeakerBackend): Promise<void>;
   cancelRun(): Promise<void>;
   restartRun(language: string): Promise<void>;
   listHistory(): Promise<HistoryEntry[]>;
@@ -51,6 +52,8 @@ export type Backend = {
   updateBlocker(): Promise<string | null>;
   downloadUpdate(onProgress: (received: number, total: number | null) => void): Promise<void>;
   installUpdate(): Promise<void>;
+  gpuInfo(modelId: string | null): Promise<Gpu>;
+  checkSetupDownloads(modelIds: string[], backend: SpeakerBackend | null): Promise<number>;
   autorun(): Promise<string | null>;
   pickAudioFile(): Promise<string | null>;
   pickModelFile(): Promise<string | null>;
@@ -85,12 +88,12 @@ async function tauriBackend(): Promise<Backend> {
     renameModel: (id, name) => invoke("rename_model", { id, name }),
     reveal: (path) => invoke("reveal", { path }),
     listLanguages: () => invoke("list_languages"),
-    startRun: (audio, modelId, language, timestamps, speakers, speakerPrecision, outputFile) =>
-      invoke("start_run", { audio, modelId, language, timestamps, speakers, speakerPrecision, outputFile: outputFile ?? null }),
+    startRun: (audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile) =>
+      invoke("start_run", { audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile: outputFile ?? null }),
     speakerDetection: () => invoke("speaker_detection"),
-    downloadSpeakerDetection: () => invoke("download_speaker_detection"),
-    cancelSpeakerDetection: () => invoke("cancel_speaker_detection"),
-    removeSpeakerDetection: () => invoke("remove_speaker_detection"),
+    downloadSpeakerDetection: (backend) => invoke("download_speaker_detection", { backend }),
+    cancelSpeakerDetection: (backend) => invoke("cancel_speaker_detection", { backend }),
+    removeSpeakerDetection: (backend) => invoke("remove_speaker_detection", { backend }),
     cancelRun: () => invoke("cancel_run"),
     restartRun: (language) => invoke("restart_run", { language }),
     listHistory: () => invoke("list_history"),
@@ -140,6 +143,8 @@ async function tauriBackend(): Promise<Backend> {
       const { relaunch } = await import("@tauri-apps/plugin-process");
       await relaunch();
     },
+    gpuInfo: (modelId) => invoke("gpu_info", { modelId }),
+    checkSetupDownloads: (modelIds, backend) => invoke("check_setup_downloads", { modelIds, backend }),
     autorun: () => invoke("autorun"),
     pickAudioFile: async () => {
       const picked = await open({ multiple: false, filters: [{ name: "Audio", extensions: AUDIO }] });

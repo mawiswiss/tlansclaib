@@ -2,8 +2,8 @@
 
 The transcription model list loads whisper.cpp files in `ggml-*.bin` format.
 It does not accept PyTorch weights (`model.safetensors`, `.pt`), CTranslate2
-folders, ONNX or GGUF as transcription models. Speaker detection is a separate
-optional GGUF download. Every model file is checked before use, see below.
+folders, ONNX or GGUF as transcription models. Speaker detection downloads its
+own ONNX or GGUF files. Every model file is checked before use, see below.
 
 ## Where models live
 
@@ -22,7 +22,7 @@ optional GGUF download. Every model file is checked before use, see below.
 | `name` | the full name, in menus and the history |
 | `title` | the short name on the model's card, such as "Fast" |
 | `recommended` | the description on the card |
-| `featured` | listed first, under "Recommended and installed". Other single-language models go under "For one language", the rest under "More models" |
+| `setups` | the setup modes the model belongs to: `minimal`, `essential`, `precise`. A single-language model joins when its language is chosen |
 | `languages` | `["all"]` for the stock models, `["th"]` locks the language to Thai |
 | `language_name` | optional display name when the code alone misleads, such as Swiss German on `de` |
 | `file` | file name inside the models folder |
@@ -32,7 +32,8 @@ optional GGUF download. Every model file is checked before use, see below.
 | `architecture`, `quantization`, `source`, `license` | shown in the panel |
 
 A `models.json` placed in the models folder overrides the built-in list entry
-by entry (same `id` replaces, new ids are appended). That way a new model
+by entry (same `id` replaces, new ids are appended). An entry without `setups`
+keeps the bundled modes. That way a new model
 reaches someone without a new app version: send the file and a `models.json`
 snippet.
 
@@ -40,6 +41,28 @@ snippet.
 `custom-models.json` in the models folder. Any other `ggml-*.bin` file in the
 folder, such as a copy from an older version, also lists as a custom model,
 named after the file.
+
+## Setups
+
+A setup downloads its model for all languages, its speaker detection, and the
+model for the chosen language when it has one. Precise takes full precision
+wherever the author publishes it, because q5_0 is audibly worse on difficult
+audio (see below) and there is no official large-v3 q8_0.
+
+| | Precise | Essential | Minimal |
+|---|---|---|---|
+| All languages | `large-v3`, 3.10 GB | `large-v3-turbo-q8_0`, 874 MB | `tiny`, 78 MB |
+| Speakers | better, 202 MB | basic, 38 MB | none |
+| Thai | `thai-best`, 1.66 GB | `thai-fast`, 874 MB | none |
+| German | `german-full`, 1.62 GB | `german-fast`, 574 MB | none |
+| Swiss German | `swiss-german`, 874 MB | `swiss-german`, 874 MB | none |
+| English | `english-fast`, 1.52 GB | none | none |
+| French | `french-full`, 3.10 GB | `french`, 1.08 GB | none |
+
+English in Precise: distil-large-v3.5 averages 7.10% word errors on short
+clips against 7.14% for large-v3, and 14.6% against 16.0% on the AMI meetings,
+on its authors' tests. The engine feeds it short lines. In Essential it would
+be the biggest download, so English stays on the model for all languages.
 
 ## Checks
 
@@ -94,6 +117,11 @@ in its language.
 | German (fast) | `cstr/whisper-large-v3-turbo-german-ggml` | `primeline/whisper-large-v3-turbo-german` | Apache-2.0 | 2.6% word errors against 3.3% for stock large-v3 |
 | English (fast) | `distil-whisper/distil-large-v3.5-ggml` | `distil-whisper/distil-large-v3.5` | MIT | on par with large-v3 on short clips, better on meetings, slightly worse than turbo on long recordings |
 | French | `bofenghuang/whisper-large-v3-french` | the same | MIT | ahead of stock large-v3 on VoxPopuli and in-house sets, equal on MLS |
+
+German (full precision) and French (full precision) are the same authors'
+f16 files of the models above, and All languages (fast, near full precision)
+is `ggerganov/whisper.cpp`'s `ggml-large-v3-turbo-q8_0.bin`. They are pinned by
+size and SHA-256 from Hugging Face's records.
 
 On the three-minute far-field Thai meeting clip, Typhoon did not beat Thai
 (fast): its text changed 41% between shifted runs against 38%, so Thai

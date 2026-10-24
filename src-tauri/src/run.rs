@@ -4,6 +4,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, anyhow};
 use engine::protocol::{Event, Heard, Step};
+use engine::speakers::Backend;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::ShellExt;
@@ -35,6 +36,7 @@ struct Record {
     model_id: String,
     speaker_mode: Option<String>,
     speaker_precision: Option<String>,
+    speaker_backend: Option<String>,
     timestamps: bool,
     language: Option<String>,
     heard: Vec<Heard>,
@@ -79,11 +81,13 @@ pub struct Request<'a> {
     pub timestamps: bool,
     pub speakers: Option<&'a str>,
     pub speaker_precision: Option<&'a str>,
+    pub speaker_backend: Option<&'a str>,
     pub transcript: Option<&'a Path>,
 }
 
 pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
-    let Request { audio, model_id, language, timestamps, speakers, speaker_precision, transcript } = request;
+    let Request { audio, model_id, language, timestamps, speakers, speaker_precision, speaker_backend, transcript } = request;
+    let detector: Backend = speaker_backend.unwrap_or("sherpa").parse().map_err(|e: String| anyhow!(e))?;
     let state = app.state::<RunState>();
     let _starting = state.1.lock().await;
     if state.0.lock().unwrap().is_some() {
@@ -95,7 +99,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     let (entry, model_path) = app.state::<Models>().installed_path(model_id)?;
     let monitor = app.state::<Arc<Monitor>>();
     let (free, _) = monitor.memory();
-    let detection_ram = if speakers.is_some() { guard::DETECTION_RAM } else { 0 };
+    let detection_ram = if speakers.is_some() { guard::detection_ram(detector) } else { 0 };
     guard::can_start(free, entry.ram_bytes().max(detection_ram)).map_err(|e| anyhow!(e))?;
     let audio_arg = audio.to_string_lossy().into_owned();
     let info = app.shell().sidecar("tlansclaib-engine")?.args(["audio-info", "--audio", &audio_arg]).output().await?;
@@ -134,21 +138,26 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         args.push("--no-timestamps".into());
     }
     if let Some(speakers) = speakers {
-        let detection = app.state::<crate::detection::Detection>();
+        let detections = app.state::<crate::detection::Detections>();
+        let detection = detections.get(detector);
         if !detection.installed() {
             return Err(anyhow!("Speaker detection is not set up. Download it under Models, or set Speakers to Off."));
         }
-        args.extend(["--speakers".into(), speakers.to_string(), "--speaker-models".into(), detection.dir.to_string_lossy().into_owned()]);
+        args.extend([
+            "--speakers".into(),
+            speakers.to_string(),
+            "--speaker-models".into(),
+            detection.dir.to_string_lossy().into_owned(),
+            "--speaker-backend".into(),
+            detector.as_str().into(),
+        ]);
+        if detector == Backend::Sherpa && speaker_precision == Some("fast") {
+            args.extend(["--speaker-precision".into(), "fast".into()]);
+        }
     }
     #[cfg(windows)]
     let engine_name = {
-        let probe = app.shell().sidecar("tlansclaib-engine-vulkan")?.arg("gpu-memory").output().await;
-        let free = probe
-            .ok()
-            .filter(|output| output.status.success())
-            .and_then(|output| serde_json::from_slice::<Option<u64>>(&output.stdout).ok())
-            .flatten();
-        if free.is_some_and(|free| guard::can_use_gpu(free, entry.ram_bytes())) {
+        if crate::gpu::vulkan_free(app).await.is_some_and(|free| guard::can_use_gpu(free, entry.ram_bytes())) {
             "tlansclaib-engine-vulkan"
         } else {
             "tlansclaib-engine"
@@ -195,7 +204,8 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
             model: entry.name.clone(),
             model_id: entry.id.clone(),
             speaker_mode: speakers.map(str::to_string),
-            speaker_precision: speakers.and(speaker_precision).map(str::to_string),
+            speaker_precision: speakers.filter(|_| detector == Backend::Sherpa).and(speaker_precision).map(str::to_string),
+            speaker_backend: speakers.map(|_| detector.as_str().to_string()),
             timestamps,
             language: None,
             heard: Vec::new(),
@@ -426,6 +436,7 @@ fn entry(record: &Record, status: history::Status, lines: usize, elapsed: f64) -
         model_id: Some(record.model_id.clone()),
         speaker_mode: record.speaker_mode.clone(),
         speaker_precision: record.speaker_precision.clone(),
+        speaker_backend: record.speaker_backend.clone(),
         title: record.audio.file_stem().map(|name| name.to_string_lossy().into_owned()),
         heard: record.heard.clone(),
     }
@@ -497,6 +508,7 @@ pub async fn restart(app: &AppHandle, language: &str) -> Result<()> {
             timestamps: record.timestamps,
             speakers: record.speaker_mode.as_deref(),
             speaker_precision: record.speaker_precision.as_deref(),
+            speaker_backend: record.speaker_backend.as_deref(),
             transcript: record.transcript.as_deref(),
         },
     )

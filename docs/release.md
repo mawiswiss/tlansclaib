@@ -52,8 +52,8 @@ secrets. Without them, as in a fork, the app is signed ad hoc
 (`"signingIdentity": "-"`), and macOS blocks the first start until "Open
 Anyway" under Privacy & Security.
 
-Speaker detection loads parakeet.cpp's library, downloaded after the
-install, so `src-tauri/entitlements.plist` allows libraries signed by someone
+Speaker detection loads the libraries of sherpa-onnx and parakeet.cpp,
+downloaded after the install, so `src-tauri/entitlements.plist` allows libraries signed by someone
 else. The hardened runtime that notarisation requires refuses them otherwise.
 
 The Windows installer is not signed. SmartScreen asks once.

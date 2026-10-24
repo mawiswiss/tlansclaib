@@ -1,3 +1,5 @@
+import type { Setup } from "./setup";
+
 export type Theme = "system" | "light" | "dark";
 
 export type Settings = {
@@ -5,35 +7,41 @@ export type Settings = {
   language: string;
   timestamps: boolean;
   speakers: string;
+  speakerPrecision: "standard" | "fast";
   theme: Theme;
   transcribed: number | null;
   supportAskedAt: number | null;
   supported: boolean;
   checkUpdates: boolean;
   updateCheckedAt: number | null;
+  setup: Setup | null;
+  showDetails: boolean;
 };
 
 const STORAGE = "tlansclaib.settings";
 export let settingsLoadError: string | null = null;
 
 export const DEFAULTS: Settings = {
-  modelId: "",
+  modelId: "auto",
   language: "auto",
   timestamps: true,
   speakers: "off",
+  speakerPrecision: "standard",
   theme: "system",
   transcribed: null,
   supportAskedAt: null,
   supported: false,
   checkUpdates: true,
   updateCheckedAt: null,
+  setup: null,
+  showDetails: false,
 };
 
 export function loadSettings(): Settings {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE) ?? "{}");
     delete saved.outputDir;
-    delete saved.speakerPrecision;
+    if (saved.modelId === "") delete saved.modelId;
     return { ...DEFAULTS, ...saved };
   } catch (error) {
     settingsLoadError = `Could not load saved settings. Defaults are being used: ${String(error)}`;

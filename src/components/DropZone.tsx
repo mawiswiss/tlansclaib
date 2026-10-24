@@ -4,6 +4,7 @@ import { Close, Wave } from "./icons";
 
 type Props = {
   ready: boolean;
+  preparing: { label: string; percent: number } | null;
   dragging: boolean;
   pending: string | null;
   summary: string[];
@@ -13,7 +14,7 @@ type Props = {
   onGetModel: () => void;
 };
 
-export function DropZone({ ready, dragging, pending, summary, onGo, onClear, onChoose, onGetModel }: Props) {
+export function DropZone({ ready, preparing, dragging, pending, summary, onGo, onClear, onChoose, onGetModel }: Props) {
   useEffect(() => {
     if (!pending) return;
     const onKey = (e: KeyboardEvent) => {
@@ -24,6 +25,20 @@ export function DropZone({ ready, dragging, pending, summary, onGo, onClear, onC
     return () => window.removeEventListener("keydown", onKey);
   }, [pending, onGo]);
 
+  if (!ready && preparing) {
+    return (
+      <section className="dropzone disabled">
+        <span className="glyph">
+          <Wave size={30} />
+        </span>
+        <h2>Getting your models</h2>
+        <p className="muted">{preparing.label}</p>
+        <span className="bar dropzone-bar" role="progressbar" aria-valuenow={preparing.percent} aria-valuemin={0} aria-valuemax={100}>
+          <span className="fill" style={{ width: `${preparing.percent}%` }} />
+        </span>
+      </section>
+    );
+  }
   if (!ready) {
     return (
       <section className="dropzone disabled">

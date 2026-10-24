@@ -3,8 +3,8 @@
 ## Goal
 
 A desktop app for macOS and Windows that transcribes a recording on the
-user's own computer. The user drops a recording on the window, checks the
-model and the recording language, watches the steps and the time estimate, and gets a
+user's own computer. The user picks a setup once, drops a recording on the
+window, checks the recording language, watches the steps and the time estimate, and gets a
 result in the app's private history. Text or subtitles are exported on request.
 It runs on modest laptops, never takes the
 machine down, downloads models on demand instead of shipping them, and shows
@@ -67,19 +67,41 @@ retries once on the CPU. The retry never starts after transcription begins.
   run keeps what was done. Each line starts with its times,
   `[HH:MM:SS.ss --> HH:MM:SS.ss] text`, unless `--no-timestamps` is given.
   With several speakers, the name follows: `Speaker 1: text`.
-- `speakers.rs` tells the speakers apart in a recording with one audio track.
-  It loads parakeet.cpp's C library and the Nemotron 3 Diarization GGUF model
-  from `--speaker-models <folder>`, so the engine runs without them. The model
-  reports turns for up to eight speakers, numbered by first appearance. A
-  chosen number caps the labels by keeping the most active speakers. The
-  engine verifies the model's size and SHA-256 before loading it. Recordings
-  with several tracks skip detection and keep one speaker per track.
-  `tlansclaib-engine speakers` prints the turns alone. Lines still come from
-  `windows.rs` and are cut at speaker changes. A part shorter than 0.3 s is
-  folded into its neighbour. A detected reply under two seconds keeps its
-  full span when speakers overlap. Longer overlaps go to the earlier speaker.
-  Short replies are kept even when that voice speaks only briefly in the full
+- `speakers/` tells the speakers apart in a recording with one audio track,
+  for `--speakers auto` or a number of people, with one of two backends
+  chosen by `--speaker-backend`. Each loads its C library at run time from
+  `--speaker-models <folder>` (`libloading`), so the engine runs without
+  them. A recording with several tracks skips detection and keeps one speaker
+  per track. `tlansclaib-engine speakers --backend` prints the turns alone.
+- `speakers/nemotron.rs`, the better backend: parakeet.cpp's C library runs
+  the Nemotron 3 Diarization GGUF model, which reports turns for up to eight
+  speakers. A given number caps the labels by keeping the most active
+  speakers. The engine checks the model's size and SHA-256 before loading it.
+  Short replies are kept even when that voice speaks only briefly in the whole
   recording.
+- `speakers/sherpa.rs`, the basic backend: the structs mirror `c-api.h` of
+  sherpa-onnx 1.13.8, the only version the app downloads. pyannote
+  segmentation 3.0 finds the turns and 3D-Speaker CAM++ tells the voices
+  apart, on the CPU. The settings and why:
+  - The 10 s analysis window moves a tenth of its length at a time,
+    sherpa-onnx's default. `--speaker-precision fast` moves a quarter: on a
+    10-minute call 12 s instead of 33 s, with 2 of 29 long turns on the
+    wrong side instead of none. A quarter also put a speaker change 1.4 s
+    late in a 40-second clip. A fiftieth took 357 s and was no better.
+  - Without a given number, voices closer than a distance of 1.0 count as
+    one. sherpa-onnx's default of 0.5 split a call of three or four people
+    into dozens, and 1.1 merged two voices.
+  - A voice with under 10 s, and under 5% of all speech, goes to the nearest
+    other speaker.
+  - Interjections under a second came out right about a third of the time at
+    every setting, so rapid exchanges are a limit of the models. Separate
+    tracks avoid it.
+- `speakers/mod.rs` turns either backend's turns into lines. The lines still
+  come from `windows.rs`. A line takes the speaker heard most in it and is cut
+  where the speaker changes, unless a part would be shorter than 0.3 s. Where
+  two speak at once, a reply of 2 s or less keeps its span, otherwise the one
+  already speaking keeps the line. Speakers are numbered in order of their
+  first line.
 - `model_file.rs` reads a whisper.cpp model header without loading the model
   and derives a label such as `large-v3-turbo, q8_0`. Anything else is
   rejected with a reason that names what the file is.
@@ -112,7 +134,8 @@ because progress reporting and other work are outside those stages.
 
 - `models.rs`: the model list is the bundled `resources/models.json`,
   overridden entry by entry by an optional `models.json` in the models
-  folder. Model files live in the app data folder under `models`. Downloads
+  folder. An entry's `setups` names the setup modes it belongs to, and an
+  override without it keeps the bundled modes. Model files live in the app data folder under `models`. Downloads
   stream to a `.part` file and are renamed only after validation. A file
   chosen for a list entry is copied into the folder. One added with "Add any
   model file…" is linked, not copied: `custom-models.json` in the models
@@ -122,13 +145,22 @@ because progress reporting and other work are outside those stages.
   taken from a listed model of the same architecture and quantization, or
   estimated from the size, and shows with "≈". Files copied into the models
   folder by older versions still list as custom and can be deleted.
-- `detection.rs`: speaker detection downloads a pinned parakeet.cpp library
-  archive for Apple silicon, Intel Mac or Windows x64, and the 191 MB GGUF
-  model. Both downloads require the expected size and SHA-256. Only the
-  library and its MIT license are extracted. The model's OpenMDW 1.1 license
-  and origin notice are saved beside it. Staging happens in
-  `models/speaker-detection.part`, then the folder is renamed once complete.
-  `version.txt` ties it to this runtime and model pair.
+- `detection.rs`: two speaker detections, each a download pinned by size and
+  SHA-256, for Apple silicon, Intel Mac or Windows x64. Each stages in
+  `<folder>.part` and is renamed once complete, and a `version.txt` ties it
+  to the engine's version of it.
+  - Basic, in `models/speaker-detection`, the folder of older versions: the
+    sherpa-onnx 1.13.8 shared libraries from sherpa-onnx's GitHub release and
+    the segmentation and voice models from Hugging Face. Only the libraries
+    are copied out of the archive. About 38 MB to download, 62 MB on disk.
+  - Better, in `models/speaker-detection-nemotron`: the parakeet.cpp 0.6.1
+    library archive and the 201 MB Nemotron GGUF model. Only the library and
+    its MIT licence are extracted. The model's OpenMDW 1.1 licence and origin
+    notice are saved beside it.
+- `gpu.rs`: whether the computer can run the Precise model on its graphics
+  chip, for the setup's recommendation. Apple silicon counts as Metal, an
+  Intel Mac as no fast GPU. Windows asks the Vulkan sidecar for free memory,
+  as before a run.
 - `validate.rs`: no model file is accepted unvalidated. Every file passes the
   header check. A file for a list entry must also match the entry's size and
   SHA-256. See `models.md`.
@@ -158,13 +190,14 @@ because progress reporting and other work are outside those stages.
   in the save dialog. Legacy text files keep their existing edit checks.
 - `guard.rs`: the safety rules as pure functions over numbers, fed by
   `sysinfo`. Before a run, free memory must cover the model's memory need,
-  or 1.5 GB for speaker detection when that is larger, plus an estimate of
+  or 1.5 GB for either speaker detection when that is larger, plus an estimate of
   three copies of decoded 16 kHz audio, the in-memory transcript and 1 GB of
   headroom. Free disk must also cover scratch text, the private record and
   1 GB of headroom. If the file has no usable duration, the duration-based
   estimates are skipped and the live memory monitor still applies. Before a
   download or a copy into the models folder, free disk must cover the file
-  plus 1 GB. During a run the engine
+  plus 1 GB. Before a setup starts its downloads, free disk must cover all of
+  them together plus 1 GB, so a full disk never ends with half a setup. During a run the engine
   is stopped when free memory falls under 400 MB or swap has grown by more
   than 2 GB since the start.
 - `system.rs`: CPU, memory, swap and the engine's memory, once a second, for
@@ -178,6 +211,8 @@ top bar picks one.
 
 ### Top bar and settings
 
+- On the first start, with no setup saved and no model installed, the setup
+  view takes the place of the drop zone and the settings row. See "Setup".
 - The top bar holds the app name with "Offline processing", "History",
   "Models", the appearance switch and the About dialog. About lists the
   features, led by the statement that nothing leaves the computer, then who
@@ -197,8 +232,14 @@ top bar picks one.
   image or a translocated copy, which the update cannot replace, and too
   little free disk (`guard::can_update`). `docs/release.md` covers signing and
   `latest.json`.
-- The settings row holds model, recording language ("Auto-detect" or a
-  language) and speakers in aligned cells. It shows only before a transcription. Timecodes
+- The settings row holds recording language ("Auto-detect" or a
+  language), model and speakers
+  in aligned cells. The language menu also lists a variant such as Swiss
+  German once its model is installed, which runs the engine with `de`. The
+  model starts at "Automatic", which names the chosen model's language in
+  small text: the setup's model for the language when installed, otherwise
+  one for all languages (`modelFor` in `lib/setup.ts`). Picking a model pins
+  it, and a pinned single-language model fixes the language. It shows only before a transcription. Timecodes
   are not a setting there: the switch
   above a finished transcript decides and is remembered for the next.
 - The model carries a fit label from `lib/fit.ts`: its listed RAM need
@@ -272,9 +313,12 @@ top bar picks one.
 ### Speakers
 
 - "Speakers" in the settings row offers "Disabled", which runs no detection,
-  and with detection installed "Auto" or a cap of 2 to 8 people. Without detection, "Set up…"
-  opens the models dialog at its card. Downloading switches the setting to
-  "Auto", removing it back to "Disabled".
+  and with detection installed "Auto" and a number of people. The run uses the
+  setup's detection when installed, otherwise the other one. The basic one
+  offers 2 to 6 people and a small "Standard" or "Fast" choice in the label,
+  the better one a cap of 2 to 8. Without detection, "Set up…" opens the
+  models dialog at the speaker detections. Downloading switches the setting to
+  "Auto", removing the last one back to "Disabled".
 - With several speakers, a row above the text lists them with a colour each.
   Clicking a name renames it, and the file is saved with the new name in
   front of each of that speaker's lines, through the fingerprint check. The
@@ -316,37 +360,73 @@ One dialog (`RerunDialog`) serves the icon on the result card, the history
 and the speaker links. It is filled with the settings in the history entry:
 the model by its id (`model_id`, or by name for older entries, or the first
 installed one with a note when that model is gone), the recording language, the
-speaker setting (`speaker_mode`), and
-it keeps the timecodes as they were. Each can be changed for this run only,
+speaker setting, its precision and its detection (`speaker_mode`,
+`speaker_precision`, `speaker_backend`, where older entries count as the
+basic one, and the current one runs when that is gone), and it keeps the
+timecodes as they were. Each can be changed for this run only,
 and the settings row stays as it is. A file with several tracks shows one
 speaker per track instead of a choice. The run saves a new private record,
 then replaces the old history entry. The dialog
 says that it replaces the transcript and its corrections. Renamed speakers
 start again as "Speaker 1" and so on.
 
-### Models dialog
+### Setup
 
-- The dialog dims the window behind it. "Recommended and installed" starts
-  open, with speaker detection first. "For one language" and "More models"
-  start closed. Entries marked `featured` in the list belong to the first
-  section.
+- `SetupView` asks for the language the user mostly transcribes and one of
+  three setups. It is the first-start screen and the content of the Models
+  dialog, which dims the window behind it.
+  - Precise: the most accurate results, the biggest models and the better
+    speaker detection.
+  - Essential: mid-sized models and the basic speaker detection.
+  - Minimal: the smallest model, no speaker detection, for testing. Never
+    recommended.
+- A setup downloads the entries of `models.json` whose `setups` name it and
+  that are for all languages or for the chosen language and variant, so
+  German never brings the Swiss German model, plus its speaker detection
+  (`wanted` in `lib/setup.ts`). The tables are in `docs/models.md`.
+- Each setup shows what it still has to download and how long that takes at
+  the measured speed. "Recommended for this computer" marks Precise when the
+  graphics chip can run its model, the computer has 16 GB RAM or more, the
+  model's RAM rates green and its downloads take at most 10 minutes.
+  Otherwise it marks Essential, also offline (`recommend`). Nothing is
+  selected while the check runs, then the marked setup is, unless the user
+  already clicked one. Offline, the download button waits for "Try again".
+- "Download and start" or "Apply" saves the setup in the settings and
+  downloads in the background, one file at a time: the model for the setup's
+  language first, so a transcription can start early, then speaker detection,
+  then the rest. The disk check covers the whole set first. A line below the
+  settings row shows the percentage, and a failure there offers "Try again".
+  The queue resumes on the next start. Switching setups cancels downloads the
+  new one does not want.
+- Switching to a smaller setup deletes nothing by itself. The dialog offers
+  to remove installed listed models and speaker detections the setup no
+  longer wants, never custom or linked files.
+- An existing user with models and no saved setup is not sent to the setup
+  screen. The Models dialog opens with the details open.
+
+### Models and details
+
+- "Show models and details" under the setups is for technical users. It
+  starts closed, except without a setup, and remembers its state. It shows
+  what the app measured, the setup's models and speaker detection with
+  purpose, file, size and status, and the full catalogue. Downloading from the
+  catalogue adds to the setup (`added`), and removing takes out (`removed`),
+  so the queue never fetches a file the user deleted.
 - A card shows a short title for the trade-off, such as "Fast" or "Best
   quality", without the language its chip already shows (`title` in
-  `models.json`, the full name stays for menus and the history). A blue
-  "Recommended" chip, first among the chips, marks speaker detection, the
-  fast all-language model as the best balance, and on a Mac with 16 GB RAM
-  or more the large-v3 q5_0 model as the best quality for its download size,
-  which also brings it into the first section. Its tooltip says why.
+  `models.json`, the full name stays for menus and the history). An "In your
+  setup" chip marks the setup's members.
 - Then a link to the model page, a description of at most two lines, and
-  chips for language, size, RAM and download time, coloured by `lib/fit.ts`.
+  chips for language, architecture, size, RAM and download time, coloured by
+  `lib/fit.ts`.
   RAM: orange from 70% of total RAM, red from 90%, green when it fits. Size:
   orange when less than 10 GB would stay free, red when the model does not
   fit with 1 GB to spare, which also disables its button. Download: orange
   from 10 minutes, red from an hour. Only orange and red chips carry a
   tooltip, with context rather than the value again.
 - The connection is measured for four seconds against the model server the
-  first time the dialog opens, then kept for the session. Which files work
-  is a tooltip on "Add any model file…".
+  first time the setup view shows, then kept for the session. Which files
+  work is a tooltip on "Add any model file…".
 
 ### Footer
 
