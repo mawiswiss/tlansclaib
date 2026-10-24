@@ -9,7 +9,8 @@ Installers are built by GitHub Actions, never by hand.
    Developer ID and notarised by Apple, and the Windows installer, and
    attaches both to a draft GitHub release.
 4. Check the draft, then publish it as the latest release:
-   `gh release edit vX.Y.Z --draft=false --latest`.
+   `gh release edit vX.Y.Z --draft=false --latest`. From then on the app
+   offers it as an update.
 
 The files keep the same names in every version, `tlansclaib-mac.dmg` and
 `tlansclaib-windows-setup.exe`, so these addresses always lead to the newest
@@ -40,9 +41,8 @@ place first, because tauri-build refuses to compile the app without either.
   Vulkan build needs the Vulkan SDK on the build machine, which CI installs.
   The app probes the GPU before a run and falls back to the CPU sidecar when
   Vulkan is unavailable or has too little free memory.
-- tauri-action names the files after `assetNamePattern`. On macOS it also
-  uploads the app as a `.tar.gz`, which the workflow deletes again, so the
-  release holds the two installers only.
+- tauri-action names the files after `assetNamePattern`. Next to the two
+  installers, the release holds the update files, see Updates.
 
 ## Signing
 
@@ -57,6 +57,35 @@ install, so `src-tauri/entitlements.plist` allows libraries signed by someone
 else. The hardened runtime that notarisation requires refuses them otherwise.
 
 The Windows installer is not signed. SmartScreen asks once.
+
+## Updates
+
+The app updates itself with Tauri's updater plugin, from GitHub. It asks
+`releases/latest/download/latest.json`, which GitHub serves from the newest
+published release, never from a draft or a pre-release. It asks once a day
+on start, and when someone presses "Check for updates" in About. The switch
+"Check for updates on start" there turns the daily check off.
+
+With the updater key in the repository's secrets, the release workflow passes
+`src-tauri/tauri.updater.conf.json` to the build, which signs one update per
+platform, and tauri-action lists them in `latest.json`:
+
+- macOS: `tlansclaib-mac.app.tar.gz`, the notarised universal app.
+- Windows: `tlansclaib-windows-setup.exe`, the installer, which the app runs
+  in passive mode.
+
+Each has a `.sig` next to it. The app checks it against the public key in
+`src-tauri/tauri.conf.json` and refuses an update without a valid one, or
+one signed for another version than `latest.json` announces. The two
+build jobs write `latest.json` in turn, so the `updater` job fails when a
+platform is missing. Re-run that platform's build job before publishing.
+
+Without the key, as in a fork, nothing is signed and there is no
+`latest.json`. The macOS `.tar.gz` is then the plain app.
+
+Versions only move forward. A bad release is replaced by a higher version,
+not pulled back. If the key is lost, installed copies cannot update any more
+and need one manual install of a version with a new public key.
 
 ## Model files
 
@@ -78,7 +107,7 @@ the list.
 ## Local build
 
 `pnpm tauri build` needs Rust, CMake, Node 22 and pnpm. The app and the disk
-image land under `target/release/bundle/`, signed ad hoc.
+image land under `target/release/bundle/`, signed ad hoc, without an update.
 
 ## Icon
 

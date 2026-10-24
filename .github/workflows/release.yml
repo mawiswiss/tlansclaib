@@ -65,6 +65,21 @@ jobs:
             echo "APPLE_PASSWORD=$PASSWORD"
             echo "APPLE_TEAM_ID=$TEAM_ID"
           } >> "$GITHUB_ENV"
+      - name: Sign the update bundles, once the updater key is set
+        shell: bash
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "No updater key set, the release offers no in-app update."
+            exit 0
+          fi
+          {
+            echo "TAURI_SIGNING_PRIVATE_KEY=$KEY"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$KEY_PASSWORD"
+            echo "UPDATER_ARGS=--config src-tauri/tauri.updater.conf.json"
+          } >> "$GITHUB_ENV"
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -79,7 +94,7 @@ jobs:
 
             On the first start, open Models and download one for your language.
           assetNamePattern: ${{ matrix.assets }}
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} ${{ env.UPDATER_ARGS }}
       - name: Notarise the disk image too, and check both with Gatekeeper
         if: matrix.os == 'macos-latest' && env.APPLE_CERTIFICATE != ''
         shell: bash
@@ -95,9 +110,19 @@ jobs:
           spctl --assess --type open --context context:primary-signature -vv "$dmg"
           cp "$dmg" tlansclaib-mac.dmg
           gh release upload "$GITHUB_REF_NAME" tlansclaib-mac.dmg --clobber
-      - name: Keep only the installers on the release
-        if: matrix.os == 'macos-latest'
-        shell: bash
+
+  updater:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that latest.json offers the update on every platform
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name | select(endswith(".app.tar.gz"))' | xargs -r -n1 gh release delete-asset "$GITHUB_REF_NAME" --yes
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        # Both build jobs merge their platform into latest.json, so a close finish can drop one.
+        run: |
+          if [ -z "$KEY" ]; then
+            exit 0
+          fi
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern latest.json
+          jq -e '.platforms | has("darwin-aarch64") and has("darwin-x86_64") and has("windows-x86_64")' latest.json
