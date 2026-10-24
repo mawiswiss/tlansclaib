@@ -1293,6 +1293,10 @@ button.speed {
   text-overflow: ellipsis;
 }
 
+.meta-line > .tip-anchor {
+  flex: none;
+}
+
 .meta-info {
   display: inline-flex;
   color: var(--faint);
