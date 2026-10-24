@@ -69,9 +69,10 @@ gives each line its speaker, such as
 
 ## Transcribe
 
-1. Pick the model and the language in the row below the top bar. The Thai
-   models fix the language to Thai. For the others "Auto" works well, and
-   choosing the language is a little more reliable.
+1. Pick the model and the recording language in the row below the top bar.
+   The Thai models fix the language to Thai. For the others, leave Recording
+   language on "Auto-detect", which finds the language in most recordings.
+   Choose one only when Auto-detect picks the wrong one.
 2. Drop the recording on the window, or click "Choose a file…". m4a, mp3,
    wav, mp4, flac and most other formats work. The recording waits with the
    settings it will use. Check them, change them in the row above if needed,
@@ -79,6 +80,13 @@ gives each line its speaker, such as
 3. Watch the steps. The bar shows how far it is, the time elapsed and an
    estimate of the time left, which settles after the first minute. Lines
    appear below as they are recognised.
+
+When the model hears another language than the one chosen, a note says so
+and offers to restart in that language. A wrong recording language makes the
+model write in it, so the transcript would be a translation of what was said.
+The note never stops the run, because the model can be wrong too, for
+instance with a dialect. The finished transcript keeps the note, with a link
+to transcribe it again.
 
 Cancel keeps completed lines in the app's history.
 
@@ -107,8 +115,8 @@ result. The plus to the right starts the next recording.
 When detection found the wrong number of people, "Wrong number?" next to the
 names opens the dialog to transcribe again with another number. With one
 speaker and detection installed, "More people in this audio?" does the same. The dialog takes the
-settings the transcript used. Change the model, the language or the number of
-people for this run, then "Transcribe again". It replaces the result and any
+settings the transcript used. Change the model, the recording language or the
+number of people for this run, then "Transcribe again". It replaces the result and any
 corrections in history. Files you exported remain where they are.
 
 ## History

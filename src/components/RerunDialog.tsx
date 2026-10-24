@@ -20,7 +20,7 @@ type Props = {
   languages: Language[];
   detection: boolean;
   initial: RerunChoice;
-  focus: "speakers" | null;
+  focus: "speakers" | "language" | null;
   missingModel: string | null;
   onSetUpDetection: () => void;
   onRun: (choice: RerunChoice) => void;
@@ -39,7 +39,7 @@ export function RerunDialog(props: Props) {
   const set = (patch: Partial<RerunChoice>) => setChoice((c) => ({ ...c, ...patch }));
 
   useLayoutEffect(() => {
-    if (focus === "speakers") document.getElementById("rerun-speakers")?.focus();
+    if (focus) document.getElementById(`rerun-${focus}`)?.focus();
   }, [focus]);
 
   const onClose = props.onClose;
@@ -76,16 +76,16 @@ export function RerunDialog(props: Props) {
               options={installed.map((m) => ({ value: m.id, label: m.custom ? `${m.name} (custom)` : m.name }))}
             />
           </label>
-          <label className="field" htmlFor="rerun-language">
-            <span className="label">Language</span>
+          <label className={`field${focus === "language" ? " focused" : ""}`} htmlFor="rerun-language">
+            <span className="label">Recording language</span>
             <Select
               id="rerun-language"
               className="field-select"
               value={locked ?? choice.language}
               disabled={locked !== null}
               onChange={(value) => set({ language: value })}
-              label="Language"
-              options={[{ value: "auto", label: "Auto" }, ...sorted.map((l) => ({ value: l.code, label: capitalize(l.name) }))]}
+              label="Recording language"
+              options={[{ value: "auto", label: "Auto-detect" }, ...sorted.map((l) => ({ value: l.code, label: capitalize(l.name) }))]}
             />
           </label>
           <div className={`field wide${focus === "speakers" ? " focused" : ""}`}>

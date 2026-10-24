@@ -108,6 +108,23 @@ describe("run reducer", () => {
     expect(reduce(cancelled, { type: "reset" })).toEqual(idle);
   });
 
+  it("keeps what the model heard and starts over on a restart", () => {
+    const heard = [{ code: "en", probability: 0.97 }];
+    const running = play([
+      { type: "start", audio: "/rec/call.m4a", folder: "/", modelName: "m", timestamps: true, autoLanguage: false, now: 0 },
+      { type: "engine", event: { event: "model", device: "metal", threads: 4, language: "de", windows: 9, heard }, now: 1 },
+      { type: "engine", event: { event: "line", start: 0, end: 5, text: "Hallo" }, now: 2 },
+    ]);
+    expect(running.heard).toEqual(heard);
+    const restarted = reduce(running, { type: "engine", event: { event: "restart", language: "en" }, now: 3 });
+    expect(restarted.status).toBe("running");
+    expect(restarted.audio).toBe("/rec/call.m4a");
+    expect(restarted.lines).toEqual([]);
+    expect(restarted.heard).toEqual([]);
+    expect(restarted.language).toBeNull();
+    expect(restarted.startedAt).toBe(3);
+  });
+
   it("opens a saved transcript as a finished result", () => {
     const entry = {
       id: 1,

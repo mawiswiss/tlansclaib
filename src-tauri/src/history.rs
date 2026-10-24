@@ -51,6 +51,8 @@ pub struct Entry {
     pub speaker_precision: Option<String>,
     #[serde(default)]
     pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub heard: Vec<engine::protocol::Heard>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -310,6 +312,7 @@ mod tests {
             speaker_mode: None,
             speaker_precision: None,
             title: None,
+            heard: Vec::new(),
         }
     }
 

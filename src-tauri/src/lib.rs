@@ -325,6 +325,11 @@ fn cancel_run(app: AppHandle) {
     run::cancel(&app);
 }
 
+#[tauri::command]
+async fn restart_run(app: AppHandle, language: String) -> Result<(), String> {
+    run::restart(&app, &language).await.map_err(|e| format!("{e:#}"))
+}
+
 /// A development build started with TLANSCLAIB_AUTORUN=<audio file> transcribes it at once.
 #[tauri::command]
 fn autorun() -> Option<String> {
@@ -401,6 +406,7 @@ pub fn run() {
             list_languages,
             start_run,
             cancel_run,
+            restart_run,
             autorun,
             list_history,
             remove_history,

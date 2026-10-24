@@ -23,6 +23,12 @@ pub struct Timings {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct Heard {
+    pub code: String,
+    pub probability: f32,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
     Step {
@@ -42,6 +48,8 @@ pub enum Event {
         threads: usize,
         language: String,
         windows: usize,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        heard: Vec<Heard>,
     },
     Line {
         start: f64,
@@ -133,5 +141,22 @@ mod tests {
             speaker: Some(1),
         };
         assert_eq!(serde_json::from_str::<Event>(&serde_json::to_string(&event).unwrap()).unwrap(), event);
+    }
+
+    #[test]
+    fn the_model_event_names_what_the_model_heard() {
+        let event = Event::Model {
+            device: "cpu".into(),
+            device_name: None,
+            threads: 4,
+            language: "de".into(),
+            windows: 12,
+            heard: vec![Heard { code: "en".into(), probability: 0.97 }],
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.ends_with(r#""heard":[{"code":"en","probability":0.97}]}"#), "{json}");
+        assert_eq!(serde_json::from_str::<Event>(&json).unwrap(), event);
+        let older = r#"{"event":"model","device":"cpu","threads":4,"language":"de","windows":12}"#;
+        assert!(matches!(serde_json::from_str::<Event>(older).unwrap(), Event::Model { heard, .. } if heard.is_empty()));
     }
 }

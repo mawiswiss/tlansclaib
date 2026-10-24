@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
-use engine::protocol::{Event, Step, Timings, emit};
+use engine::protocol::{Event, Heard, Step, Timings, emit};
 use engine::{audio, model_file, output, speakers, transcribe, windows};
 use serde_json::json;
 
@@ -345,13 +345,20 @@ fn run(
     let mut engine = transcribe::Engine::load(model, threads, use_gpu)?;
     engine.decoding = decoding;
     let mut state = engine.state()?;
-    let language = if !engine.is_multilingual() {
-        "en".to_string()
-    } else if language == "auto" {
-        let probe = windows::split_tracks(&tracks, windows::PROBE_MIN_SECONDS, windows::PROBE_MAX_SECONDS);
-        detect(&engine, &mut state, &tracks, &probe)?
+    let (language, heard) = if !engine.is_multilingual() {
+        ("en".to_string(), Vec::new())
     } else {
-        language.to_string()
+        let probe = windows::split_tracks(&tracks, windows::PROBE_MIN_SECONDS, windows::PROBE_MAX_SECONDS);
+        if language == "auto" {
+            let heard = detect(&engine, &mut state, &tracks, &probe)?;
+            (heard.first().map_or_else(|| "en".to_string(), |h| h.code.clone()), heard)
+        } else {
+            let heard = detect(&engine, &mut state, &tracks, &probe).unwrap_or_else(|error| {
+                log::warn!("could not detect the spoken language: {error:#}");
+                Vec::new()
+            });
+            (language.to_string(), heard)
+        }
     };
     let (min_window, max_window) = window.unwrap_or_else(|| windows::bounds_for(&language));
     let segments: Vec<(usize, Option<usize>, windows::Window)> = match &turns {
@@ -373,6 +380,7 @@ fn run(
         threads,
         language: language.clone(),
         windows: segments.len(),
+        heard,
     });
     timings.load = phase.elapsed().as_secs_f64();
 
@@ -418,19 +426,15 @@ fn detect(
     state: &mut whisper_rs::WhisperState,
     tracks: &[Vec<f32>],
     segments: &[(usize, windows::Window)],
-) -> Result<String> {
-    let mut votes: Vec<String> = Vec::new();
+) -> Result<Vec<Heard>> {
+    let mut probes = Vec::new();
     for (track, window) in segments.iter().take(3) {
-        votes.push(engine.detect_language(state, &tracks[*track][window.start..window.end])?);
+        probes.push(engine.language_probabilities(state, &tracks[*track][window.start..window.end])?);
     }
-    let mut best = ("en".to_string(), 0);
-    for code in &votes {
-        let count = votes.iter().filter(|v| *v == code).count();
-        if count > best.1 {
-            best = (code.clone(), count);
-        }
-    }
-    Ok(best.0)
+    Ok(transcribe::rank_languages(&probes, 3)
+        .into_iter()
+        .map(|(code, probability)| Heard { code, probability })
+        .collect())
 }
 
 fn check(file: &Path) -> Result<()> {

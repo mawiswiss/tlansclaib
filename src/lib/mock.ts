@@ -70,6 +70,13 @@ export function mockBackend(): Backend {
   };
   for (const m of models) m.title = titles[m.id] ?? null;
   let timer: ReturnType<typeof setInterval> | null = null;
+  let generation = 0;
+  let lastRun: Parameters<Backend["startRun"]> | null = null;
+  const heard = [
+    { code: "th", probability: 0.93 },
+    { code: "en", probability: 0.04 },
+    { code: "lo", probability: 0.01 },
+  ];
   const detection: SpeakerDetection = { available: true, installed: false, downloading: false, download_bytes: 38_113_781, disk_bytes: 0 };
   let detectionTimer: ReturnType<typeof setInterval> | null = null;
   let history: HistoryEntry[] = [
@@ -207,9 +214,13 @@ export function mockBackend(): Backend {
       { code: "ja", name: "japanese" },
     ],
     startRun: async (audio, modelId, language, timestamps, speakers, speakerPrecision, outputFile) => {
+      lastRun = [audio, modelId, language, timestamps, speakers, speakerPrecision, outputFile];
+      const run = ++generation;
       const name = audio.split("/").pop()!.replace(/\.[^.]+$/, "");
       const file = `/AppData/transcripts/${Date.now()}.json`;
-      const send = (event: EngineEvent) => emit("engine", event);
+      const send = (event: EngineEvent) => {
+        if (run === generation) emit("engine", event);
+      };
       const total = 40;
       let done = 0;
       const voices = speakers ? ["Speaker 1", "Speaker 2", "Speaker 3"] : [];
@@ -222,7 +233,7 @@ export function mockBackend(): Backend {
       }
       setTimeout(() => send({ event: "step", step: "load" }), 700 + lag);
       setTimeout(() => {
-        send({ event: "model", device: "metal", threads: 9, language: language === "auto" ? "th" : language, windows: total });
+        send({ event: "model", device: "metal", threads: 9, language: language === "auto" ? "th" : language, windows: total, heard });
         if (speakers) send({ event: "speakers", speakers: voices });
         send({ event: "step", step: "transcribe" });
         timer = setInterval(() => {
@@ -245,7 +256,7 @@ export function mockBackend(): Backend {
                 id: Date.now(), audio, file, title: name, model: models.find((x) => x.id === modelId)?.name ?? modelId,
                 language: language === "auto" ? "th" : language, audio_seconds: total * 12.9, lines: total - 8, elapsed: 9.4,
                 finished_at: Math.floor(Date.now() / 1000), status: "done", timestamps, speakers: voices, detected: voices.length > 0,
-                model_id: modelId, speaker_mode: speakers, speaker_precision: speakers ? speakerPrecision : null, exists: true, audio_exists: true,
+                model_id: modelId, speaker_mode: speakers, speaker_precision: speakers ? speakerPrecision : null, heard, exists: true, audio_exists: true,
               },
               ...history.filter((h) => h.file !== outputFile),
             ];
@@ -258,7 +269,17 @@ export function mockBackend(): Backend {
     cancelRun: async () => {
       if (timer) clearInterval(timer);
       timer = null;
+      generation += 1;
       emit("engine", { event: "cancelled" } satisfies EngineEvent);
+    },
+    async restartRun(language) {
+      if (timer) clearInterval(timer);
+      timer = null;
+      generation += 1;
+      emit("engine", { event: "restart", language } satisfies EngineEvent);
+      if (!lastRun) return;
+      const [audio, modelId, , timestamps, speakers, precision, outputFile] = lastRun;
+      await this.startRun(audio, modelId, language, timestamps, speakers, precision, outputFile);
     },
     listHistory: async () => history.map((h) => ({ ...h })),
     removeHistory: async (id) => {

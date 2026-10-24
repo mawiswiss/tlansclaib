@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/format";
+import { differs } from "../lib/language";
 import type { RunState } from "../lib/run";
 import { findMatches, playingAt, type Playing } from "../lib/transcript";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
@@ -21,7 +22,7 @@ type Props = {
   onExport: () => Promise<string | null>;
   onRename: (title: string) => Promise<boolean>;
   onRenameSpeaker: (track: number, name: string) => Promise<boolean>;
-  onRerun: (options?: { focus?: "speakers"; speakers?: string }) => void;
+  onRerun: (options?: { focus?: "speakers" | "language"; speakers?: string; language?: string }) => void;
   detectionInstalled: boolean;
   onSetUpDetection: () => void;
   onClose: () => void;
@@ -100,6 +101,7 @@ export function ResultView(props: Props) {
   const result = run.result!;
   const title = run.title;
   const internal = result.file.endsWith(".json");
+  const spoken = differs(run.language, run.heard);
   const lines = useMemo(() => run.lines.flatMap((l, index) => (l.text ? [{ ...l, index }] : [])), [run.lines]);
   const audioMissing = run.check?.audio === "missing";
   const needle = query.trim().toLowerCase();
@@ -391,6 +393,14 @@ export function ResultView(props: Props) {
       {exported && <p className="note" role="status">Exported to {exported}.</p>}
       {run.opened?.status === "incomplete" && <p className="note">This transcription was stopped early and holds the lines done until then.</p>}
       {run.check?.changed && <p className="note">This transcript was changed outside tlansclaib since it was saved.</p>}
+      {spoken && run.language && (
+        <p className="note">
+          This sounds like {languageName(spoken)}, but was transcribed as {languageName(run.language)}.{" "}
+          <button type="button" className="inline-link" onClick={() => onRerun({ focus: "language", language: spoken })}>
+            Transcribe again in {languageName(spoken)}
+          </button>
+        </p>
+      )}
       {run.check?.audio === "different" && (
         <p className="note">
           The recording at this place is not the one that was transcribed.{" "}

@@ -22,6 +22,8 @@ import { applyTheme } from "./lib/theme";
 import { DETECTION_ID } from "./lib/detection";
 import type { DiskSpace, DownloadProgress, FileKind, HistoryEntry, Language, ModelStatus, SpeakerDetection, Stats } from "./lib/types";
 
+type RerunOptions = { focus?: "speakers" | "language"; speakers?: string; language?: string };
+
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -65,7 +67,7 @@ export default function App() {
   const [rerunTarget, setRerunTarget] = useState<{
     entry: HistoryEntry;
     replaces: boolean;
-    focus: "speakers" | null;
+    focus: "speakers" | "language" | null;
     missingModel: string | null;
     initial: RerunChoice;
   } | null>(null);
@@ -336,7 +338,7 @@ export default function App() {
     }
   };
 
-  const openRerun = (entry: HistoryEntry, replaces: boolean, options: { focus?: "speakers"; speakers?: string } = {}) => {
+  const openRerun = (entry: HistoryEntry, replaces: boolean, options: RerunOptions = {}) => {
     if (running) return;
     const usable = models.filter((m) => m.installed);
     const original = usable.find((m) => m.id === entry.model_id) ?? usable.find((m) => m.name === entry.model);
@@ -348,7 +350,7 @@ export default function App() {
       missingModel: original ? null : entry.model,
       initial: {
         modelId: original?.id ?? usable[0]?.id ?? "",
-        language: entry.language ?? "auto",
+        language: options.language ?? entry.language ?? "auto",
         speakers: options.speakers ?? entry.speaker_mode ?? (entry.detected ? "auto" : "off"),
         precision,
         timestamps: entry.timestamps,
@@ -389,7 +391,7 @@ export default function App() {
     }
   };
 
-  const rerunResult = (options: { focus?: "speakers"; speakers?: string } = {}) => {
+  const rerunResult = (options: RerunOptions = {}) => {
     const file = run.result?.file;
     const entry = history.find((h) => h.file === file) ?? run.opened;
     if (entry) openRerun(entry, true, options);
@@ -653,6 +655,11 @@ export default function App() {
             onCancel={() => {
               void Promise.resolve().then(() => requireBackend().cancelRun()).catch((error) => reportError("Could not stop transcription", error));
             }}
+            onRestart={(language) => {
+              void Promise.resolve()
+                .then(() => requireBackend().restartRun(language))
+                .catch((error) => dispatch({ type: "fail", message: String(error) }));
+            }}
           />
         );
       case "done":
@@ -725,7 +732,7 @@ export default function App() {
             pending={pending}
             summary={[
               model?.name ?? "",
-              locked ? languageName(locked) : settings.language === "auto" ? "Language detected" : languageName(settings.language),
+              locked ? languageName(locked) : settings.language === "auto" ? "Auto-detect" : languageName(settings.language),
               !detection?.installed || settings.speakers === "off"
                 ? "Speakers not named"
                 : `${settings.speakers === "auto" ? "Speakers detected" : `${settings.speakers} people`}${settings.speakerPrecision === "fast" ? ", fast" : ""}`,

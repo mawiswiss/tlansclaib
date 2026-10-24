@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde::Serialize;
-use sysinfo::{MemoryRefreshKind, Pid, ProcessesToUpdate, System};
+use sysinfo::{MemoryRefreshKind, Pid, ProcessStatus, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter};
 
 #[derive(Clone, Debug, Serialize)]
@@ -37,6 +37,13 @@ impl Monitor {
         let mut system = self.system.lock().unwrap();
         system.refresh_memory_specifics(MemoryRefreshKind::everything());
         (free_memory(&system), system.used_swap())
+    }
+
+    pub fn is_running(&self, pid: u32) -> bool {
+        let mut system = self.system.lock().unwrap();
+        let pid = Pid::from_u32(pid);
+        system.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
+        system.process(pid).is_some_and(|p| p.status() != ProcessStatus::Zombie)
     }
 
     pub fn sample(&self, engine_pid: Option<u32>) -> Stats {

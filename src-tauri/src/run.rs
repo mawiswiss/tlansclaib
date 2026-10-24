@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, anyhow};
-use engine::protocol::{Event, Step};
+use engine::protocol::{Event, Heard, Step};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::ShellExt;
@@ -30,12 +30,14 @@ struct Record {
     file: PathBuf,
     scratch: PathBuf,
     replace_id: Option<u64>,
+    transcript: Option<PathBuf>,
     model: String,
     model_id: String,
     speaker_mode: Option<String>,
     speaker_precision: Option<String>,
     timestamps: bool,
     language: Option<String>,
+    heard: Vec<Heard>,
     audio_seconds: Option<f64>,
     speakers: Vec<String>,
     detected: bool,
@@ -53,6 +55,7 @@ pub struct RunState(pub Mutex<Option<ActiveRun>>, pub tokio::sync::Mutex<()>);
 #[serde(tag = "event", rename_all = "snake_case")]
 enum AppEvent {
     Cancelled,
+    Restart { language: String },
     Retry { message: String },
 }
 
@@ -90,7 +93,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         return Err(anyhow!("{} does not exist.", audio.display()));
     }
     let (entry, model_path) = app.state::<Models>().installed_path(model_id)?;
-    let monitor = app.state::<std::sync::Arc<Monitor>>();
+    let monitor = app.state::<Arc<Monitor>>();
     let (free, _) = monitor.memory();
     let detection_ram = if speakers.is_some() { guard::DETECTION_RAM } else { 0 };
     guard::can_start(free, entry.ram_bytes().max(detection_ram)).map_err(|e| anyhow!(e))?;
@@ -191,12 +194,14 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
             file: output,
             scratch,
             replace_id,
+            transcript: transcript.map(Path::to_path_buf),
             model: entry.name.clone(),
             model_id: entry.id.clone(),
             speaker_mode: speakers.map(str::to_string),
             speaker_precision: speakers.and(speaker_precision).map(str::to_string),
             timestamps,
             language: None,
+            heard: Vec::new(),
             audio_seconds: None,
             speakers: Vec::new(),
             detected: false,
@@ -231,17 +236,22 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                             pending_gpu_error = Some(message.clone());
                             continue;
                         }
-                        let event = match &event {
-                            Event::Done { lines, elapsed, timings, .. } => match finish(&app, *lines, *elapsed) {
-                                Ok(file) => Event::Done { lines: *lines, elapsed: *elapsed, file, timings: timings.clone() },
-                                Err(error) => Event::Error { message: format!("Could not save the transcription: {error:#}") },
-                            },
-                            _ => {
-                                track(&app, &event);
-                                event
-                            }
-                        };
-                        let _ = app.emit("engine-event", &event);
+                        let forwarded = with_own(&app, id, |run| {
+                            let event = match &event {
+                                Event::Done { lines, elapsed, timings, .. } => match finish(&app, run, *lines, *elapsed) {
+                                    Ok(file) => Event::Done { lines: *lines, elapsed: *elapsed, file, timings: timings.clone() },
+                                    Err(error) => Event::Error { message: format!("Could not save the transcription: {error:#}") },
+                                },
+                                _ => {
+                                    track(run, &event);
+                                    event
+                                }
+                            };
+                            let _ = app.emit("engine-event", &event);
+                        });
+                        if forwarded.is_none() {
+                            break;
+                        }
                     }
                     Err(_) => {
                         log::warn!(target: "engine", "unreadable progress event");
@@ -258,7 +268,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                     }
                 }
                 CommandEvent::Terminated(payload) => {
-                    if retry_on_cpu(gpu_attempt, step, model_ready, payload.code) && app.state::<RunState>().0.lock().unwrap().is_some() {
+                    if retry_on_cpu(gpu_attempt, step, model_ready, payload.code) && with_own(&app, id, |_| ()).is_some() {
                         log::warn!("{backend} model startup failed. Retrying on CPU.");
                         let _ = app.emit(
                             "engine-event",
@@ -271,7 +281,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                             Ok((new_events, child)) => {
                                 let state = app.state::<RunState>();
                                 let mut active = state.0.lock().unwrap();
-                                if let Some(run) = active.as_mut() {
+                                if let Some(run) = active.as_mut().filter(|run| run.record.id == id) {
                                     run.pid = child.pid();
                                     run.child = Some(child);
                                     run.saw_error = false;
@@ -287,9 +297,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                                 break;
                             }
                             Err(error) => {
-                                if let Some(run) = app.state::<RunState>().0.lock().unwrap().as_mut() {
-                                    run.saw_error = true;
-                                }
+                                with_own(&app, id, |run| run.saw_error = true);
                                 let _ = app.emit(
                                     "engine-event",
                                     Event::Error {
@@ -299,8 +307,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                             }
                         }
                     }
-                    let run = app.state::<RunState>().0.lock().unwrap().take();
-                    if let Some(run) = run {
+                    if let Some(run) = take_own(&app, id) {
                         if !run.saw_error && (payload.code != Some(0) || !run.record.saved) {
                             let _ = app.emit(
                                 "engine-event",
@@ -329,8 +336,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                 _ => {}
             }
         }
-        let run = app.state::<RunState>().0.lock().unwrap().take();
-        if let Some(mut run) = run {
+        if let Some(mut run) = take_own(&app, id) {
             if let Some(child) = run.child.take() {
                 let _ = child.kill();
             }
@@ -346,12 +352,19 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     Ok(())
 }
 
-fn track(app: &AppHandle, event: &Event) {
+fn with_own<T>(app: &AppHandle, id: u64, f: impl FnOnce(&mut ActiveRun) -> T) -> Option<T> {
     let state = app.state::<RunState>();
-    let mut lock = state.0.lock().unwrap();
-    let Some(run) = lock.as_mut() else {
-        return;
-    };
+    let mut active = state.0.lock().unwrap();
+    active.as_mut().filter(|run| run.record.id == id).map(f)
+}
+
+fn take_own(app: &AppHandle, id: u64) -> Option<ActiveRun> {
+    let state = app.state::<RunState>();
+    let mut active = state.0.lock().unwrap();
+    if active.as_ref().is_some_and(|run| run.record.id == id) { active.take() } else { None }
+}
+
+fn track(run: &mut ActiveRun, event: &Event) {
     let record = &mut run.record;
     match event {
         Event::Audio { seconds, speakers, video } => {
@@ -363,9 +376,10 @@ fn track(app: &AppHandle, event: &Event) {
             record.speakers = speakers.clone();
             record.detected = true;
         }
-        Event::Model { device, threads, language, windows, .. } => {
+        Event::Model { device, threads, language, windows, heard, .. } => {
             log::info!("model loaded on {device} with {threads} threads, language {language}, {windows} windows");
             record.language = Some(language.clone());
+            record.heard = heard.clone();
         }
         Event::Line { start, end, text, speaker } => {
             if !text.is_empty() {
@@ -381,10 +395,8 @@ fn track(app: &AppHandle, event: &Event) {
     }
 }
 
-fn finish(app: &AppHandle, lines: usize, elapsed: f64) -> Result<PathBuf> {
-    let state = app.state::<RunState>();
-    let mut lock = state.0.lock().unwrap();
-    let record = &mut lock.as_mut().ok_or_else(|| anyhow!("The run was stopped."))?.record;
+fn finish(app: &AppHandle, run: &mut ActiveRun, lines: usize, elapsed: f64) -> Result<PathBuf> {
+    let record = &mut run.record;
     let entry = entry(record, history::Status::Done, lines, elapsed);
     remember(app, entry, &record.transcript_lines)?;
     record.saved = true;
@@ -418,6 +430,7 @@ fn entry(record: &Record, status: history::Status, lines: usize, elapsed: f64) -
         speaker_mode: record.speaker_mode.clone(),
         speaker_precision: record.speaker_precision.clone(),
         title: record.audio.file_stem().map(|name| name.to_string_lossy().into_owned()),
+        heard: record.heard.clone(),
     }
 }
 
@@ -456,6 +469,41 @@ pub fn cancel(app: &AppHandle) {
         log::info!("cancelled the engine");
         remember_incomplete(app, &run.record);
     }
+}
+
+pub async fn restart(app: &AppHandle, language: &str) -> Result<()> {
+    let run = app.state::<RunState>().0.lock().unwrap().take();
+    let Some(mut run) = run else {
+        return Err(anyhow!("No transcription is running."));
+    };
+    if let Some(child) = run.child.take() {
+        let _ = child.kill();
+    }
+    let _ = std::fs::remove_file(&run.record.scratch);
+    log::info!("restarting the engine in another language");
+    let _ = app.emit("engine-event", AppEvent::Restart { language: language.to_string() });
+    let ActiveRun { pid, record, .. } = run;
+    let monitor = app.state::<Arc<Monitor>>().inner().clone();
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while monitor.is_running(pid) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    })
+    .await;
+    start(
+        app,
+        Request {
+            audio: &record.audio,
+            model_id: &record.model_id,
+            language,
+            timestamps: record.timestamps,
+            speakers: record.speaker_mode.as_deref(),
+            speaker_precision: record.speaker_precision.as_deref(),
+            transcript: record.transcript.as_deref(),
+        },
+    )
+    .await
 }
 
 pub fn guard_tick(app: &AppHandle, stats: &Stats) {

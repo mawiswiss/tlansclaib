@@ -28,6 +28,7 @@ export type Backend = {
   cancelSpeakerDetection(): Promise<void>;
   removeSpeakerDetection(): Promise<void>;
   cancelRun(): Promise<void>;
+  restartRun(language: string): Promise<void>;
   listHistory(): Promise<HistoryEntry[]>;
   removeHistory(id: number): Promise<void>;
   setTranscriptTimestamps(file: string, lines: Line[], timestamps: boolean, speakers: string[]): Promise<string>;
@@ -85,6 +86,7 @@ async function tauriBackend(): Promise<Backend> {
     cancelSpeakerDetection: () => invoke("cancel_speaker_detection"),
     removeSpeakerDetection: () => invoke("remove_speaker_detection"),
     cancelRun: () => invoke("cancel_run"),
+    restartRun: (language) => invoke("restart_run", { language }),
     listHistory: () => invoke("list_history"),
     removeHistory: (id) => invoke("remove_history", { id }),
     setTranscriptTimestamps: (file, lines, timestamps, speakers) => invoke("set_transcript_timestamps", { file, lines, timestamps, speakers }),

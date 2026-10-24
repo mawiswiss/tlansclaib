@@ -1,10 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { clock, duration, fileName, remaining, speed } from "../lib/format";
+import { differs } from "../lib/language";
 import { estimate, type RunState } from "../lib/run";
 import type { Step } from "../lib/types";
 import { Check } from "./icons";
 
-type Props = { run: RunState; showTimes: boolean; languageName: (code: string) => string; onCancel: () => void };
+type Props = {
+  run: RunState;
+  showTimes: boolean;
+  languageName: (code: string) => string;
+  onCancel: () => void;
+  onRestart: (language: string) => void;
+};
 
 const STEPS: { step: Step; title: string; short: string }[] = [
   { step: "decode", title: "Reading the audio", short: "Audio" },
@@ -18,7 +25,7 @@ function deviceName(device: string | null): string {
   return device === "metal" ? "Metal" : device === "vulkan" ? "Vulkan" : "CPU";
 }
 
-export function RunView({ run, showTimes, languageName, onCancel }: Props) {
+export function RunView({ run, showTimes, languageName, onCancel, onRestart }: Props) {
   const [now, setNow] = useState(Date.now());
   const log = useRef<HTMLDivElement>(null);
   const following = useRef(false);
@@ -43,6 +50,7 @@ export function RunView({ run, showTimes, languageName, onCancel }: Props) {
   const est = estimate(run, now);
   const elapsed = (now - run.startedAt) / 1000;
   const percent = run.total > 0 ? Math.round((run.done / run.total) * 100) : 0;
+  const spoken = differs(run.language, run.heard);
 
   const detail = (step: Step): string => {
     switch (step) {
@@ -108,6 +116,15 @@ export function RunView({ run, showTimes, languageName, onCancel }: Props) {
           </div>
         </div>
         {run.retryReason && <p role="status" className="muted">{run.retryReason}</p>}
+        {spoken && run.language && (
+          <p role="status" className="note">
+            This sounds like {languageName(spoken)}. Recording language is {languageName(run.language)}, so the transcript may come out in{" "}
+            {languageName(run.language)}.{" "}
+            <button type="button" className="inline-link" onClick={() => onRestart(spoken)}>
+              Restart in {languageName(spoken)}
+            </button>
+          </p>
+        )}
       </div>
       <div className="log card" ref={log} onScroll={onScroll}>
         {run.lines.length === 0 && <p className="muted">The text appears here as it is recognised.</p>}

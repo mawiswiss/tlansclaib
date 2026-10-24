@@ -4,7 +4,7 @@
 
 A desktop app for macOS and Windows that transcribes a recording on the
 user's own computer. The user drops a recording on the window, checks the
-model and the language, watches the steps and the time estimate, and gets a
+model and the recording language, watches the steps and the time estimate, and gets a
 result in the app's private history. Text or subtitles are exported on request.
 It runs on modest laptops, never takes the
 machine down, downloads models on demand instead of shipping them, and shows
@@ -56,10 +56,13 @@ retries once on the CPU. The retry never starts after transcription begins.
   greedy sampling, no context from the previous line, the chosen language,
   and temperature fallback when the decoder loops. A line's segments are
   joined into one text. Its times are the line's bounds, because the
-  fine-tuned Thai models do not emit usable timestamp tokens. With language
-  `auto`, the first three lines of 17 s to 23 s vote, then the language is
-  fixed for the whole file. A line that uses 200 tokens or more logs a
-  warning.
+  fine-tuned Thai models do not emit usable timestamp tokens. A
+  multilingual model hears the first three lines of 17 s to 23 s, and their
+  averaged language probabilities rank the languages. With language `auto`
+  the first one is used for the whole file. A chosen language is kept, and the
+  model event reports what was heard: a chosen language that is not spoken
+  makes Whisper write in it, so the transcript turns into a translation. A
+  line that uses 200 tokens or more logs a warning.
 - `output.rs` appends one line at a time to the output file, so a cancelled
   run keeps what was done. Each line starts with its times,
   `[HH:MM:SS.ss --> HH:MM:SS.ss] text`, unless `--no-timestamps` is given.
@@ -101,7 +104,7 @@ The binary prints one JSON object per line on stdout:
 {"event":"audio","seconds":6427.3,"speakers":["Speaker 1","Speaker 2"]}
 {"event":"speaker_progress","done":12,"total":40}
 {"event":"speakers","speakers":["Speaker 1","Speaker 2","Speaker 3"]}
-{"event":"model","device":"metal|vulkan|cpu","device_name":"<GPU name>","threads":9,"language":"th","windows":323}
+{"event":"model","device":"metal|vulkan|cpu","device_name":"<GPU name>","threads":9,"language":"th","windows":323,"heard":[{"code":"th","probability":0.97}]}
 {"event":"line","start":0.0,"end":17.2,"text":"...","speaker":1}
 {"event":"progress","done":8,"total":323,"position":180.5}
 {"event":"done","lines":323,"elapsed":615.2,"file":"<path>","timings":{"decode":4.2,"speakers":0.0,"load":2.1,"transcribe":608.7,"write":0.1}}
@@ -112,7 +115,8 @@ The `audio` event names the tracks' speakers, the `speakers` event those
 found by detection. whisper.cpp's own log output goes to stderr. The engine
 lowers its own process priority at start and uses all physical cores but
 one, so the computer stays usable during a run.
-The model event names the backend and GPU that whisper.cpp initialized.
+The model event names the backend and GPU that whisper.cpp initialized, and
+the three languages heard most, which an English-only model leaves out.
 The done event reports time spent decoding, finding speakers, loading the
 model, transcribing, and writing. The sum can be lower than elapsed time
 because progress reporting and other work are outside those stages.
@@ -147,6 +151,11 @@ because progress reporting and other work are outside those stages.
   writes scratch text in app data. On completion or cancellation, the app saves
   the lines and run metadata to `transcripts/<id>.json` and removes the scratch
   file. A rerun replaces its history entry only after the new record is saved.
+  A run's event loop acts only while the run state still holds that run's id,
+  so late events of a cancelled or restarted engine go nowhere. A restart in
+  another language kills the engine, drops its lines without a history entry,
+  waits up to 3 s for the process to end so the memory check sees its memory
+  free, and starts again with the same settings.
 - `history.rs`: every finished run, and every stopped run with at least one
   line, lands in `history.json` in the app data folder, newest first, at most
   500 entries. It indexes the private JSON records. Each record also keeps its
@@ -187,8 +196,8 @@ top bar picks one.
   "Models", the appearance switch and the About dialog. About lists the
   features, led by the statement that nothing leaves the computer, then who
   makes the app, the licence, the systems and how to support it.
-- The settings row holds model, language ("Auto" or a language) and
-  speakers in aligned cells. It shows only before a transcription. Timecodes
+- The settings row holds model, recording language ("Auto-detect" or a
+  language) and speakers in aligned cells. It shows only before a transcription. Timecodes
   are not a setting there: the switch
   above a finished transcript decides and is remembered for the next.
 - The model carries a fit label from `lib/fit.ts`: its listed RAM need
@@ -218,6 +227,12 @@ top bar picks one.
   number of people. Below, a progress bar with elapsed and remaining time and
   speed, and the transcript growing without moving the scroll position
   unless it is scrolled to the end.
+- When the model hears another language than the chosen recording language,
+  a note under the progress bar says so and offers "Restart in English". The
+  heard language needs 60% or more and the chosen one under 10%
+  (`lib/language.ts`). The note never stops the run, because the detection
+  can be wrong, for instance with a dialect. The result keeps the note with
+  "Transcribe again in English", which opens the dialog with that language.
 - Errors say what happened and what to do.
 
 ### The result
@@ -300,7 +315,7 @@ record can be transcribed again when the recording is available.
 One dialog (`RerunDialog`) serves the icon on the result card, the history
 and the speaker links. It is filled with the settings in the history entry:
 the model by its id (`model_id`, or by name for older entries, or the first
-installed one with a note when that model is gone), the language, the
+installed one with a note when that model is gone), the recording language, the
 speaker setting and its precision (`speaker_mode`, `speaker_precision`), and
 it keeps the timecodes as they were. Each can be changed for this run only,
 and the settings row stays as it is. A file with several tracks shows one
@@ -355,5 +370,6 @@ at any time, for testing.
 
 The CoreML encoder on macOS, a Windows signing
 certificate, converting a Hugging Face model inside the app, a remote model
-list, SRT export, translation to English, and speaker detection within each
+list, SRT export, translation into any language with a local language model,
+and speaker detection within each
 track, for calls where one track holds several people.

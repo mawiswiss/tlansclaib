@@ -99,6 +99,10 @@ On the three-minute far-field Thai meeting clip, Typhoon did not beat Thai
 (fast): its text changed 41% between shifted runs against 38%, so Thai
 (fast) stays the recommended Thai model. Try Typhoon on cleaner recordings.
 
+A fine-tuned model keeps Whisper's language detection. On 2026-10-24 the Swiss
+German model heard the English test clip as English with 0.99, so the note
+about another spoken language works with it. The Thai models were not checked.
+
 ## Converting a Hugging Face Whisper model
 
 Needs uv, git and cmake on the machine doing the conversion (once, not on the

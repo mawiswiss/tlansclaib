@@ -53,14 +53,14 @@ export function SettingsBar(props: Props) {
         />
       </label>
       <label className="setting" htmlFor="language-setting" title={locked ? "This model only knows one language" : undefined}>
-        <span className="label">Language</span>
+        <span className="label">Recording language</span>
         <Select
           id="language-setting"
           value={locked ?? language}
           onChange={onLanguage}
           disabled={busy || locked !== null}
-          label="Language"
-          options={[{ value: "auto", label: "Auto" }, ...sorted.map((l) => ({ value: l.code, label: capitalize(l.name) }))]}
+          label="Recording language"
+          options={[{ value: "auto", label: "Auto-detect" }, ...sorted.map((l) => ({ value: l.code, label: capitalize(l.name) }))]}
         />
       </label>
       <label

@@ -117,12 +117,10 @@ impl Engine {
         Ok(state)
     }
 
-    pub fn detect_language(&self, state: &mut WhisperState, samples: &[f32]) -> Result<String> {
+    pub fn language_probabilities(&self, state: &mut WhisperState, samples: &[f32]) -> Result<Vec<f32>> {
         state.pcm_to_mel(samples, self.threads)?;
-        let (id, _) = state.lang_detect(0, self.threads)?;
-        whisper_rs::get_lang_str(id)
-            .map(str::to_string)
-            .ok_or_else(|| anyhow!("whisper reported an unknown language id {id}"))
+        let (_, probabilities) = state.lang_detect(0, self.threads)?;
+        Ok(probabilities)
     }
 
     pub fn transcribe(&self, state: &mut WhisperState, samples: &[f32], language: &str) -> Result<String> {
@@ -209,6 +207,38 @@ pub fn languages() -> Vec<(String, String)> {
             ))
         })
         .collect()
+}
+
+pub fn rank_languages(probes: &[Vec<f32>], count: usize) -> Vec<(String, f32)> {
+    average(probes)
+        .into_iter()
+        .filter_map(|(id, probability)| Some((whisper_rs::get_lang_str(id as i32)?.to_string(), probability)))
+        .take(count)
+        .collect()
+}
+
+fn average(probes: &[Vec<f32>]) -> Vec<(usize, f32)> {
+    let Some(width) = probes.iter().map(Vec::len).max() else {
+        return Vec::new();
+    };
+    let mut ranked: Vec<(usize, f32)> = (0..width)
+        .map(|id| (id, probes.iter().map(|p| p.get(id).copied().unwrap_or(0.0)).sum::<f32>() / probes.len() as f32))
+        .collect();
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+    ranked
+}
+
+#[cfg(test)]
+mod language_tests {
+    use super::average;
+
+    #[test]
+    fn averages_the_windows_and_ranks_the_languages() {
+        let ranked = average(&[vec![0.1, 0.9, 0.0], vec![0.7, 0.3, 0.0], vec![0.1, 0.8, 0.1]]);
+        assert_eq!(ranked.iter().map(|(id, _)| *id).collect::<Vec<_>>(), [1, 0, 2]);
+        assert!((ranked[0].1 - 2.0 / 3.0).abs() < 1e-6);
+        assert!(average(&[]).is_empty());
+    }
 }
 
 #[cfg(test)]

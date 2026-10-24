@@ -1,4 +1,4 @@
-import type { EngineEvent, HistoryEntry, Match, Step, Timings } from "./types";
+import type { EngineEvent, Heard, HistoryEntry, Match, Step, Timings } from "./types";
 import { titleOf } from "./format";
 
 export type Line = { start: number; end: number; text: string; speaker?: number };
@@ -26,6 +26,7 @@ export type RunState = {
   timings: Timings | null;
   threads: number | null;
   language: string | null;
+  heard: Heard[];
   lines: Line[];
   done: number;
   total: number;
@@ -64,6 +65,7 @@ export const idle: RunState = {
   timings: null,
   threads: null,
   language: null,
+  heard: [],
   lines: [],
   done: 0,
   total: 0,
@@ -128,6 +130,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
         folder: i > 0 ? e.file.slice(0, i) : e.file,
         modelName: e.model,
         language: e.language,
+        heard: e.heard ?? [],
         audioSeconds: e.audio_seconds,
         speakers: e.speakers ?? [],
         detected: e.detected ?? false,
@@ -183,7 +186,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
         case "audio":
           return { ...state, audioSeconds: e.seconds, speakers: e.speakers ?? [], video: e.video ?? false };
         case "model":
-          return { ...state, device: e.device, deviceName: e.device_name ?? null, retryReason: state.retryReason && e.device === "cpu" ? state.retryReason.replace("Retrying on CPU.", "This run is using the CPU.") : state.retryReason, threads: e.threads, language: e.language, windows: e.windows, total: e.windows };
+          return { ...state, device: e.device, deviceName: e.device_name ?? null, retryReason: state.retryReason && e.device === "cpu" ? state.retryReason.replace("Retrying on CPU.", "This run is using the CPU.") : state.retryReason, threads: e.threads, language: e.language, heard: e.heard ?? [], windows: e.windows, total: e.windows };
         case "retry":
           return { ...state, retryReason: e.message };
         case "line":
@@ -209,6 +212,18 @@ export function reduce(state: RunState, action: RunAction): RunState {
           return state;
         case "cancelled":
           return { ...state, status: "cancelled" };
+        case "restart":
+          return {
+            ...idle,
+            status: "running",
+            audio: state.audio,
+            title: state.title,
+            folder: state.folder,
+            modelName: state.modelName,
+            timestamps: state.timestamps,
+            detecting: state.detecting,
+            startedAt: action.now,
+          };
       }
     }
   }

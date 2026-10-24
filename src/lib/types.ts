@@ -24,6 +24,8 @@ export type ModelStatus = {
 
 export type Language = { code: string; name: string };
 
+export type Heard = { code: string; probability: number };
+
 export type HistoryEntry = {
   id: number;
   audio: string;
@@ -43,6 +45,7 @@ export type HistoryEntry = {
   model_id?: string | null;
   speaker_mode?: string | null;
   speaker_precision?: string | null;
+  heard?: Heard[];
   exists: boolean;
   audio_exists: boolean;
 };
@@ -77,7 +80,7 @@ export type Timings = { decode: number; speakers: number; load: number; transcri
 export type EngineEvent =
   | { event: "step"; step: Step }
   | { event: "audio"; seconds: number; speakers?: string[]; video?: boolean }
-  | { event: "model"; device: string; device_name?: string; threads: number; language: string; windows: number }
+  | { event: "model"; device: string; device_name?: string; threads: number; language: string; windows: number; heard?: Heard[] }
   | { event: "line"; start: number; end: number; text: string; speaker?: number }
   | { event: "speakers"; speakers: string[] }
   | { event: "speaker_progress"; done: number; total: number }
@@ -86,4 +89,5 @@ export type EngineEvent =
   | { event: "error"; message: string }
   | { event: "warning"; message: string }
   | { event: "retry"; message: string }
-  | { event: "cancelled" };
+  | { event: "cancelled" }
+  | { event: "restart"; language: string };
