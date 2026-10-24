@@ -884,11 +884,11 @@ export default function App() {
                 return false;
               }
             }}
-            onExport={async () => {
+            onExport={async (format) => {
               const b = backend.current;
               if (!b || !run.result) return null;
               try {
-                const destination = await b.pickExportFile(run.title, run.timed);
+                const destination = await b.pickExportFile(run.title, format);
                 if (!destination) return null;
                 const expected = run.hash ?? await b.transcriptHash(run.result.file);
                 await b.exportTranscript(run.result.file, expected, destination, run.lines, run.timestamps, run.timed, run.speakers);

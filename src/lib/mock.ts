@@ -413,7 +413,7 @@ export function mockBackend(): Backend {
     pickAudioFile: async () => "/Users/someone/Recordings/meeting.m4a",
     pickModelFile: async () => "/Volumes/USB/ggml-thai-fast-q8_0.bin",
     pickTranscriptFile: async () => "/Users/someone/Archive/interview_transcript.txt",
-    pickExportFile: async (name) => `/Users/someone/Documents/${name}.txt`,
+    pickExportFile: async (name, format) => `/Users/someone/Documents/${name}.${format}`,
     onEngineEvent: (h) => on<EngineEvent>("engine", h),
     onStats: (h) => on<Stats>("stats", h),
     onDownloadProgress: (h) => on<DownloadProgress>("download", h),

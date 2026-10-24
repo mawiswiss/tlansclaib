@@ -1,4 +1,7 @@
 import type { Line } from "./run";
+import type { ExportFormat } from "./types";
+
+export const EXPORT_NAMES: Record<ExportFormat, string> = { txt: "Text", srt: "SubRip subtitles", vtt: "WebVTT subtitles" };
 
 const TIMED = /^\[(\d+):(\d{2}):(\d{2}(?:\.\d+)?) --> (\d+):(\d{2}):(\d{2}(?:\.\d+)?)\] ?(.*)$/;
 

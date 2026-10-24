@@ -1,6 +1,7 @@
 import type { Update } from "@tauri-apps/plugin-updater";
 import type { Line } from "./run";
-import type { DiskSpace, DownloadProgress, EngineEvent, FileKind, Gpu, HistoryEntry, Language, Match, ModelStatus, Opened, SpeakerBackend, SpeakerDetection, Stats } from "./types";
+import { EXPORT_NAMES } from "./transcript";
+import type { DiskSpace, DownloadProgress, EngineEvent, ExportFormat, FileKind, Gpu, HistoryEntry, Language, Match, ModelStatus, Opened, SpeakerBackend, SpeakerDetection, Stats } from "./types";
 
 export type Unlisten = () => void;
 
@@ -58,7 +59,7 @@ export type Backend = {
   pickAudioFile(): Promise<string | null>;
   pickModelFile(): Promise<string | null>;
   pickTranscriptFile(): Promise<string | null>;
-  pickExportFile(name: string, timed: boolean): Promise<string | null>;
+  pickExportFile(name: string, format: ExportFormat): Promise<string | null>;
   onEngineEvent(handler: (event: EngineEvent) => void): Promise<Unlisten>;
   onStats(handler: (stats: Stats) => void): Promise<Unlisten>;
   onDownloadProgress(handler: (progress: DownloadProgress) => void): Promise<Unlisten>;
@@ -158,15 +159,9 @@ async function tauriBackend(): Promise<Backend> {
       const picked = await open({ multiple: false, filters: [{ name: "Transcript", extensions: ["txt"] }] });
       return typeof picked === "string" ? picked : null;
     },
-    pickExportFile: async (name, timed) => {
+    pickExportFile: async (name, format) => {
       const { save } = await import("@tauri-apps/plugin-dialog");
-      return save({
-        defaultPath: `${name}.txt`,
-        filters: [
-          { name: "Text", extensions: ["txt"] },
-          ...(timed ? [{ name: "SubRip subtitles", extensions: ["srt"] }, { name: "WebVTT subtitles", extensions: ["vtt"] }] : []),
-        ],
-      });
+      return save({ defaultPath: `${name}.${format}`, filters: [{ name: EXPORT_NAMES[format], extensions: [format] }] });
     },
     onEngineEvent: (handler) => listen<EngineEvent>("engine-event", (e) => handler(e.payload)),
     onStats: (handler) => listen<Stats>("system-stats", (e) => handler(e.payload)),

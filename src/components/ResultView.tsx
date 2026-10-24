@@ -2,9 +2,11 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/format";
 import { differs } from "../lib/language";
 import type { RunState } from "../lib/run";
-import { findMatches, playingAt, type Playing } from "../lib/transcript";
+import { EXPORT_NAMES, findMatches, playingAt, type Playing } from "../lib/transcript";
+import type { ExportFormat } from "../lib/types";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
 import { Check, ChevronDown, Close, Copy, Download, Info, Pencil, Plus, Retry, Search } from "./icons";
+import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
 
 type Props = {
@@ -19,7 +21,7 @@ type Props = {
   onSaveLine: (index: number, text: string) => Promise<boolean>;
   onLog: (level: "info" | "warn", message: string) => void;
   onCopy: () => Promise<boolean>;
-  onExport: () => Promise<string | null>;
+  onExport: (format: ExportFormat) => Promise<string | null>;
   onRename: (title: string) => Promise<boolean>;
   onRenameSpeaker: (track: number, name: string) => Promise<boolean>;
   onRerun: (options?: { focus?: "speakers" | "language"; speakers?: string; language?: string }) => void;
@@ -77,6 +79,7 @@ export function ResultView(props: Props) {
   const editor = useRef<HTMLTextAreaElement>(null);
   const [copied, setCopied] = useState(false);
   const [exported, setExported] = useState<string | null>(null);
+  const [chosenFormat, setFormat] = useState<ExportFormat>("txt");
   const [src, setSrc] = useState<string | null>(null);
   const [unplayable, setUnplayable] = useState(false);
   const [playerError, setPlayerError] = useState<string | null>(null);
@@ -107,6 +110,8 @@ export function ResultView(props: Props) {
   const needle = query.trim().toLowerCase();
   const hits = useMemo(() => findMatches(lines, needle), [lines, needle]);
   const syncable = run.timed && src !== null && !unplayable;
+  const format = run.timed ? chosenFormat : "txt";
+  const download = (to: ExportFormat) => { void onExport(to).then(setExported); };
 
   useEffect(() => setExported(null), [result.file]);
 
@@ -353,10 +358,25 @@ export function ResultView(props: Props) {
             </p>
           </div>
           <div className="card-tools">
-            <button type="button" className="primary small" onClick={() => { void onExport().then(setExported); }}>
-              <Download size={16} />
-              Download .txt
-            </button>
+            <div className="split-button">
+              <button type="button" className="primary small" onClick={() => download(format)}>
+                <Download size={16} />
+                Download .{format}
+              </button>
+              <Select
+                value=""
+                options={(Object.keys(EXPORT_NAMES) as ExportFormat[]).map((f) => ({ value: f, label: `${EXPORT_NAMES[f]} (.${f})` }))}
+                onChange={(f) => {
+                  setFormat(f as ExportFormat);
+                  download(f as ExportFormat);
+                }}
+                label="Download format"
+                title={run.timed ? "Choose a format" : "Subtitles need line times, so this transcript downloads as text"}
+                disabled={!run.timed}
+                className="primary small"
+                trigger={() => null}
+              />
+            </div>
             <span className="tools-divider" />
             <Tooltip content={copied ? "Copied" : "Copy text"} oneLine>
               <button

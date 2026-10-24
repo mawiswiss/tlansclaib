@@ -57,6 +57,8 @@ export type Opened = { text: string; lines?: { start: number; end: number; text:
 
 export type FileKind = "transcript" | "audio";
 
+export type ExportFormat = "txt" | "srt" | "vtt";
+
 export type Stats = {
   cpu: number;
   memory_total: number;

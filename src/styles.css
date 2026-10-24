@@ -1378,6 +1378,26 @@ button.speed {
   flex: none;
 }
 
+.split-button {
+  display: flex;
+}
+
+.split-button > button:first-child {
+  border-radius: 9px 0 0 9px;
+}
+
+.split-button > .select-trigger {
+  width: 26px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 0 9px 9px 0;
+  border-left: 1px solid color-mix(in srgb, var(--accent-text) 30%, transparent);
+}
+
+.split-button > .select-trigger .select-chevron {
+  color: inherit;
+}
+
 .tools-divider {
   width: 1px;
   height: 18px;
