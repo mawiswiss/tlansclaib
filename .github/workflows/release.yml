@@ -32,7 +32,14 @@ jobs:
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           vulkan_version: 1.4.341.1
+      - name: Keep build paths under the Windows limit
+        if: matrix.os == 'windows-2022'
+        shell: pwsh
+        # MSBuild's file tracker fails on paths of 260 characters and more, which the Vulkan shader build of whisper.cpp reaches.
+        run: Add-Content $env:GITHUB_ENV "CARGO_TARGET_DIR=$(Join-Path (Split-Path (Split-Path $env:GITHUB_WORKSPACE)) t)"
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.os == 'windows-2022' && '. -> ../../t' || '.' }}
       - uses: pnpm/action-setup@v4
         with:
           version: 11

@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const host = execFileSync("rustc", ["-vV"], { encoding: "utf8" }).match(/host: (\S+)/)[1];
 const triple = process.env.TAURI_ENV_TARGET_TRIPLE || host;
+const targetDir = process.env.CARGO_TARGET_DIR || join(root, "target");
 const dir = join(root, "src-tauri", "binaries");
 mkdirSync(dir, { recursive: true });
 
@@ -18,7 +19,7 @@ function build(target, features = []) {
   if (features.length) args.push("--features", features.join(","));
   execFileSync("cargo", args, { cwd: root, stdio: "inherit" });
   const ext = target.includes("windows") ? ".exe" : "";
-  return join(root, "target", target === host ? "" : target, "release", `tlansclaib-engine${ext}`);
+  return join(targetDir, target === host ? "" : target, "release", `tlansclaib-engine${ext}`);
 }
 
 function place(built, target, name = "tlansclaib-engine") {

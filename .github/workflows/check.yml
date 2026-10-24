@@ -24,7 +24,14 @@ jobs:
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           vulkan_version: 1.4.341.1
+      - name: Keep build paths under the Windows limit
+        if: runner.os == 'Windows'
+        shell: pwsh
+        # MSBuild's file tracker fails on paths of 260 characters and more, which the Vulkan shader build of whisper.cpp reaches.
+        run: Add-Content $env:GITHUB_ENV "CARGO_TARGET_DIR=$(Join-Path (Split-Path (Split-Path $env:GITHUB_WORKSPACE)) t)"
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ runner.os == 'Windows' && '. -> ../../t' || '.' }}
       - uses: pnpm/action-setup@v4
         with:
           version: 11
@@ -53,7 +60,7 @@ jobs:
         shell: bash
         run: |
           cargo build -p tlansclaib-engine --features vulkan
-          ./target/debug/tlansclaib-engine.exe --help | grep gpu-memory
+          "$CARGO_TARGET_DIR/debug/tlansclaib-engine.exe" --help | grep gpu-memory
       - name: Cache the tiny model
         id: tiny
         uses: actions/cache@v4
