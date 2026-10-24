@@ -415,6 +415,7 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (import.meta.env.DEV) return;
     if (run.status !== "done" || run.opened || panel !== null || !shouldAskForSupport(settings)) return;
     const t = setTimeout(() => {
       setSettings(askedForSupport);
