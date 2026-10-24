@@ -48,9 +48,9 @@ A setup downloads its model for all languages, its speaker detection, and the
 model for the chosen language when it has one. Precise takes full precision
 wherever the author publishes it, because q5_0 is audibly worse on difficult
 audio (see below) and there is no official large-v3 q8_0. Essential avoids
-q5_0 where the model is a turbo: German takes the full-precision turbo, 2.2 GB
-RAM, which fits an 8 GB computer. French stays on q5_0, because its only
-larger file is the full large-v3 at 4 GB RAM.
+q5_0: German takes the full-precision turbo, 2.2 GB RAM, which fits an 8 GB
+computer. French takes a q8_0 converted here, 2.4 GB RAM, because its author
+publishes only q5_0 and the full large-v3 at 4 GB RAM.
 
 The list leaves out `tiny`, `base` and `small`: their output is not usable,
 and `small` is as big as `large-v3-turbo-q5_0`. A copy left in the models
@@ -64,7 +64,7 @@ folder from an older version lists as a custom model.
 | German | `german-full`, 1.62 GB | `german-full`, 1.62 GB | none |
 | Swiss German | `swiss-german`, 874 MB | `swiss-german`, 874 MB | none |
 | English | `english-fast`, 1.52 GB | none | none |
-| French | `french-full`, 3.10 GB | `french`, 1.08 GB | none |
+| French | `french-full`, 3.10 GB | `french-q8_0`, 1.66 GB | none |
 
 English in Precise: distil-large-v3.5 averages 7.10% word errors on short
 clips against 7.14% for large-v3, and 14.6% against 16.0% on the AMI meetings,
@@ -103,6 +103,7 @@ licences ask for.
 | Thai (fast) | `ggml-thai-fast-q8_0.bin` | 874 MB | `e0894592a0a90014a22dd7675c9a001e7f9b8fa58c7fcef547e1ea9f45207042` |
 | Thai (best quality) | `ggml-thai-best-q8_0.bin` | 1.66 GB | `a6a149bd28cfd240d3e7cb54253081f76ea360c169abf85cae3f13d179c35464` |
 | Swiss German | `ggml-swiss-german-q8_0.bin` | 874 MB | `89ec3580295d070428ba28e9bbeb973281186e740dae3eda5cd28b7942013bbf` |
+| French (near full precision) | `ggml-french-large-v3-q8_0.bin` | 1.66 GB | `a7dd71cbc635dd84ac0f9de34294cf6f9a6937eae5690b314121852f62db5448` |
 
 Thai (fast) is `biodatlab/distill-whisper-th-large-v3` (MIT), a fine-tune of
 large-v3-turbo. Thai (best quality) is `biodatlab/whisper-th-large-v3-combined`
@@ -112,7 +113,12 @@ MIT data), a large-v3-turbo fine-tune that writes Swiss German speech as
 Standard German. Its card reports 25.9% word errors on a held-out Swiss German
 test set, against 28.5% for stock turbo and 26.3% for stock large-v3. The
 Swiss German models built on SwissDial data are CC BY-NC, for non-commercial
-use only, and left out on purpose.
+use only, and left out on purpose. French (near full precision) is
+`bofenghuang/whisper-large-v3-french` (MIT), whose author publishes whisper.cpp
+files only as q5_0 and f16. On a four-minute synthetic French clip it peaked at
+2.2 GB on the GPU and 2.4 GB on the CPU, like Thai (best quality), and wrote
+the same words as the q5_0 file, with different punctuation. A recording of
+difficult audio was not compared.
 
 ## Single-language models to download
 

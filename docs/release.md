@@ -89,18 +89,25 @@ and need one manual install of a version with a new public key.
 
 ## Model files
 
-The three converted models download from the release `models-v1`, which the
+The converted models download from the release `models-v1`, which the
 model list in `src-tauri/resources/models.json` points to. Its tag does not
 start with `v`, so the release workflow leaves it alone. It holds the files
 from the conversion and the release notes that carry the attribution, and it
 is never the latest release:
 
 ```bash
-gh release create models-v1 --repo mawiswiss/tlansclaib --latest=false --title "Speech models" --notes-file docs/model-release.md ggml-thai-fast-q8_0.bin ggml-thai-best-q8_0.bin ggml-swiss-german-q8_0.bin
+gh release create models-v1 --repo mawiswiss/tlansclaib --latest=false --title "Speech models" --notes-file docs/model-release.md ggml-thai-fast-q8_0.bin ggml-thai-best-q8_0.bin ggml-swiss-german-q8_0.bin ggml-french-large-v3-q8_0.bin
 ```
 
-Each file must stay under 2 GiB, the limit for a release file. A new or
-changed model gets a new tag, such as `models-v2`, and new addresses in the
+Each file must stay under 2 GiB, the limit for a release file. A new model
+joins the release, and the notes follow it:
+
+```bash
+gh release upload models-v1 --repo mawiswiss/tlansclaib ggml-french-large-v3-q8_0.bin
+gh release edit models-v1 --repo mawiswiss/tlansclaib --notes-file docs/model-release.md
+```
+
+A changed model gets a new tag, such as `models-v2`, and new addresses in the
 list, because the app checks every download against the size and SHA-256 in
 the list.
 
