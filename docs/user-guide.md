@@ -66,7 +66,9 @@ longer in it.
 what the app measured, every model and speaker detection in your setup with
 its file and status, the full list of models and both speaker detections, and
 your own model files. Downloading a model from the list adds it to your
-setup, and the bin takes one out.
+setup, and the bin takes one out. While you pick another setup above, the
+models it would download are outlined and marked "Downloads with" and the
+setup's name.
 
 Chips show the size, the RAM a model needs and, before the download, how
 long it takes. RAM is green when it fits. Orange and red mark a problem and

@@ -420,7 +420,10 @@ start again as "Speaker 1" and so on.
 - A card shows a short title for the trade-off, such as "Fast" or "Best
   quality", without the language its chip already shows (`title` in
   `models.json`, the full name stays for menus and the history). An "In your
-  setup" chip marks the setup's members.
+  setup" chip marks the setup's members. While a setup other than the saved
+  one is selected above, its members carry "Downloads with Precise" (or "In
+  Precise" when installed) and the ones still to download are outlined, so
+  the list shows what "Apply" will fetch.
 - Then a link to the model page, a description of at most two lines, and
   chips for language, architecture, size, RAM and download time, coloured by
   `lib/fit.ts`.

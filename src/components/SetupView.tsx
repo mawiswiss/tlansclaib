@@ -24,7 +24,7 @@ type Props = {
   onMeasureAgain: () => void;
   onRemoveLeftovers: () => void;
   onToggleDetails?: () => void;
-  children: ReactNode;
+  children: (selected: Setup | null) => ReactNode;
 };
 
 const PITCH: Record<Mode, string> = {
@@ -198,7 +198,7 @@ export function SetupView(props: Props) {
           {props.showDetails ? "Hide single models" : "Show single models"}
         </button>
       )}
-      {props.showDetails !== false && <div className="setup-details">{props.children}</div>}
+      {props.showDetails !== false && <div className="setup-details">{props.children(next)}</div>}
     </section>
   );
 }

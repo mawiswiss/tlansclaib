@@ -584,7 +584,7 @@ main {
   color: var(--ok);
 }
 
-.model-card.focused {
+.model-card.selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }

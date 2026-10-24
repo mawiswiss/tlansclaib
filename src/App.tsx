@@ -971,7 +971,7 @@ export default function App() {
     }
   };
 
-  const details = (
+  const details = (selected: Setup | null) => (
     <ModelDetails
       focus={modelsFocus}
       models={models}
@@ -979,6 +979,7 @@ export default function App() {
       downloads={downloads}
       failed={failed}
       setup={setup}
+      selected={selected}
       stats={stats}
       disk={disk}
       speed={speed}

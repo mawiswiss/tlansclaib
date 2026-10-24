@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "rea
 import { DETECTION } from "../lib/detection";
 import { diskFit, downloadFit, downloadSeconds, ramFit, type Rating } from "../lib/fit";
 import { bytes, capitalize, fileName, folderOf } from "../lib/format";
-import { DETECTION_IDS, installed as isInstalled, sizeOf, wanted, type Setup } from "../lib/setup";
+import { DETECTION_IDS, installed as isInstalled, MODE_NAMES, sizeOf, wanted, type Setup } from "../lib/setup";
 import type { DiskSpace, DownloadProgress, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "../lib/types";
 import { Check, ChevronDown, Close, Info, LinkIcon, Pencil, Trash, Unlink } from "./icons";
 import { Tooltip } from "./Tooltip";
@@ -14,6 +14,7 @@ export type DetailsProps = {
   downloads: Record<string, DownloadProgress>;
   failed: Record<string, string>;
   setup: Setup | null;
+  selected: Setup | null;
   stats: Stats | null;
   disk: DiskSpace | null;
   speed: number | "measuring" | "offline";
@@ -107,6 +108,18 @@ export function ModelDetails(props: DetailsProps) {
   const listed = models.filter((m) => !m.custom);
   const custom = models.filter((m) => m.custom);
   const ids = setup ? wanted(models, setup) : [];
+  const selected = props.selected && props.selected !== setup ? props.selected : null;
+  const next = selected ? wanted(models, selected) : [];
+  const membership = (id: string, done: boolean) =>
+    selected ? (
+      <>
+        {next.includes(id) && <span className="chip recommended">{done ? `In ${MODE_NAMES[selected.mode]}` : `Downloads with ${MODE_NAMES[selected.mode]}`}</span>}
+        {ids.includes(id) && <span className="chip">In your setup</span>}
+      </>
+    ) : (
+      ids.includes(id) && <span className="chip recommended">In your setup</span>
+    );
+  const cardClass = (id: string, done: boolean) => `model-card${done ? " installed" : next.includes(id) ? " selected" : ""}`;
   const seconds = (size: number) => (typeof speed === "number" ? downloadSeconds(size, speed) : null);
 
   const finishRename = (save: boolean) => {
@@ -253,7 +266,7 @@ export function ModelDetails(props: DetailsProps) {
     const space = !m.installed && disk ? diskFit(m.size_bytes, disk.free, disk.minimum, disk.reserve) : null;
     const time = seconds(m.size_bytes);
     return (
-      <li key={m.id} className={`model-card${m.installed ? " installed" : ""}`}>
+      <li key={m.id} className={cardClass(m.id, m.installed)}>
         <div className="model-top">
           <span className="model-title">
             <strong>{m.title ?? m.name}</strong>
@@ -299,7 +312,7 @@ export function ModelDetails(props: DetailsProps) {
         </div>
         <p className="model-about">{m.recommended}</p>
         <div className="chips">
-          {ids.includes(m.id) && <span className="chip recommended">In your setup</span>}
+          {membership(m.id, m.installed)}
           {m.architecture && <span className="chip">{[m.architecture, m.quantization].filter(Boolean).join(", ")}</span>}
           <Chip rating={critical(space)}>{bytes(m.size_bytes)} size</Chip>
           {ram && <Chip rating={ram}>{m.ram_gb.toFixed(1)} GB RAM</Chip>}
@@ -319,7 +332,7 @@ export function ModelDetails(props: DetailsProps) {
     const space = !detection.installed && disk ? diskFit(detection.download_bytes * 2, disk.free, disk.minimum, disk.reserve) : null;
     const time = seconds(detection.download_bytes);
     return (
-      <li key={id} className={`model-card${detection.installed ? " installed" : ""}`}>
+      <li key={id} className={cardClass(id, detection.installed)}>
         <div className="model-top">
           <span className="model-title">
             <strong>{info.name}</strong>
@@ -359,7 +372,7 @@ export function ModelDetails(props: DetailsProps) {
           {backend === "sherpa" ? "Names who speaks when in a recording with one audio track. Small and quick, misses short replies." : "Names who speaks when, including short replies, for up to eight people. Runs offline."}
         </p>
         <div className="chips">
-          {ids.includes(id) && <span className="chip recommended">In your setup</span>}
+          {membership(id, detection.installed)}
           <span className="chip">Any language</span>
           <Chip rating={critical(space)}>{bytes(detection.installed ? detection.disk_bytes : detection.download_bytes)} size</Chip>
           {!detection.installed && (
@@ -382,7 +395,7 @@ export function ModelDetails(props: DetailsProps) {
       </div>
     );
 
-  const sections = byLanguage(listed, ids);
+  const sections = byLanguage(listed, [...ids, ...next]);
   const available = detections.filter((d) => d.available);
 
   return (
