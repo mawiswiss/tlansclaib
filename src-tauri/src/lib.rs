@@ -330,6 +330,22 @@ async fn restart_run(app: AppHandle, language: String) -> Result<(), String> {
     run::restart(&app, &language).await.map_err(|e| format!("{e:#}"))
 }
 
+#[tauri::command]
+fn update_blocker() -> Option<String> {
+    let exe = std::env::current_exe().ok()?;
+    if let Some(problem) = misplaced(&exe) {
+        return Some(problem.into());
+    }
+    guard::can_update(models::free_disk(&exe)).err()
+}
+
+// Started from the disk image, or not yet moved out of Downloads, the app runs from a read-only copy.
+fn misplaced(exe: &Path) -> Option<&'static str> {
+    let path = exe.to_string_lossy();
+    (path.starts_with("/Volumes/") || path.contains("/AppTranslocation/"))
+        .then_some("Move tlansclaib to the Applications folder and start it from there, then update.")
+}
+
 /// A development build started with TLANSCLAIB_AUTORUN=<audio file> transcribes it at once.
 #[tauri::command]
 fn autorun() -> Option<String> {
@@ -364,6 +380,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
@@ -426,6 +444,7 @@ pub fn run() {
             open_url,
             disk_space,
             measure_speed,
+            update_blocker,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -433,7 +452,9 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::without_home;
+    use std::path::Path;
+
+    use super::{misplaced, without_home};
 
     #[test]
     fn the_log_shows_the_home_folder_as_a_tilde() {
@@ -441,5 +462,13 @@ mod tests {
         assert_eq!(without_home(r"C:\Users\someone\a.m4a", Some(r"C:\Users\someone\")), r"~\a.m4a");
         assert_eq!(without_home("/a/b", Some("/")), "/a/b");
         assert_eq!(without_home("/a/b", None), "/a/b");
+    }
+
+    #[test]
+    fn an_app_run_from_the_disk_image_or_a_translocated_copy_cannot_update() {
+        assert!(misplaced(Path::new("/Volumes/tlansclaib/tlansclaib.app/Contents/MacOS/tlansclaib")).is_some());
+        assert!(misplaced(Path::new("/private/var/folders/x/T/AppTranslocation/ABC/d/tlansclaib.app/Contents/MacOS/tlansclaib")).is_some());
+        assert!(misplaced(Path::new("/Applications/tlansclaib.app/Contents/MacOS/tlansclaib")).is_none());
+        assert!(misplaced(Path::new(r"C:\Users\someone\AppData\Local\tlansclaib\tlansclaib.exe")).is_none());
     }
 }

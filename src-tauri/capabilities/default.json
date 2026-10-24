@@ -9,6 +9,8 @@
     "dialog:default",
     "log:default",
     "opener:default",
-    "shell:default"
+    "process:allow-restart",
+    "shell:default",
+    "updater:default"
   ]
 }

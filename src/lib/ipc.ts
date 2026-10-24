@@ -1,3 +1,4 @@
+import type { Update } from "@tauri-apps/plugin-updater";
 import type { Line } from "./run";
 import type { DiskSpace, DownloadProgress, EngineEvent, FileKind, HistoryEntry, Language, Match, ModelStatus, Opened, SpeakerDetection, Stats } from "./types";
 
@@ -46,6 +47,10 @@ export type Backend = {
   appVersion(): Promise<string>;
   diskSpace(): Promise<DiskSpace>;
   measureSpeed(): Promise<number>;
+  checkUpdate(): Promise<string | null>;
+  updateBlocker(): Promise<string | null>;
+  downloadUpdate(onProgress: (received: number, total: number | null) => void): Promise<void>;
+  installUpdate(): Promise<void>;
   autorun(): Promise<string | null>;
   pickAudioFile(): Promise<string | null>;
   pickModelFile(): Promise<string | null>;
@@ -67,6 +72,7 @@ async function tauriBackend(): Promise<Backend> {
   const { listen } = await import("@tauri-apps/api/event");
   const { getCurrentWebview } = await import("@tauri-apps/api/webview");
   const { open } = await import("@tauri-apps/plugin-dialog");
+  let update: Update | null = null;
   const AUDIO = ["m4a", "mp3", "wav", "mp4", "flac", "ogg", "aac", "aiff", "caf", "mov", "webm", "mkv"];
   return {
     listModels: () => invoke("list_models"),
@@ -113,6 +119,27 @@ async function tauriBackend(): Promise<Backend> {
     appVersion: async () => (await import("@tauri-apps/api/app")).getVersion(),
     diskSpace: () => invoke("disk_space"),
     measureSpeed: () => invoke("measure_speed"),
+    checkUpdate: async () => {
+      const { check } = await import("@tauri-apps/plugin-updater");
+      update = await check();
+      return update?.version ?? null;
+    },
+    updateBlocker: () => invoke("update_blocker"),
+    downloadUpdate: async (onProgress) => {
+      if (!update) throw new Error("Check for updates first.");
+      let received = 0;
+      let total: number | null = null;
+      await update.download((event) => {
+        if (event.event === "Started") total = event.data.contentLength ?? null;
+        if (event.event === "Progress") onProgress((received += event.data.chunkLength), total);
+      });
+    },
+    installUpdate: async () => {
+      if (!update) throw new Error("Check for updates first.");
+      await update.install();
+      const { relaunch } = await import("@tauri-apps/plugin-process");
+      await relaunch();
+    },
     autorun: () => invoke("autorun"),
     pickAudioFile: async () => {
       const picked = await open({ multiple: false, filters: [{ name: "Audio", extensions: AUDIO }] });

@@ -1,9 +1,19 @@
 import { useEffect, useState } from "react";
 import { AUTHOR, GITHUB, WEBSITE, YEAR } from "../lib/about";
+import type { UpdateState } from "../lib/update";
 import { Check, Close, Code, Globe, Heart, Lock, Logo, Monitor, User } from "./icons";
+import { UpdateSection } from "./UpdateSection";
 
 type Props = {
   version: () => Promise<string>;
+  focus: "update" | null;
+  update: UpdateState;
+  updateWait: string | null;
+  checkOnStart: boolean;
+  onCheckOnStart: (on: boolean) => void;
+  onCheckUpdate: () => void;
+  onUpdate: (version: string) => void;
+  onInstallUpdate: (version: string) => void;
   onOpenUrl: (url: string) => void;
   onSupport: () => void;
   onClose: () => void;
@@ -18,7 +28,8 @@ const FEATURES = [
   "Free, with no ads, no tracking and no subscription",
 ];
 
-export function AboutDialog({ version, onOpenUrl, onSupport, onClose }: Props) {
+export function AboutDialog(props: Props) {
+  const { version, onOpenUrl, onSupport, onClose } = props;
   const [v, setV] = useState("");
   const [versionError, setVersionError] = useState<string | null>(null);
   useEffect(() => {
@@ -110,6 +121,18 @@ export function AboutDialog({ version, onOpenUrl, onSupport, onClose }: Props) {
               </div>
             </div>
           </section>
+          <UpdateSection
+            state={props.update}
+            current={v}
+            wait={props.updateWait}
+            focused={props.focus === "update"}
+            checkOnStart={props.checkOnStart}
+            onCheckOnStart={props.onCheckOnStart}
+            onCheck={props.onCheckUpdate}
+            onUpdate={props.onUpdate}
+            onInstall={props.onInstallUpdate}
+            onOpenUrl={onOpenUrl}
+          />
         </div>
         <footer className="modal-foot about-foot">
           <span className="muted">

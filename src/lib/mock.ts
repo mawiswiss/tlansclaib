@@ -109,6 +109,7 @@ export function mockBackend(): Backend {
     ),
   ];
   const stress = new URLSearchParams(location.search).has("stress");
+  const updateMode = new URLSearchParams(location.search).get("update");
   setInterval(() => {
     const used = stress ? 13.6 : 9.7;
     const stats: Stats = {
@@ -345,6 +346,34 @@ export function mockBackend(): Backend {
     appVersion: async () => "0.1.0",
     diskSpace: async () => ({ free: (stress ? 10.8 : 214) * 2 ** 30, minimum: 2 ** 30, reserve: 10 * 2 ** 30 }),
     measureSpeed: () => new Promise((resolve) => setTimeout(() => resolve(4.6e6), 1200)),
+    checkUpdate: () =>
+      new Promise((resolve, reject) =>
+        setTimeout(() => {
+          if (updateMode === "fail") reject(new Error("could not reach GitHub"));
+          else resolve(updateMode === null ? null : "0.2.0");
+        }, 800),
+      ),
+    updateBlocker: async () => (updateMode === "blocked" ? "Move tlansclaib to the Applications folder and start it from there, then update." : null),
+    downloadUpdate: (onProgress) =>
+      new Promise((resolve) => {
+        const total = 48_000_000;
+        let received = 0;
+        const timer = setInterval(() => {
+          received = Math.min(total, received + 2_400_000);
+          onProgress(received, total);
+          if (received === total) {
+            clearInterval(timer);
+            resolve();
+          }
+        }, 150);
+      }),
+    installUpdate: () =>
+      new Promise((resolve) =>
+        setTimeout(() => {
+          location.reload();
+          resolve();
+        }, 1200),
+      ),
     autorun: async () => null,
     pickAudioFile: async () => "/Users/someone/Recordings/meeting.m4a",
     pickModelFile: async () => "/Volumes/USB/ggml-thai-fast-q8_0.bin",

@@ -10,6 +10,8 @@ export type Settings = {
   transcribed: number | null;
   supportAskedAt: number | null;
   supported: boolean;
+  checkUpdates: boolean;
+  updateCheckedAt: number | null;
 };
 
 const STORAGE = "tlansclaib.settings";
@@ -25,6 +27,8 @@ export const DEFAULTS: Settings = {
   transcribed: null,
   supportAskedAt: null,
   supported: false,
+  checkUpdates: true,
+  updateCheckedAt: null,
 };
 
 export function loadSettings(): Settings {

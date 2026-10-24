@@ -1,5 +1,5 @@
 import type { Theme } from "../lib/settings";
-import { Clock, Cube, Info, Lock, Logo, Monitor, Moon, Sun } from "./icons";
+import { Clock, Cube, Download, Info, Lock, Logo, Monitor, Moon, Sun } from "./icons";
 
 type Props = {
   theme: Theme;
@@ -8,6 +8,8 @@ type Props = {
   onHistory: () => void;
   onModels: () => void;
   onAbout: () => void;
+  update: string | null;
+  onUpdate: () => void;
   busy: boolean;
 };
 
@@ -17,9 +19,9 @@ const THEMES: { theme: Theme; title: string; icon: typeof Sun }[] = [
   { theme: "dark", title: "Dark", icon: Moon },
 ];
 
-export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbout, busy }: Props) {
+export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbout, update, onUpdate, busy }: Props) {
   return (
-    <header className="topbar">
+    <header className={`topbar${update ? " has-update" : ""}`}>
       <div className="brand">
         <Logo size={26} />
         <span>tlansclaib</span>
@@ -29,6 +31,12 @@ export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbo
         </span>
       </div>
       <span className="spacer" />
+      {update && (
+        <button type="button" className="tool update-tool" onClick={onUpdate}>
+          <Download />
+          {update}
+        </button>
+      )}
       <button type="button" className={`tool${historyOpen ? " active" : ""}`} onClick={onHistory} aria-expanded={historyOpen}>
         <Clock />
         History

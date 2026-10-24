@@ -196,6 +196,21 @@ top bar picks one.
   "Models", the appearance switch and the About dialog. About lists the
   features, led by the statement that nothing leaves the computer, then who
   makes the app, the licence, the systems and how to support it.
+- Updates have their own card in About, under the features
+  (`UpdateSection.tsx`): the installed version and "Check for updates", then
+  "Version X is available" with "Update and restart" and "What's new", which
+  opens the release on GitHub. The card turns blue once a version is found.
+  The download shows a bar. The install waits while a transcription or a
+  download runs, and a failure links the release page. The switch "Check for
+  updates on start" is on by default and checks at most once a day, rule in
+  `lib/update.ts`.
+- A found update also puts a blue button in the top bar, "Update to X", which
+  follows the download and opens About at the card. While it shows, narrow
+  windows drop "Offline processing" so the bar does not overflow.
+- Before downloading, `update_blocker` refuses a Mac app started from the disk
+  image or a translocated copy, which the update cannot replace, and too
+  little free disk (`guard::can_update`). `docs/release.md` covers signing and
+  `latest.json`.
 - The settings row holds model, recording language ("Auto-detect" or a
   language) and speakers in aligned cells. It shows only before a transcription. Timecodes
   are not a setting there: the switch

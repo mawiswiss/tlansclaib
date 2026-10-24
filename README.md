@@ -26,7 +26,8 @@ The app comes without a speech model. On the first start, open Models and
 download one for your language. They range from 78 MB to 3.1 GB, and the
 recommended ones are listed first. The [user guide](docs/user-guide.md) walks
 through the rest. Every version is on the
-[releases page](https://github.com/mawiswiss/tlansclaib/releases).
+[releases page](https://github.com/mawiswiss/tlansclaib/releases), and the app
+updates itself from there: About, "Check for updates".
 
 ## What it does
 
@@ -70,9 +71,10 @@ computer stays usable.
 
 ## Privacy
 
-The app goes online for the downloads you start, and for four seconds when
-you first open Models after a start, to measure how long a download would
-take. That's it.
+The app goes online for the downloads you start, for four seconds when you
+first open Models after a start, to measure how long a download would take,
+and once a day on start to ask GitHub for the newest version number, which
+About can turn off. That's it.
 
 > Once a model is there, the app works without internet.
 

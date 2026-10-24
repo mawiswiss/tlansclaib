@@ -73,6 +73,17 @@ pub fn can_download(free_disk: u64, size: u64) -> Result<(), String> {
     ))
 }
 
+pub fn can_update(free_disk: u64) -> Result<(), String> {
+    if free_disk >= DISK_MINIMUM {
+        return Ok(());
+    }
+    Err(format!(
+        "Not enough disk space for the update: it needs {} to spare, and {} is free. Make room on the disk first.",
+        gb(DISK_MINIMUM),
+        gb(free_disk)
+    ))
+}
+
 pub fn should_stop(free: u64, swap_used: u64, swap_at_start: u64, floor: u64) -> Option<String> {
     if free < floor {
         return Some(format!(
@@ -135,6 +146,13 @@ mod tests {
         assert!(can_download(2 * GIB, GIB).is_ok());
         let refused = can_download(2 * GIB - 1, GIB).unwrap_err();
         assert!(refused.contains("plus 1.0 GB to spare"), "{refused}");
+    }
+
+    #[test]
+    fn an_update_needs_one_gigabyte_to_spare() {
+        assert!(can_update(GIB).is_ok());
+        let refused = can_update(GIB - 1).unwrap_err();
+        assert!(refused.contains("needs 1.0 GB to spare"), "{refused}");
     }
 
     #[test]

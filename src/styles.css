@@ -311,6 +311,18 @@ button.icon-button:hover:not(:disabled) {
   }
 }
 
+@media (max-width: 1080px) {
+  .topbar.has-update .tagline-more {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .topbar.has-update .tagline {
+    display: none;
+  }
+}
+
 button.tool {
   color: var(--muted);
 }
@@ -318,6 +330,17 @@ button.tool {
 button.tool:hover:not(:disabled),
 button.tool.active {
   color: var(--text);
+}
+
+button.tool.update-tool {
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+button.tool.update-tool:hover:not(:disabled) {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 button.tool.active {
@@ -2153,6 +2176,75 @@ button.icon-button.tiny {
 
 .about-foot {
   justify-content: flex-start;
+}
+
+.update-part {
+  grid-column: 1 / -1;
+}
+
+.update-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.update-card.found {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: var(--accent-soft);
+}
+
+.update-card.found .fact-icon {
+  background: var(--accent);
+  color: #fff;
+}
+
+.update-card.focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.update-main {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+}
+
+.update-text {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.update-actions {
+  flex: none;
+  max-width: 100%;
+}
+
+.update-card .bar {
+  margin-top: 10px;
+}
+
+.update-switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.update-switch strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.update-switch small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .modal.support {

@@ -49,5 +49,15 @@
         "installMode": "currentUser"
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE3RDFFRDJERDExNTUyQzIKUldUQ1VoWFJMZTNScDBhUkFWZlRkcDF4NmJTZnhJNVppZ2dGVDVrR2xUb2hnOE5SYnE4RW1kSGEK",
+      "endpoints": ["https://github.com/mawiswiss/tlansclaib/releases/latest/download/latest.json"],
+      "requireSignedVersion": true,
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

@@ -13,6 +13,24 @@ Download the installer for your system:
   Run it. SmartScreen shows "Windows protected your PC" once. Click "More
   info", then "Run anyway".
 
+## Update
+
+Open About, the "i" at the top right. Under Updates, press "Check for
+updates". When there is a new version, "What's new" opens its release notes,
+and "Update and restart" downloads it, installs it and starts it. On Windows a
+small installer window shows the progress. Models, history and settings stay.
+
+Once a new version is found, a blue "Update to …" button in the top bar shows
+it and the download progress, and leads back to Updates.
+
+"Check for updates on start" is on at first. The app then asks GitHub for the
+newest version number once a day when it starts, and sends nothing else. Turn
+it off, and the app checks only when you press the button.
+
+An update waits while a transcription or a download runs. On a Mac the app
+has to be in Applications. When an update fails, "Download from GitHub" leads
+to the installers.
+
 ## Get a model
 
 The app transcribes with a speech model, which is not part of the installer.
@@ -146,9 +164,10 @@ and the RAM figure adds how much of it the transcription uses.
 ## Privacy
 
 Recordings and transcripts never leave the computer, and there are no
-analytics. The app goes online only for a download you start, and for four
+analytics. The app goes online only for a download you start, for four
 seconds when you first open Models after a start, to measure how long a
-download would take.
+download would take, and once a day on start to ask GitHub for the newest
+version number, unless you turn that off under Updates in About.
 
 ## How long it takes
 

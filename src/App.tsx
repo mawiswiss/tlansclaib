@@ -19,6 +19,7 @@ import { loadSettings, saveSettings, settingsLoadError } from "./lib/settings";
 import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from "./lib/support";
 import { parseTranscript, withTimes } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
+import { checkDue, topBarLabel, type UpdateState } from "./lib/update";
 import { DETECTION_ID } from "./lib/detection";
 import type { DiskSpace, DownloadProgress, FileKind, HistoryEntry, Language, ModelStatus, SpeakerDetection, Stats } from "./lib/types";
 
@@ -48,6 +49,7 @@ export default function App() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [folder, setFolder] = useState("");
   const [settings, setSettings] = useState(loadSettings);
+  const settingsAtStart = useRef(settings);
   const [appErrors, setAppErrors] = useState<string[]>(settingsLoadError ? [settingsLoadError] : []);
   const [panel, setPanel] = useState<"models" | "about" | "support" | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -58,12 +60,14 @@ export default function App() {
   const [resultError, setResultError] = useState<string | null>(null);
   const [downloads, setDownloads] = useState<Record<string, DownloadProgress>>({});
   const [detection, setDetection] = useState<SpeakerDetection | null>(null);
+  const [update, setUpdate] = useState<UpdateState>({ status: "idle" });
   const [dragging, setDragging] = useState(false);
   const [run, dispatch] = useReducer(reduce, idle);
   const startLatest = useRef<(audio: string) => void>(() => {});
   const stageLatest = useRef<(audio: string) => void>(() => {});
   const [pending, setPending] = useState<string | null>(null);
   const [modelsFocus, setModelsFocus] = useState<"detection" | null>(null);
+  const [aboutFocus, setAboutFocus] = useState<"update" | null>(null);
   const [rerunTarget, setRerunTarget] = useState<{
     entry: HistoryEntry;
     replaces: boolean;
@@ -76,6 +80,13 @@ export default function App() {
   const model = installed.find((m) => m.id === settings.modelId) ?? installed[0] ?? null;
   const locked = model && !model.languages.includes("all") ? model.languages[0] : null;
   const running = run.status === "running";
+  const updateWait = running
+    ? "Updating waits until the transcription has finished."
+    : Object.keys(downloads).length > 0 || detection?.downloading
+      ? "Updating waits until the download has finished."
+      : null;
+  const updateWaitLatest = useRef(updateWait);
+  updateWaitLatest.current = updateWait;
   const languageName = useCallback(
     (code: string) => capitalize(languages.find((l) => l.code === code)?.name ?? code),
     [languages],
@@ -162,6 +173,48 @@ export default function App() {
   };
   const version = useCallback(() => backend.current?.appVersion() ?? Promise.reject(new Error("The app is still starting.")), []);
 
+  const checkUpdate = useCallback(async (quiet: boolean) => {
+    const b = backend.current;
+    if (!b) return;
+    if (!quiet) setUpdate({ status: "checking" });
+    try {
+      const found = await b.checkUpdate();
+      setSettings((s) => ({ ...s, updateCheckedAt: Date.now() }));
+      if (found) setUpdate({ status: "available", version: found });
+      else if (!quiet) setUpdate({ status: "current" });
+    } catch (error) {
+      if (quiet) b.log("warn", `Could not check for updates: ${String(error)}`);
+      else setUpdate({ status: "failed", version: null, message: String(error) });
+    }
+  }, []);
+
+  const installUpdate = async (version: string) => {
+    setUpdate({ status: "installing", version });
+    try {
+      await requireBackend().installUpdate();
+    } catch (error) {
+      setUpdate({ status: "failed", version, message: `Installing failed: ${String(error)}` });
+    }
+  };
+
+  const startUpdate = async (version: string) => {
+    try {
+      const b = requireBackend();
+      const blocker = await b.updateBlocker();
+      if (blocker) {
+        setUpdate({ status: "failed", version, message: blocker });
+        return;
+      }
+      setUpdate({ status: "downloading", version, received: 0, total: null });
+      await b.downloadUpdate((received, total) => setUpdate({ status: "downloading", version, received, total }));
+    } catch (error) {
+      setUpdate({ status: "failed", version, message: `The download failed: ${String(error)}` });
+      return;
+    }
+    if (updateWaitLatest.current) setUpdate({ status: "ready", version });
+    else await installUpdate(version);
+  };
+
   useEffect(() => {
     let active = true;
     const unlisten: (() => void)[] = [];
@@ -206,6 +259,8 @@ export default function App() {
         setHistory(entries);
         setSettings((s) => countFromHistory(s, entries));
       }).catch((error) => reportError("Could not load history", error));
+      const saved = settingsAtStart.current;
+      if (checkDue(saved.checkUpdates, saved.updateCheckedAt, Date.now())) void checkUpdate(true);
       void b.autorun().then((audio) => {
         if (active && audio) startLatest.current(audio);
       }).catch((error) => reportError("Could not start the requested recording", error));
@@ -216,7 +271,7 @@ export default function App() {
       active = false;
       unlisten.forEach((u) => u());
     };
-  }, [refreshModels, reportError, showError]);
+  }, [refreshModels, reportError, showError, checkUpdate]);
 
   const start = useCallback(
     async (audio: string) => {
@@ -756,7 +811,15 @@ export default function App() {
         historyOpen={historyOpen}
         onHistory={() => setHistoryOpen((o) => !o)}
         onModels={() => setPanel("models")}
-        onAbout={() => setPanel("about")}
+        onAbout={() => {
+          setAboutFocus(null);
+          setPanel("about");
+        }}
+        update={topBarLabel(update)}
+        onUpdate={() => {
+          setAboutFocus("update");
+          setPanel("about");
+        }}
         busy={running}
       />
       <main>
@@ -827,7 +890,22 @@ export default function App() {
           onClose={() => setRerunTarget(null)}
         />
       )}
-      {panel === "about" && <AboutDialog version={version} onOpenUrl={openUrl} onSupport={support} onClose={closePanel} />}
+      {panel === "about" && (
+        <AboutDialog
+          version={version}
+          focus={aboutFocus}
+          update={update}
+          updateWait={updateWait}
+          checkOnStart={settings.checkUpdates}
+          onCheckOnStart={(on) => setSettings((s) => ({ ...s, checkUpdates: on }))}
+          onCheckUpdate={() => void checkUpdate(false)}
+          onUpdate={(v) => void startUpdate(v)}
+          onInstallUpdate={(v) => void installUpdate(v)}
+          onOpenUrl={openUrl}
+          onSupport={support}
+          onClose={closePanel}
+        />
+      )}
       {panel === "support" && (
         <SupportDialog
           onSupport={() => {
