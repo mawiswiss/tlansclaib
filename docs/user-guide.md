@@ -46,7 +46,7 @@ On the first start it asks two things:
   - Essential: mid-sized models and basic speaker detection, for older
     computers or a slower connection. About 900 MB.
   - Minimal: one small model for all languages and no speaker detection, for
-    when the others do not run. About 570 MB.
+    when the others do not run. About 260 MB.
 
 The app measures the connection, checks for a graphics chip and marks one
 setup "Recommended for this computer". If the Precise model failed on this

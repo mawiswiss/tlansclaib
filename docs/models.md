@@ -53,13 +53,15 @@ q5_0: German takes the full-precision turbo, 2.2 GB RAM, which fits an 8 GB
 computer. French takes a q8_0 converted here, 2.4 GB RAM, because its author
 publishes only q5_0 and the full large-v3 at 4 GB RAM.
 
-The list leaves out `tiny`, `base` and `small`: their output is not usable,
-and `small` is as big as `large-v3-turbo-q5_0`. A copy left in the models
-folder from an older version lists as a custom model.
+The list leaves out `tiny` and `base`, whose output is not usable. Minimal
+takes `small-q8_0`: the turbo has the full large-v3 encoder and is several
+times slower on a weak CPU, and on a low-end test computer `small` was the
+only model with usable output. A copy left in the models folder from an older
+version lists as a custom model.
 
 | | Precise | Essential | Minimal |
 |---|---|---|---|
-| All languages | `large-v3`, 3.10 GB | `large-v3-turbo-q8_0`, 874 MB | `large-v3-turbo-q5_0`, 574 MB |
+| All languages | `large-v3`, 3.10 GB | `large-v3-turbo-q8_0`, 874 MB | `small-q8_0`, 264 MB |
 | Speakers | better, 202 MB | basic, 38 MB | none |
 | Thai | `thai-best`, 1.66 GB | `thai-fast`, 874 MB | none |
 | German | `german-full`, 1.62 GB | `german-full`, 1.62 GB | none |

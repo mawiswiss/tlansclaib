@@ -469,7 +469,7 @@ pub fn free_disk(dir: &Path) -> u64 {
         .unwrap_or(u64::MAX)
 }
 
-const SPEED_PROBE: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin";
+const SPEED_PROBE: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q8_0.bin";
 
 pub async fn measure_speed() -> Result<f64> {
     let client = reqwest::Client::builder().timeout(Duration::from_secs(12)).build()?;
@@ -595,7 +595,7 @@ mod tests {
     fn the_bundled_list_parses_and_has_the_thai_entries() {
         let list: Vec<ModelEntry> = serde_json::from_str(BUNDLED).unwrap();
         assert!(list.iter().any(|e| e.id == "thai-fast"));
-        assert!(list.iter().any(|e| e.id == "large-v3-turbo-q5_0" && e.url.is_some()));
+        assert!(list.iter().any(|e| e.id == "small-q8_0" && e.url.is_some()));
         for entry in &list {
             assert!(entry.size_bytes > 0, "{} has no size", entry.id);
             assert!(entry.ram_gb > 0.0, "{} has no memory need", entry.id);
@@ -624,7 +624,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("tlansclaib-download-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let bundled: Vec<ModelEntry> = serde_json::from_str(BUNDLED).unwrap();
-        let entry = bundled.into_iter().find(|e| e.id == "large-v3-turbo-q5_0").unwrap();
+        let entry = bundled.into_iter().find(|e| e.id == "small-q8_0").unwrap();
         let part = dir.join("minimal.part");
         let mut reports = 0;
         let runtime = tokio::runtime::Runtime::new().unwrap();
@@ -634,7 +634,7 @@ mod tests {
         assert!(reports >= 2);
         assert_eq!(part.metadata().unwrap().len(), entry.size_bytes);
         let info = validate::check(&part, Some(&entry)).unwrap();
-        assert_eq!(info.label(), "large-v3-turbo, q5_0");
+        assert_eq!(info.label(), "small, q8_0");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -704,16 +704,16 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("tlansclaib-models-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let header = |words: [u32; 12]| -> Vec<u8> { words.iter().flat_map(|w| w.to_le_bytes()).collect() };
-        let turbo = header([0x67676d6c, 51866, 1500, 1280, 20, 32, 448, 1280, 20, 4, 128, 1008]);
+        let small = header([0x67676d6c, 51865, 1500, 768, 12, 12, 448, 768, 12, 12, 80, 1007]);
         let tiny = header([0x67676d6c, 51866, 1500, 384, 6, 4, 448, 384, 6, 4, 80, 1001]);
-        std::fs::write(dir.join("ggml-large-v3-turbo-q5_0.bin"), &turbo).unwrap();
+        std::fs::write(dir.join("ggml-small-q8_0.bin"), &small).unwrap();
         std::fs::write(dir.join("ggml-tiny.bin"), &tiny).unwrap();
         std::fs::write(dir.join("notes.txt"), b"x").unwrap();
         let models = Models::new(dir.clone());
         let list = models.list().unwrap();
-        let listed = list.iter().find(|m| m.entry.id == "large-v3-turbo-q5_0").unwrap();
+        let listed = list.iter().find(|m| m.entry.id == "small-q8_0").unwrap();
         assert!(listed.installed && !listed.custom);
-        assert_eq!(listed.label.as_deref(), Some("large-v3-turbo, q5_0"));
+        assert_eq!(listed.label.as_deref(), Some("small, q8_0"));
         let old = list.iter().find(|m| m.entry.id == "custom:ggml-tiny.bin").unwrap();
         assert!(old.custom && old.installed);
         assert_eq!(old.entry.name, "tiny");
