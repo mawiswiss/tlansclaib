@@ -45,8 +45,8 @@ On the first start it asks two things:
     About 3.3 GB, more with a language of its own.
   - Essential: mid-sized models and basic speaker detection, for older
     computers or a slower connection. About 900 MB.
-  - Minimal: the smallest model and no speaker detection, for testing or when
-    the others do not run. 78 MB.
+  - Minimal: one small model for all languages and no speaker detection, for
+    when the others do not run. About 570 MB.
 
 The app measures the connection, checks for a graphics chip and marks one
 setup "Recommended for this computer". A download of 10 minutes or more

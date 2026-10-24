@@ -30,7 +30,7 @@ type Props = {
 const PITCH: Record<Mode, string> = {
   precise: "Most accurate results, with the biggest models.",
   essential: "Mid-sized models for older computers or slower internet.",
-  minimal: "The smallest model. For testing, or when the others don't run.",
+  minimal: "One small model, no speaker names. For when the others don't run.",
 };
 
 const SPEAKERS: Record<Mode, string> = { precise: "Better detection", essential: "Basic detection", minimal: "Not named" };

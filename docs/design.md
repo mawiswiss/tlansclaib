@@ -396,8 +396,8 @@ start again as "Speaker 1" and so on.
   - Precise: the most accurate results, the biggest models and the better
     speaker detection.
   - Essential: mid-sized models and the basic speaker detection.
-  - Minimal: the smallest model, no speaker detection, for testing. Never
-    recommended.
+  - Minimal: one small model for all languages, no speaker detection, for
+    when the others do not run. Never recommended.
 - A setup downloads the entries of `models.json` whose `setups` name it and
   that are for all languages or for the chosen language and variant, so
   German never brings the Swiss German model, plus its speaker detection
