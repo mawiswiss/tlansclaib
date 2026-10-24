@@ -2711,22 +2711,62 @@ button.setup-mode.selected {
   border: 5px solid var(--accent);
 }
 
+.setup-head {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  overflow: hidden;
+  margin: -14px -16px 6px;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
+  background: var(--sunken);
+  transition: background 0.12s;
+}
+
+.setup-mode.selected .setup-head {
+  background: var(--accent-soft);
+}
+
 .setup-name {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 22px;
-  font-size: 15px;
+  min-height: 24px;
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .setup-badges {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
   gap: 6px;
-  margin-left: auto;
-  font-weight: 400;
+  min-height: 22px;
+}
+
+.setup-badges .chip.ok {
+  background: linear-gradient(var(--ok-soft), var(--ok-soft)), var(--surface);
+}
+
+.setup-wave {
+  position: absolute;
+  z-index: -1;
+  top: 10px;
+  right: 12px;
+  width: auto;
+  height: calc(100% - 20px);
+  aspect-ratio: 2;
+  fill: var(--line-strong);
+  mask-image: linear-gradient(to right, transparent, #000 55%);
+  transition: fill 0.12s;
+}
+
+.setup-mode.selected .setup-wave {
+  fill: var(--accent);
+  opacity: 0.4;
 }
 
 .setup-pitch {
@@ -2922,6 +2962,9 @@ button.setup-details-toggle:hover:not(:disabled) {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .setup-badges:empty {
+    display: none;
+  }
   .setup-computer {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

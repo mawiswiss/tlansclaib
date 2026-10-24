@@ -35,6 +35,22 @@ const PITCH: Record<Mode, string> = {
 
 const SPEAKERS: Record<Mode, string> = { precise: "Better detection", essential: "Basic detection", minimal: "Not named" };
 
+const BARS: Record<Mode, number> = { precise: 30, essential: 16, minimal: 8 };
+
+function Wave({ mode }: { mode: Mode }) {
+  const count = BARS[mode];
+  const step = 120 / count;
+  return (
+    <svg className="setup-wave" viewBox="0 0 120 60" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => {
+        const t = (i + 0.5) / count;
+        const h = 6 + 54 * Math.abs(0.6 * Math.sin(t * Math.PI * 3.1 + 0.4) + 0.4 * Math.sin(t * Math.PI * 7.3)) * Math.sin(t * Math.PI);
+        return <rect key={i} x={i * step + (step - 2.4) / 2} y={(60 - h) / 2} width={2.4} height={h} rx={1.2} />;
+      })}
+    </svg>
+  );
+}
+
 function draft(mode: Mode, language: SetupLanguage, current: Setup | null): Setup {
   const same = current && current.mode === mode && languageKey(current.language) === languageKey(language);
   return same ? current : { mode, language, added: current?.added ?? [], removed: [] };
@@ -120,13 +136,16 @@ export function SetupView(props: Props) {
               onClick={() => setClicked(mode)}
               disabled={props.busy}
             >
-              <span className="setup-name">
-                <span className="setup-dot" aria-hidden="true" />
-                {MODE_NAMES[mode]}
+              <span className="setup-head">
+                <span className="setup-name">
+                  <span className="setup-dot" aria-hidden="true" />
+                  {MODE_NAMES[mode]}
+                </span>
                 <span className="setup-badges">
                   {badge === mode && <span className="chip recommended">Recommended</span>}
                   {setup?.mode === mode && languageKey(setup.language) === languageValue && <span className="chip ok">Your setup</span>}
                 </span>
+                <Wave mode={mode} />
               </span>
               <span className="setup-pitch">{PITCH[mode]}</span>
               <span className="setup-facts">
