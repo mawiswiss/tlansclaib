@@ -47,14 +47,17 @@ named after the file.
 A setup downloads its model for all languages, its speaker detection, and the
 model for the chosen language when it has one. Precise takes full precision
 wherever the author publishes it, because q5_0 is audibly worse on difficult
-audio (see below) and there is no official large-v3 q8_0.
+audio (see below) and there is no official large-v3 q8_0. Essential avoids
+q5_0 where the model is a turbo: German takes the full-precision turbo, 2.2 GB
+RAM, which fits an 8 GB computer. French stays on q5_0, because its only
+larger file is the full large-v3 at 4 GB RAM.
 
 | | Precise | Essential | Minimal |
 |---|---|---|---|
 | All languages | `large-v3`, 3.10 GB | `large-v3-turbo-q8_0`, 874 MB | `tiny`, 78 MB |
 | Speakers | better, 202 MB | basic, 38 MB | none |
 | Thai | `thai-best`, 1.66 GB | `thai-fast`, 874 MB | none |
-| German | `german-full`, 1.62 GB | `german-fast`, 574 MB | none |
+| German | `german-full`, 1.62 GB | `german-full`, 1.62 GB | none |
 | Swiss German | `swiss-german`, 874 MB | `swiss-german`, 874 MB | none |
 | English | `english-fast`, 1.52 GB | none | none |
 | French | `french-full`, 3.10 GB | `french`, 1.08 GB | none |
@@ -62,7 +65,10 @@ audio (see below) and there is no official large-v3 q8_0.
 English in Precise: distil-large-v3.5 averages 7.10% word errors on short
 clips against 7.14% for large-v3, and 14.6% against 16.0% on the AMI meetings,
 on its authors' tests. The engine feeds it short lines. In Essential it would
-be the biggest download, so English stays on the model for all languages.
+add a second large model next to a turbo q8_0 that is already near full
+precision, so English stays on the model for all languages. German is
+different: there Essential only trades the q5_0 file for the f16 file of the
+same model.
 
 ## Checks
 

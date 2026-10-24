@@ -59,8 +59,8 @@ export function mockBackend(): Backend {
   const models: ModelStatus[] = [
     model("thai-fast", "Thai (fast)", ["th"], ["essential"], "Thai recordings on any computer", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh),
     model("thai-best", "Thai (best quality)", ["th"], ["precise"], "Thai recordings when time does not matter", 1656538283, 2.4, "large-v3", "q8_0", false),
-    model("german-fast", "German (fast)", ["de"], ["essential"], "German recordings, more accurate than the stock large model", 574041195, 0.9, "large-v3-turbo", "q5_0", false),
-    model("german-full", "German (fast, full precision)", ["de"], ["precise"], "Like German (fast), slightly more accurate, three times the size", 1624555275, 2.2, "large-v3-turbo", "f16", false),
+    model("german-fast", "German (fast)", ["de"], null, "German recordings, more accurate than the stock large model", 574041195, 0.9, "large-v3-turbo", "q5_0", false),
+    model("german-full", "German (fast, full precision)", ["de"], ["essential", "precise"], "Like German (fast), slightly more accurate, three times the size", 1624555275, 2.2, "large-v3-turbo", "f16", false),
     { ...model("swiss-german", "Swiss German", ["de"], ["essential", "precise"], "Swiss German speech, written as Standard German", 874188075, 1.3, "large-v3-turbo", "q8_0", false), language_name: "Swiss German" },
     model("english-fast", "English (fast)", ["en"], ["precise"], "English meetings, as accurate as the large model and faster", 1519521155, 2.1, "large-v3-distil-2", "f16", false),
     model("french", "French", ["fr"], ["essential"], "French recordings, fine-tuned large model", 1081140203, 1.8, "large-v3", "q5_0", false),
