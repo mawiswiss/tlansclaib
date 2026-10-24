@@ -106,8 +106,7 @@ pnpm tauri dev
 - [Whisper](https://github.com/openai/whisper) by OpenAI, the speech model family.
 - [whisper.cpp](https://github.com/ggml-org/whisper.cpp) by Georgi Gerganov and
   contributors, the inference engine, via [whisper-rs](https://github.com/tazz4843/whisper-rs).
-- Thai models by [biodatlab](https://huggingface.co/biodatlab), Mahidol University,
-  and [Typhoon](https://huggingface.co/typhoon-ai) by SCB 10X.
+- Thai models by [biodatlab](https://huggingface.co/biodatlab), Mahidol University.
 - Swiss German model by [gcoli](https://huggingface.co/gcoli), German by
   [primeline](https://huggingface.co/primeline), English by
   [distil-whisper](https://huggingface.co/distil-whisper), French by

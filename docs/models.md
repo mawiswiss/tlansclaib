@@ -53,11 +53,14 @@ q5_0: German takes the full-precision turbo, 2.2 GB RAM, which fits an 8 GB
 computer. French takes a q8_0 converted here, 2.4 GB RAM, because its author
 publishes only q5_0 and the full large-v3 at 4 GB RAM.
 
-The list leaves out `tiny` and `base`, whose output is not usable. Minimal
-takes `small-q8_0`: the turbo has the full large-v3 encoder and is several
-times slower on a weak CPU, and on a low-end test computer `small` was the
-only model with usable output. A copy left in the models folder from an older
-version lists as a custom model.
+The list holds only setup members, so there is one model per trade-off. Left
+out: `tiny` and `base`, whose output is not usable, the q5_0 and f16 turbo and
+the q5_0 large-v3 for all languages, the q5_0 German and French files, and
+Typhoon for Thai, because a listed model matches or beats each of them.
+Minimal takes `small-q8_0`: the turbo has the full large-v3 encoder and is
+several times slower on a weak CPU, and on a low-end test computer `small` was
+the only model with usable output. A copy left in the models folder from an
+older version lists as a custom model.
 
 | | Precise | Essential | Minimal |
 |---|---|---|---|
@@ -132,19 +135,22 @@ in its language.
 
 | entry | file source | model | licence | published result |
 |---|---|---|---|---|
-| Thai (Typhoon) | `JoaoZaokk/typhoon-whisper-turbo-ggml`, a third-party conversion | `typhoon-ai/typhoon-whisper-turbo` | MIT | about half the character errors of biodatlab's distilled model on two Thai sets, in its authors' paper |
-| German (fast) | `cstr/whisper-large-v3-turbo-german-ggml` | `primeline/whisper-large-v3-turbo-german` | Apache-2.0 | 2.6% word errors against 3.3% for stock large-v3 |
+| German | `cstr/whisper-large-v3-turbo-german-ggml` | `primeline/whisper-large-v3-turbo-german` | Apache-2.0 | 2.6% word errors against 3.3% for stock large-v3 |
 | English (fast) | `distil-whisper/distil-large-v3.5-ggml` | `distil-whisper/distil-large-v3.5` | MIT | on par with large-v3 on short clips, better on meetings, slightly worse than turbo on long recordings |
 | French | `bofenghuang/whisper-large-v3-french` | the same | MIT | ahead of stock large-v3 on VoxPopuli and in-house sets, equal on MLS |
 
-German (full precision) and French (full precision) are the same authors'
-f16 files of the models above, and All languages (fast, near full precision)
-is `ggerganov/whisper.cpp`'s `ggml-large-v3-turbo-q8_0.bin`. They are pinned by
-size and SHA-256 from Hugging Face's records.
+German takes the author's f16 file, French (full precision) too. All
+languages (fast, near full precision) and All languages (small) are
+`ggerganov/whisper.cpp`'s `ggml-large-v3-turbo-q8_0.bin` and
+`ggml-small-q8_0.bin`. They are pinned by size and SHA-256 from Hugging Face's
+records. `ggml-small-q8_0.bin` peaked at 0.57 GB on the English fixture on the
+CPU, on 2026-10-25.
 
-On the three-minute far-field Thai meeting clip, Typhoon did not beat Thai
-(fast): its text changed 41% between shifted runs against 38%, so Thai
-(fast) stays the recommended Thai model. Try Typhoon on cleaner recordings.
+Typhoon (`typhoon-ai/typhoon-whisper-turbo`, MIT) reports about half the
+character errors of biodatlab's distilled model on two Thai sets, in its
+authors' paper. On the three-minute far-field Thai meeting clip it did not beat
+Thai (fast): its text changed 41% between shifted runs against 38%, so it is
+not listed.
 
 A fine-tuned model keeps Whisper's language detection. On 2026-10-24 the Swiss
 German model heard the English test clip as English with 0.99, so the note

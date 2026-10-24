@@ -60,25 +60,22 @@ export function mockBackend(): Backend {
   const models: ModelStatus[] = [
     { ...model("thai-fast", "Thai (fast)", ["th"], ["essential"], "Thai recordings on any computer", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh), too_heavy: heavy },
     model("thai-best", "Thai (best quality)", ["th"], ["precise"], "Thai recordings when time does not matter", 1656538283, 2.4, "large-v3", "q8_0", false),
-    model("german-fast", "German (fast)", ["de"], null, "German recordings, more accurate than the stock large model", 574041195, 0.9, "large-v3-turbo", "q5_0", false),
-    model("german-full", "German (fast, full precision)", ["de"], ["essential", "precise"], "Like German (fast), slightly more accurate, three times the size", 1624555275, 2.2, "large-v3-turbo", "f16", false),
+    model("german-full", "German (fast, full precision)", ["de"], ["essential", "precise"], "German recordings, more accurate than the stock large model", 1624555275, 2.2, "large-v3-turbo", "f16", false),
     { ...model("swiss-german", "Swiss German", ["de"], ["essential", "precise"], "Swiss German speech, written as Standard German", 874188075, 1.3, "large-v3-turbo", "q8_0", false), language_name: "Swiss German" },
     model("english-fast", "English (fast)", ["en"], ["precise"], "English meetings, as accurate as the large model and faster", 1519521155, 2.1, "large-v3-distil-2", "f16", false),
-    model("french", "French", ["fr"], null, "French recordings, fine-tuned large model", 1081140203, 1.8, "large-v3", "q5_0", false),
-    model("french-q8_0", "French (best quality, near full precision)", ["fr"], ["essential"], "Like French, closer to full precision, half again the size", 1656538283, 2.4, "large-v3", "q8_0", false),
-    model("large-v3-turbo-q5_0", "All languages (fast)", ["all"], null, "Most recordings in English and other languages", 574041195, 0.9, "large-v3-turbo", "q5_0", !fresh),
-    model("large-v3-turbo-q8_0", "All languages (fast, near full precision)", ["all"], ["essential"], "Like the fast model, closer to full precision, half again the size", 874188075, 1.3, "large-v3-turbo", "q8_0", false),
+    model("french-q8_0", "French (best quality, near full precision)", ["fr"], ["essential"], "French recordings, fine-tuned large model", 1656538283, 2.4, "large-v3", "q8_0", false),
+    model("large-v3-turbo-q8_0", "All languages (fast, near full precision)", ["all"], ["essential"], "Most recordings in English and other languages", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh),
     model("large-v3", "All languages (best quality, full precision)", ["all"], ["precise"], "The largest model, for a fast computer with plenty of memory", 3095033483, 4.0, "large-v3", "f16", false),
     model("small-q8_0", "All languages (small)", ["all"], ["minimal"], "Weak computers and clear audio, noticeably more mistakes", 264464607, 0.7, "small", "q8_0", false),
   ];
   const titles: Record<string, string> = {
-    "thai-fast": "Fast", "thai-best": "Best quality", "german-fast": "Fast", "german-full": "Fast, full precision", "swiss-german": "Fast", "english-fast": "Fast",
-    french: "Best quality", "french-q8_0": "Best quality, near full precision", "large-v3-turbo-q5_0": "Fast", "large-v3-turbo-q8_0": "Fast, near full precision", "large-v3": "Best quality, full precision", "small-q8_0": "Small",
+    "thai-fast": "Fast", "thai-best": "Best quality", "german-full": "Fast, full precision", "swiss-german": "Fast", "english-fast": "Fast",
+    "french-q8_0": "Best quality, near full precision", "large-v3-turbo-q8_0": "Fast, near full precision", "large-v3": "Best quality, full precision", "small-q8_0": "Small",
   };
   for (const m of models) m.title = titles[m.id] ?? null;
   const ranks: Record<string, number> = {
-    "thai-fast": 1, "thai-best": 2, "german-fast": 1, "german-full": 2, "swiss-german": 1, "english-fast": 1, french: 1, "french-q8_0": 2,
-    "large-v3-turbo-q5_0": 2, "large-v3-turbo-q8_0": 3, "large-v3": 6, "small-q8_0": 1,
+    "thai-fast": 1, "thai-best": 2, "german-full": 2, "swiss-german": 1, "english-fast": 1, "french-q8_0": 2,
+    "large-v3-turbo-q8_0": 3, "large-v3": 6, "small-q8_0": 1,
   };
   for (const m of models) m.quality = ranks[m.id] ?? null;
   let timer: ReturnType<typeof setInterval> | null = null;

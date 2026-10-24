@@ -725,19 +725,19 @@ mod tests {
     fn a_model_marked_too_heavy_lists_its_reason_until_cleared_or_deleted() {
         let dir = std::env::temp_dir().join(format!("tlansclaib-too-heavy-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let header: Vec<u8> = [0x67676d6cu32, 51866, 1500, 1280, 20, 32, 448, 1280, 20, 4, 128, 1008].iter().flat_map(|w| w.to_le_bytes()).collect();
-        std::fs::write(dir.join("ggml-large-v3-turbo-q5_0.bin"), &header).unwrap();
+        let header: Vec<u8> = [0x67676d6cu32, 51866, 1500, 1280, 20, 32, 448, 1280, 20, 4, 128, 1007].iter().flat_map(|w| w.to_le_bytes()).collect();
+        std::fs::write(dir.join("ggml-large-v3-turbo-q8_0.bin"), &header).unwrap();
         let models = Models::new(dir.clone());
-        let reason = |models: &Models| models.find("large-v3-turbo-q5_0").unwrap().too_heavy;
+        let reason = |models: &Models| models.find("large-v3-turbo-q8_0").unwrap().too_heavy;
         assert_eq!(reason(&models), None);
-        models.mark_too_heavy("large-v3-turbo-q5_0", "It ran out of memory.").unwrap();
+        models.mark_too_heavy("large-v3-turbo-q8_0", "It ran out of memory.").unwrap();
         assert_eq!(reason(&models).as_deref(), Some("It ran out of memory."));
-        assert!(models.clear_too_heavy("large-v3-turbo-q5_0").unwrap());
-        assert!(!models.clear_too_heavy("large-v3-turbo-q5_0").unwrap());
+        assert!(models.clear_too_heavy("large-v3-turbo-q8_0").unwrap());
+        assert!(!models.clear_too_heavy("large-v3-turbo-q8_0").unwrap());
         assert_eq!(reason(&models), None);
-        models.mark_too_heavy("large-v3-turbo-q5_0", "It ran out of memory.").unwrap();
-        models.delete("large-v3-turbo-q5_0").unwrap();
-        std::fs::write(dir.join("ggml-large-v3-turbo-q5_0.bin"), &header).unwrap();
+        models.mark_too_heavy("large-v3-turbo-q8_0", "It ran out of memory.").unwrap();
+        models.delete("large-v3-turbo-q8_0").unwrap();
+        std::fs::write(dir.join("ggml-large-v3-turbo-q8_0.bin"), &header).unwrap();
         assert_eq!(reason(&models), None);
         std::fs::write(dir.join(TOO_HEAVY), "not json").unwrap();
         assert_eq!(reason(&models), None);
