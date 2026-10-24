@@ -10,6 +10,7 @@ function stats(usedGb: number, totalGb = 16): Stats {
     memory_total: totalGb * GIB,
     memory_used: usedGb * GIB,
     memory_free: (totalGb - usedGb) * GIB,
+    model_budget: 0,
     swap_total: 0,
     swap_used: 0,
     app_memory: 0,

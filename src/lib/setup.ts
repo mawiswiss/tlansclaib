@@ -59,8 +59,26 @@ export function wantedBackend(setup: Setup | null, detections: SpeakerDetection[
   return installed.includes("nemotron") ? "nemotron" : installed.includes("sherpa") ? "sherpa" : null;
 }
 
-/** The model Automatic uses for a language: its own model, otherwise one for all languages. Setup members come first, models that failed here never. */
-export function modelFor(models: ModelStatus[], setup: Setup | null, language: SetupLanguage, pinned = "auto"): ModelStatus | null {
+/** Free RAM and GPU right now. Without them, Automatic keeps the setup's model. */
+export type Resources = { budget: number; gpu: Gpu };
+
+function runsWell(m: ModelStatus, resources: Resources): boolean {
+  const need = m.ram_gb * GIB;
+  return resources.gpu.usable && need <= resources.budget && need <= (resources.gpu.model_budget ?? Infinity);
+}
+
+function rank(m: ModelStatus): number {
+  return m.quality ?? 0;
+}
+
+function better(list: ModelStatus[], than: ModelStatus | null, resources: Resources | null): ModelStatus | null {
+  if (!resources) return null;
+  const floor = than ? rank(than) : -1;
+  return list.filter((m) => !m.custom && rank(m) > floor && runsWell(m, resources)).reduce<ModelStatus | null>((top, m) => (top && rank(top) >= rank(m) ? top : m), null);
+}
+
+/** The model Automatic uses for a language: its own model, otherwise one for all languages. Setup members come first, models that failed here never, and a better installed one replaces it when it runs well right now. */
+export function modelFor(models: ModelStatus[], setup: Setup | null, language: SetupLanguage, pinned = "auto", resources: Resources | null = null): ModelStatus | null {
   const installed = models.filter((m) => m.installed);
   if (pinned !== "auto") {
     const chosen = installed.find((m) => m.id === pinned);
@@ -68,8 +86,21 @@ export function modelFor(models: ModelStatus[], setup: Setup | null, language: S
   }
   const usable = installed.filter((m) => !m.too_heavy);
   const member = (m: ModelStatus) => (setup ? wanted(models, setup).includes(m.id) : false);
-  const best = (list: ModelStatus[]) => list.find(member) ?? list[0] ?? null;
+  const best = (list: ModelStatus[]) => {
+    const base = list.find(member) ?? list[0] ?? null;
+    return base && (better(list, base, resources) ?? base);
+  };
   return best(usable.filter((m) => speaks(m, language))) ?? best(usable.filter(multilingual));
+}
+
+/** A model to download that Automatic would take over its current choice, on this computer right now. */
+export function betterDownload(models: ModelStatus[], setup: Setup | null, language: SetupLanguage, resources: Resources | null): ModelStatus | null {
+  const current = modelFor(models, setup, language, "auto", resources);
+  if (!current) return null;
+  const offered = models.filter((m) => !m.installed && !m.too_heavy && m.url);
+  const own = offered.filter((m) => speaks(m, language));
+  if (speaks(current, language)) return better(own, current, resources);
+  return better(own, null, resources) ?? better(offered.filter(multilingual), current, resources);
 }
 
 export function defaultModel(models: ModelStatus[], setup: Setup): ModelStatus | null {

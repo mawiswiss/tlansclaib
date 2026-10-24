@@ -75,6 +75,11 @@ export function mockBackend(): Backend {
     french: "Best quality", "french-q8_0": "Best quality, near full precision", "large-v3-turbo-q5_0": "Fast", "large-v3-turbo-q8_0": "Fast, near full precision", "large-v3": "Best quality, full precision",
   };
   for (const m of models) m.title = titles[m.id] ?? null;
+  const ranks: Record<string, number> = {
+    "thai-fast": 1, "thai-best": 2, "german-fast": 1, "german-full": 2, "swiss-german": 1, "english-fast": 1, french: 1, "french-q8_0": 2,
+    "large-v3-turbo-q5_0": 1, "large-v3-turbo-q8_0": 2, "large-v3": 5,
+  };
+  for (const m of models) m.quality = ranks[m.id] ?? null;
   let timer: ReturnType<typeof setInterval> | null = null;
   let generation = 0;
   let lastRun: Parameters<Backend["startRun"]> | null = null;
@@ -128,6 +133,7 @@ export function mockBackend(): Backend {
       memory_total: 16 * 2 ** 30,
       memory_used: used * 2 ** 30,
       memory_free: (16 - used) * 2 ** 30,
+      model_budget: (15 - used) * 2 ** 30,
       swap_total: 2 ** 30,
       swap_used: 0.1 * 2 ** 20,
       app_memory: 180 * 2 ** 20,
@@ -375,7 +381,7 @@ export function mockBackend(): Backend {
         setTimeout(() => (query.has("offline") ? reject(new Error("no connection to the model server")) : resolve(query.has("slow") ? 1.2e6 : 42e6)), 1200),
       ),
     gpuInfo: async () =>
-      query.has("nogpu") ? { backend: null, name: null, free_bytes: null, usable: false } : { backend: "metal", name: "Apple M5", free_bytes: null, usable: true },
+      query.has("nogpu") ? { backend: null, name: null, free_bytes: null, usable: false, model_budget: null } : { backend: "metal", name: "Apple M5", free_bytes: null, usable: true, model_budget: null },
     checkSetupDownloads: async (modelIds, backend) => {
       const missingModels = models.filter((m) => modelIds.includes(m.id) && !m.installed).reduce((sum, m) => sum + m.size_bytes, 0);
       const detection = detections.find((d) => d.backend === backend && !d.installed);

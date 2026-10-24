@@ -13,6 +13,8 @@ pub struct Gpu {
     pub name: Option<String>,
     pub free_bytes: Option<u64>,
     pub usable: bool,
+    /// On Windows, the largest model that runs on the GPU. A larger one runs on the CPU.
+    pub model_budget: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -54,10 +56,15 @@ pub async fn probe(app: &AppHandle, ram_bytes: u64) -> Gpu {
     let usable = device.as_ref().is_some_and(|device| crate::guard::can_use_gpu(device.free_bytes, ram_bytes));
     #[cfg(not(windows))]
     let usable = device.is_some() && cfg!(all(target_os = "macos", target_arch = "aarch64"));
+    #[cfg(windows)]
+    let model_budget = device.as_ref().map(|device| crate::guard::model_budget(device.free_bytes));
+    #[cfg(not(windows))]
+    let model_budget = None;
     Gpu {
         backend: device.as_ref().map(|d| d.backend.clone()),
         name: device.as_ref().map(|d| d.name.clone()),
         free_bytes: device.map(|d| d.free_bytes),
         usable,
+        model_budget,
     }
 }

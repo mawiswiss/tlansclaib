@@ -39,7 +39,7 @@ export function SettingsBar(props: Props) {
         <span className="label">Recording language</span>
         <Select id="language-setting" value={locked ?? language} onChange={onLanguage} disabled={busy || locked !== null} label="Recording language" options={languages} />
       </label>
-      <label className="setting" htmlFor="model-setting" title="Automatic takes the model of your setup for the language.">
+      <label className="setting" htmlFor="model-setting" title="Automatic takes the model of your setup for the language, or a better installed one while it fits the free memory.">
         <span className="label">
           Model
           {fit?.tip ? <Tooltip content={fit.tip}>{pill}</Tooltip> : pill}

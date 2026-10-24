@@ -28,12 +28,13 @@ own ONNX or GGUF files. Every model file is checked before use, see below.
 | `file` | file name inside the models folder |
 | `size_bytes`, `sha256` | checked after a download and when a file is added |
 | `ram_gb` | memory the model needs while running, the guard adds 1 GB on top |
+| `quality` | rank among the models of the same language, higher is better. Automatic takes a higher one that is installed and fits the free memory |
 | `url` | download address, or `null` for a file the user adds |
 | `architecture`, `quantization`, `source`, `license` | shown in the panel |
 
 A `models.json` placed in the models folder overrides the built-in list entry
 by entry (same `id` replaces, new ids are appended). An entry without `setups`
-keeps the bundled modes. That way a new model
+or `quality` keeps the bundled value. That way a new model
 reaches someone without a new app version: send the file and a `models.json`
 snippet.
 

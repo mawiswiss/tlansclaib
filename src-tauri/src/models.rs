@@ -49,6 +49,9 @@ pub struct ModelEntry {
     pub sha256: Option<String>,
     #[serde(default)]
     pub ram_gb: f32,
+    /// Ranks models of the same language, higher is better. Missing in an override keeps the bundled value.
+    #[serde(default)]
+    pub quality: Option<u32>,
     #[serde(default)]
     pub url: Option<String>,
     #[serde(default)]
@@ -364,7 +367,8 @@ fn merge(bundled: Vec<ModelEntry>, extra: Vec<ModelEntry>) -> Vec<ModelEntry> {
         match merged.iter_mut().find(|e| e.id == entry.id) {
             Some(existing) => {
                 let setups = entry.setups.clone().or_else(|| existing.setups.take());
-                *existing = ModelEntry { setups, ..entry };
+                let quality = entry.quality.or(existing.quality);
+                *existing = ModelEntry { setups, quality, ..entry };
             }
             None => merged.push(entry),
         }
@@ -406,6 +410,7 @@ fn linked_entry(link: &Link, registry: &[ModelEntry]) -> ModelStatus {
                 .as_ref()
                 .map(|i| estimated_ram(size, &i.architecture, &i.quantization, registry))
                 .unwrap_or(0.0),
+            quality: None,
             url: None,
             architecture: info.as_ref().map(|i| i.architecture.clone()),
             quantization: info.as_ref().map(|i| i.quantization.clone()),
@@ -438,6 +443,7 @@ fn custom_entry(path: &Path, registry: &[ModelEntry]) -> Option<ModelStatus> {
             size_bytes: size,
             sha256: None,
             ram_gb: estimated_ram(size, &info.architecture, &info.quantization, registry),
+            quality: None,
             url: None,
             architecture: Some(info.architecture.clone()),
             quantization: Some(info.quantization.clone()),
@@ -669,6 +675,28 @@ mod tests {
         }
         let modes = ["minimal", "essential", "precise"];
         assert!(list.iter().flat_map(|e| e.setups.iter().flatten()).all(|m| modes.contains(&m.as_str())));
+    }
+
+    #[test]
+    fn every_listed_model_has_its_own_quality_rank_within_its_language() {
+        let list: Vec<ModelEntry> = serde_json::from_str(BUNDLED).unwrap();
+        let mut seen: Vec<(Vec<String>, Option<String>, u32)> = Vec::new();
+        for entry in &list {
+            let quality = entry.quality.unwrap_or_else(|| panic!("{} has no quality", entry.id));
+            let key = (entry.languages.clone(), entry.language_name.clone(), quality);
+            assert!(!seen.contains(&key), "{} shares its rank", entry.id);
+            seen.push(key);
+        }
+    }
+
+    #[test]
+    fn an_override_without_quality_keeps_the_bundled_rank() {
+        let mut bundled = entry("a", "A");
+        bundled.quality = Some(3);
+        assert_eq!(merge(vec![bundled.clone()], vec![entry("a", "A2")])[0].quality, Some(3));
+        let mut ranked = entry("a", "A3");
+        ranked.quality = Some(1);
+        assert_eq!(merge(vec![bundled], vec![ranked])[0].quality, Some(1));
     }
 
     #[test]

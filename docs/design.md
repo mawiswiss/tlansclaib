@@ -264,7 +264,15 @@ top bar picks one.
   German once its model is installed, which runs the engine with `de`. The
   model starts at "Automatic", which names the chosen model's language in
   small text: the setup's model for the language when installed, otherwise
-  one for all languages (`modelFor` in `lib/setup.ts`). It never takes a
+  one for all languages (`modelFor` in `lib/setup.ts`). It steps up to an
+  installed catalog model of the same kind with a higher `quality` when that
+  model fits the free RAM right now (`guard::model_budget`, sent with the
+  system stats), the GPU is usable, and on Windows the model fits the GPU
+  memory. A language's own model is never traded for one for all languages.
+  The choice can change while other programs come and go. If the stepped-up
+  model fails to start at GO, such as on the start check's memory need for a
+  long recording, the run starts with the setup's model instead. When a better catalog model would fit but is not installed, a note
+  below the row offers to download it (`betterDownload`). It never takes a
   model marked too heavy, which the menu lists with "(failed here)". Picking a
   model pins it, and a pinned single-language model fixes the language. It shows only before a transcription. Timecodes
   are not a setting there: the switch

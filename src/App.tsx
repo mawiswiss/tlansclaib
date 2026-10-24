@@ -13,7 +13,7 @@ import { SetupProgress } from "./components/SetupProgress";
 import { SetupView } from "./components/SetupView";
 import { SystemBar } from "./components/SystemBar";
 import { TopBar } from "./components/TopBar";
-import { capitalize, titleOf, transcriptText } from "./lib/format";
+import { bytes, capitalize, titleOf, transcriptText } from "./lib/format";
 import { getBackend, type Backend } from "./lib/ipc";
 import { idle, reduce } from "./lib/run";
 import { DONATE } from "./lib/about";
@@ -22,7 +22,7 @@ import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from
 import { parseTranscript, withTimes } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
 import { checkDue, topBarLabel, type UpdateState } from "./lib/update";
-import { DETECTION_IDS, downloadOrder, installed as isInstalled, languageKey, leftovers, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, sizeOf, wanted, wantedBackend, type Setup } from "./lib/setup";
+import { betterDownload, DETECTION_IDS, downloadOrder, installed as isInstalled, languageKey, leftovers, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, sizeOf, wanted, wantedBackend, type Resources, type Setup } from "./lib/setup";
 import type { DiskSpace, DownloadProgress, FileKind, Gpu, HistoryEntry, Language, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "./lib/types";
 
 function backendOf(id: string): SpeakerBackend | undefined {
@@ -68,6 +68,7 @@ export default function App() {
   const [detections, setDetections] = useState<SpeakerDetection[]>([]);
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [gpu, setGpu] = useState<Gpu | null>(null);
+  const [runGpu, setRunGpu] = useState<Gpu | null>(null);
   const [failed, setFailed] = useState<Record<string, string>>({});
   const [setupError, setSetupError] = useState<string | null>(null);
   const [batch, setBatch] = useState<{ sizes: Record<string, number>; total: number } | null>(null);
@@ -89,8 +90,10 @@ export default function App() {
   const installed = useMemo(() => models.filter((m) => m.installed), [models]);
   const setup = settings.setup;
   const runLanguage = parseLanguage(settings.language);
-  const model = modelFor(models, setup, runLanguage, settings.modelId);
+  const resources: Resources | null = stats && runGpu ? { budget: stats.model_budget, gpu: runGpu } : null;
+  const model = modelFor(models, setup, runLanguage, settings.modelId, resources);
   const pinned = installed.some((m) => m.id === settings.modelId);
+  const suggestion = pinned ? null : betterDownload(models, setup, runLanguage, resources);
   const locked = pinned && model && !model.languages.includes("all") ? languageKey({ code: model.languages[0], variant: model.language_name ?? null }) : null;
   const speakerBackend = wantedBackend(setup, detections);
   const firstRun = modelsLoaded && !setup && installed.length === 0;
@@ -278,6 +281,7 @@ export default function App() {
         setModels(list);
         setModelsLoaded(true);
       }).catch((error) => reportError("Could not load models", error));
+      void b.gpuInfo(null).then(setRunGpu).catch((error) => reportError("Could not check the graphics chip", error));
       void b.modelsFolder().then(setFolder).catch((error) => reportError("Could not find the models folder", error));
       void b.speakerDetection().then(setDetections).catch((error) => reportError("Could not load speaker detection", error));
       void b.listLanguages().then(setLanguages).catch((error) => reportError("Could not load languages", error));
@@ -313,32 +317,39 @@ export default function App() {
         reportError("Could not check installed models", error);
         return;
       }
-      const chosen = modelFor(current, settings.setup, parseLanguage(settings.language), settings.modelId);
+      const chosen = modelFor(current, settings.setup, parseLanguage(settings.language), settings.modelId, resources);
       if (!chosen) {
         setPanel("models");
         return;
       }
-      const multilingual = chosen.languages.includes("all");
-      const language = multilingual ? parseLanguage(settings.language).code : chosen.languages[0];
+      const fallback = modelFor(current, settings.setup, parseLanguage(settings.language), settings.modelId);
       const speakers = settings.speakers !== "off" && speakerBackend ? settings.speakers : null;
       setResultError(null);
-      dispatch({
-        type: "start",
-        audio,
-        folder: "app history",
-        modelName: chosen.name,
-        timestamps: settings.timestamps,
-        autoLanguage: language === "auto",
-        detecting: speakers !== null,
-        now: Date.now(),
-      });
+      const attempt = (m: ModelStatus) => {
+        const language = m.languages.includes("all") ? parseLanguage(settings.language).code : m.languages[0];
+        dispatch({
+          type: "start",
+          audio,
+          folder: "app history",
+          modelName: m.name,
+          timestamps: settings.timestamps,
+          autoLanguage: language === "auto",
+          detecting: speakers !== null,
+          now: Date.now(),
+        });
+        return b.startRun(audio, m.id, language, settings.timestamps, speakers, speakers && speakerBackend === "sherpa" ? settings.speakerPrecision : null, speakers ? speakerBackend : null);
+      };
       try {
-        await b.startRun(audio, chosen.id, language, settings.timestamps, speakers, speakers && speakerBackend === "sherpa" ? settings.speakerPrecision : null, speakers ? speakerBackend : null);
+        await attempt(chosen);
       } catch (error) {
-        dispatch({ type: "fail", message: String(error) });
+        if (!fallback || fallback.id === chosen.id) {
+          dispatch({ type: "fail", message: String(error) });
+          return;
+        }
+        await attempt(fallback).catch((error) => dispatch({ type: "fail", message: String(error) }));
       }
     },
-    [settings, speakerBackend, reportError, showError],
+    [settings, speakerBackend, resources, reportError, showError],
   );
   startLatest.current = start;
 
@@ -1039,6 +1050,14 @@ export default function App() {
           stats={stats}
           busy={running}
         />
+        )}
+        {suggestion && !downloads[suggestion.id] && !(setup && wanted(models, setup).includes(suggestion.id)) && run.status !== "running" && run.status !== "done" && !firstRun && (
+          <p className="note">
+            {suggestion.name} would transcribe more accurately and fits this computer right now.{" "}
+            <button type="button" className="inline-link" onClick={() => void download(suggestion.id)}>
+              Download {bytes(suggestion.size_bytes)}
+            </button>
+          </p>
         )}
         {preparing && setup && run.status !== "running" && run.status !== "done" && (
           <SetupProgress

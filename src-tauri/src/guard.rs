@@ -66,6 +66,11 @@ pub fn can_start(free: u64, needed: u64) -> Result<(), String> {
     ))
 }
 
+/// The largest model RAM that passes `can_start` and `can_use_gpu` with this much free memory.
+pub fn model_budget(free: u64) -> u64 {
+    free.saturating_sub(RUN_HEADROOM)
+}
+
 #[cfg(any(windows, test))]
 pub fn can_use_gpu(free: u64, needed: u64) -> bool {
     needed.checked_add(RUN_HEADROOM).is_some_and(|minimum| free >= minimum)
@@ -154,6 +159,17 @@ mod tests {
         for backend in [Backend::Sherpa, Backend::Nemotron] {
             assert!(can_start_recording(3 * GIB, GIB, detection_ram(backend), Some(1059.0)).is_ok());
             assert!(can_start_recording(2 * GIB, GIB, detection_ram(backend), Some(1059.0)).is_err());
+        }
+    }
+
+    #[test]
+    fn the_model_budget_is_the_largest_model_that_starts() {
+        for free in [0, GIB / 2, 3 * GIB, 9 * GIB + 7] {
+            let budget = model_budget(free);
+            assert_eq!(can_start(free, budget).is_ok(), free >= RUN_HEADROOM);
+            assert_eq!(can_use_gpu(free, budget), free >= RUN_HEADROOM);
+            assert!(can_start(free, budget + 1).is_err());
+            assert!(!can_use_gpu(free, budget + 1));
         }
     }
 

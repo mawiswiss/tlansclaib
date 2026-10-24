@@ -10,6 +10,7 @@ export type ModelStatus = {
   size_bytes: number;
   sha256: string | null;
   ram_gb: number;
+  quality?: number | null;
   url: string | null;
   architecture: string | null;
   quantization: string | null;
@@ -66,6 +67,7 @@ export type Stats = {
   memory_total: number;
   memory_used: number;
   memory_free: number;
+  model_budget: number;
   swap_total: number;
   swap_used: number;
   app_memory: number;
@@ -83,7 +85,7 @@ export type SpeakerBackend = "sherpa" | "nemotron";
 
 export type SpeakerDetection = { backend: SpeakerBackend; available: boolean; installed: boolean; downloading: boolean; download_bytes: number; disk_bytes: number };
 
-export type Gpu = { backend: "metal" | "vulkan" | null; name: string | null; free_bytes: number | null; usable: boolean };
+export type Gpu = { backend: "metal" | "vulkan" | null; name: string | null; free_bytes: number | null; usable: boolean; model_budget?: number | null };
 
 export type Timings = { decode: number; speakers: number; load: number; transcribe: number; write: number };
 

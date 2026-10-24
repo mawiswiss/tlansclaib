@@ -116,8 +116,12 @@ gives each line its speaker, such as
    "Auto-detect", which finds the language in most recordings, and choose one
    only when Auto-detect picks the wrong one. The model is "Automatic": it
    takes your setup's model for the language, such as the Swiss German model
-   for Swiss German, and otherwise the model for all languages. Pick a model
-   there to use it instead. A model that ran out of memory, stopped
+   for Swiss German, and otherwise the model for all languages. When a
+   better model of the same kind is installed and fits the free memory right
+   now, it takes that one instead, but only on a computer with a usable
+   graphics chip. If a better one would fit but is not installed, a note
+   below the row offers to download it. Pick a model there to use it
+   instead. A model that ran out of memory, stopped
    responding or crashed on this computer is no longer taken by Automatic.
    The menu lists it with "(failed here)" and Models with a red "Failed on
    this computer" chip. Pick it to try again: once a transcription with it

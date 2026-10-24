@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultModel, downloadOrder, leftovers, missingBytes, modelFor, parseLanguage, recommend, runLanguages, setupLanguages, wanted, wantedBackend, type Setup } from "./setup";
+import { betterDownload, defaultModel, downloadOrder, leftovers, missingBytes, modelFor, parseLanguage, recommend, runLanguages, setupLanguages, wanted, wantedBackend, type Resources, type Setup } from "./setup";
 import type { Gpu, ModelStatus, SpeakerDetection } from "./types";
 
 const GIB = 2 ** 30;
@@ -13,13 +13,13 @@ function model(id: string, languages: string[], setups: string[] | null, extra: 
 }
 
 const models = [
-  model("thai-fast", ["th"], ["essential"]),
-  model("thai-best", ["th"], ["precise"]),
-  model("german-fast", ["de"], ["essential"]),
-  model("swiss-german", ["de"], ["essential", "precise"], { language_name: "Swiss German" }),
-  model("turbo-q8", ["all"], ["essential"]),
-  model("large-v3", ["all"], ["precise"], { size_bytes: 3 * GIB, ram_gb: 4 }),
-  model("tiny", ["all"], ["minimal"]),
+  model("thai-fast", ["th"], ["essential"], { quality: 1 }),
+  model("thai-best", ["th"], ["precise"], { quality: 2 }),
+  model("german-fast", ["de"], ["essential"], { quality: 1 }),
+  model("swiss-german", ["de"], ["essential", "precise"], { language_name: "Swiss German", quality: 1 }),
+  model("turbo-q8", ["all"], ["essential"], { quality: 2 }),
+  model("large-v3", ["all"], ["precise"], { size_bytes: 3 * GIB, ram_gb: 4, quality: 5 }),
+  model("tiny", ["all"], ["minimal"], { quality: 1 }),
   model("base", ["all"], null),
 ];
 
@@ -33,6 +33,8 @@ const setup = (mode: Setup["mode"], key = "auto", changes: Partial<Setup> = {}):
 const with_ = (installed: string[]) => models.map((m) => ({ ...m, installed: installed.includes(m.id) }));
 
 const gpu: Gpu = { backend: "metal", name: "Apple M5", free_bytes: null, usable: true };
+
+const plenty: Resources = { budget: 8 * GIB, gpu };
 
 describe("wanted", () => {
   it("takes the mode's all-language model and speaker detection", () => {
@@ -79,6 +81,50 @@ describe("modelFor", () => {
     expect(modelFor(installed, setup("precise"), parseLanguage("auto"), "tiny")?.id).toBe("tiny");
     expect(modelFor(installed, setup("precise"), parseLanguage("auto"), "thai-best")?.id).toBe("large-v3");
     expect(modelFor(with_([]), null, parseLanguage("auto"))).toBeNull();
+  });
+});
+
+describe("stepping up", () => {
+  it("takes a better installed model of the same kind when it runs well", () => {
+    const installed = with_(["turbo-q8", "large-v3", "thai-fast", "thai-best"]);
+    expect(modelFor(installed, setup("essential"), parseLanguage("auto"), "auto", plenty)?.id).toBe("large-v3");
+    expect(modelFor(installed, setup("essential", "th"), parseLanguage("th"), "auto", plenty)?.id).toBe("thai-best");
+  });
+
+  it("never trades a language's own model for one for all languages", () => {
+    expect(modelFor(with_(["german-fast", "large-v3"]), setup("essential", "de"), parseLanguage("de"), "auto", plenty)?.id).toBe("german-fast");
+  });
+
+  it("keeps the setup's model when free RAM, GPU memory or the GPU fall short", () => {
+    const pick = (resources: Resources | null) => modelFor(with_(["turbo-q8", "large-v3"]), setup("essential"), parseLanguage("auto"), "auto", resources)?.id;
+    expect(pick({ budget: 4 * GIB, gpu })).toBe("large-v3");
+    expect(pick({ budget: 4 * GIB - 1, gpu })).toBe("turbo-q8");
+    expect(pick({ budget: 8 * GIB, gpu: { ...gpu, model_budget: 3 * GIB } })).toBe("turbo-q8");
+    expect(pick({ budget: 8 * GIB, gpu: { ...gpu, usable: false } })).toBe("turbo-q8");
+    expect(pick(null)).toBe("turbo-q8");
+  });
+
+  it("never steps up to a custom model or one that failed here, nor past a pinned one", () => {
+    const failed = with_(["turbo-q8", "large-v3"]).map((m) => (m.id === "large-v3" ? { ...m, too_heavy: "Memory ran low while it loaded." } : m));
+    expect(modelFor(failed, setup("essential"), parseLanguage("auto"), "auto", plenty)?.id).toBe("turbo-q8");
+    const custom = [...with_(["turbo-q8"]), model("mine", ["all"], null, { quality: 9, custom: true, installed: true })];
+    expect(modelFor(custom, setup("essential"), parseLanguage("auto"), "auto", plenty)?.id).toBe("turbo-q8");
+    expect(modelFor(with_(["turbo-q8", "large-v3"]), setup("essential"), parseLanguage("auto"), "turbo-q8", plenty)?.id).toBe("turbo-q8");
+  });
+});
+
+describe("betterDownload", () => {
+  it("offers the best model that would run well and beat the current choice", () => {
+    expect(betterDownload(with_(["turbo-q8"]), setup("essential"), parseLanguage("auto"), plenty)?.id).toBe("large-v3");
+    expect(betterDownload(with_(["turbo-q8"]), setup("essential"), parseLanguage("auto"), { budget: 2 * GIB, gpu })).toBeNull();
+    expect(betterDownload(with_(["large-v3"]), setup("precise"), parseLanguage("auto"), plenty)).toBeNull();
+    expect(betterDownload(with_(["turbo-q8"]), setup("essential"), parseLanguage("auto"), null)).toBeNull();
+    expect(betterDownload(with_([]), setup("essential"), parseLanguage("auto"), plenty)).toBeNull();
+  });
+
+  it("offers a language's own model before a larger one for all languages", () => {
+    expect(betterDownload(with_(["turbo-q8"]), setup("essential", "th"), parseLanguage("th"), plenty)?.id).toBe("thai-best");
+    expect(betterDownload(with_(["thai-fast", "turbo-q8"]), setup("essential", "th"), parseLanguage("th"), plenty)?.id).toBe("thai-best");
   });
 });
 
