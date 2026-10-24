@@ -353,11 +353,11 @@ export function ResultView(props: Props) {
             </p>
           </div>
           <div className="card-tools">
-            <Tooltip content="Export transcript" oneLine>
-              <button type="button" className="icon-button" onClick={() => { void onExport().then(setExported); }} aria-label="Export transcript">
-                <Download />
-              </button>
-            </Tooltip>
+            <button type="button" className="primary small" onClick={() => { void onExport().then(setExported); }}>
+              <Download size={16} />
+              Download .txt
+            </button>
+            <span className="tools-divider" />
             <Tooltip content={copied ? "Copied" : "Copy text"} oneLine>
               <button
                 type="button"
@@ -390,7 +390,7 @@ export function ResultView(props: Props) {
         </Tooltip>
       </div>
       {error && <p className="problem" role="alert">{error}</p>}
-      {exported && <p className="note" role="status">Exported to {exported}.</p>}
+      {exported && <p className="note" role="status">Saved to {exported}.</p>}
       {run.opened?.status === "incomplete" && <p className="note">This transcription was stopped early and holds the lines done until then.</p>}
       {run.check?.changed && <p className="note">This transcript was changed outside tlansclaib since it was saved.</p>}
       {spoken && run.language && (

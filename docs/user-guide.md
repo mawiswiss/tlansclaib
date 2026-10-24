@@ -133,10 +133,10 @@ Cancel keeps completed lines in the app's history.
 ## The transcript
 
 The transcript stays in the app's history, with its line timing and recording
-reference. Nothing appears beside the recording. Use Export to choose a file
-when you need one: `.txt` for text, or `.srt` and `.vtt` for timed subtitles.
-The other icons copy the text, transcribe the recording again and close the
-result. The plus to the right starts the next recording.
+reference. Nothing appears beside the recording. Click Download .txt to save
+it as a text file. For a timed transcript, the save dialog also offers `.srt`
+and `.vtt` subtitles. The icons next to it copy the text, transcribe the
+recording again and close the result. The plus to the right starts the next recording.
 
 - Rename: click the pencil next to the title, or double-click it. This changes
   the title in history. The recording keeps its name.
