@@ -3,6 +3,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use anyhow::{Result, anyhow};
+use whisper_rs::whisper_rs_sys as sys;
 use whisper_rs::{
     FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState,
 };
@@ -35,7 +36,6 @@ unsafe extern "C" fn whisper_log(level: whisper_rs::whisper_rs_sys::ggml_log_lev
     {
         *backend = None;
     }
-    use whisper_rs::whisper_rs_sys as sys;
     match level {
         sys::ggml_log_level_GGML_LOG_LEVEL_ERROR => log::error!(target: "whisper", "{message}"),
         sys::ggml_log_level_GGML_LOG_LEVEL_WARN => log::warn!(target: "whisper", "{message}"),
@@ -104,7 +104,7 @@ impl Engine {
 
     pub fn state(&mut self) -> Result<WhisperState> {
         let state = self.context.create_state()?;
-        self.device_name = BACKEND_NAME.lock().unwrap().clone();
+        self.device_name = BACKEND_NAME.lock().unwrap().clone().map(|name| describe(&name).unwrap_or(name));
         self.device = if self.device_name.is_none() {
             "cpu"
         } else if cfg!(target_os = "macos") {
@@ -176,10 +176,17 @@ impl Engine {
     }
 }
 
+fn describe(device_name: &str) -> Option<String> {
+    let name = std::ffi::CString::new(device_name).ok()?;
+    unsafe {
+        let device = sys::ggml_backend_dev_by_name(name.as_ptr());
+        let description = if device.is_null() { std::ptr::null() } else { sys::ggml_backend_dev_description(device) };
+        (!description.is_null()).then(|| CStr::from_ptr(description).to_string_lossy().into_owned())
+    }
+}
+
 #[cfg(all(target_os = "windows", feature = "vulkan"))]
 pub fn vulkan_free_memory() -> Option<u64> {
-    use whisper_rs::whisper_rs_sys as sys;
-
     let registered = unsafe {
         if sys::ggml_backend_reg_by_name(c"Vulkan".as_ptr()).is_null() {
             // MSVC static builds can omit Vulkan during registry initialization.
@@ -247,7 +254,7 @@ mod backend_tests {
 
     #[test]
     fn reads_the_device_whisper_actually_initialized() {
-        assert_eq!(selected_backend("whisper_backend_init_gpu: using Apple M4 backend"), Some("Apple M4"));
+        assert_eq!(selected_backend("whisper_backend_init_gpu: using Metal backend"), Some("Metal"));
         assert_eq!(selected_backend("whisper_backend_init_gpu: no GPU found"), None);
     }
 }
