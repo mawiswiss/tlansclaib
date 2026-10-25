@@ -69,6 +69,9 @@ once-a-second check, such as a sleeping computer, the 45 s start again.
   model event reports what was heard: a chosen language that is not spoken
   makes Whisper write in it, so the transcript turns into a translation. A
   line that uses 200 tokens or more logs a warning.
+- The engine uses every physical core up to four, otherwise one less. It
+  runs at below-normal priority, so a dual-core laptop keeps a usable
+  window.
 - `output.rs` appends one line at a time to the output file, so a cancelled
   run keeps what was done. Each line starts with its times,
   `[HH:MM:SS.ss --> HH:MM:SS.ss] text`, unless `--no-timestamps` is given.

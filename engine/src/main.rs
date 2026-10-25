@@ -34,7 +34,7 @@ enum Command {
         /// Language code such as th or en, or auto
         #[arg(long, default_value = "auto")]
         language: String,
-        /// Number of threads, default: physical cores minus one
+        /// Number of threads, default: every physical core up to 4, otherwise one less
         #[arg(long)]
         threads: Option<usize>,
         /// Run on the CPU even when a GPU is available
@@ -96,7 +96,7 @@ enum Command {
         /// sherpa only: distance below which two voices count as one, when the number is not given
         #[arg(long, default_value_t = sherpa::DEFAULT_THRESHOLD)]
         threshold: f32,
-        /// sherpa only: number of threads, default: physical cores minus one
+        /// sherpa only: number of threads, default: every physical core up to 4, otherwise one less
         #[arg(long)]
         threads: Option<usize>,
         /// sherpa only: step of the 10 s analysis window as a share of it

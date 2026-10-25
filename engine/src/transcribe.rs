@@ -69,7 +69,12 @@ impl Default for Decoding {
 }
 
 pub fn default_threads() -> usize {
-    num_cpus::get_physical().saturating_sub(1).max(1)
+    threads_for(num_cpus::get_physical())
+}
+
+// The engine runs at below-normal priority, so a small CPU can give it every core.
+fn threads_for(physical: usize) -> usize {
+    if physical <= 4 { physical.max(1) } else { physical - 1 }
 }
 
 impl Engine {
@@ -279,6 +284,19 @@ mod language_tests {
         assert_eq!(ranked.iter().map(|(id, _)| *id).collect::<Vec<_>>(), [1, 0, 2]);
         assert!((ranked[0].1 - 2.0 / 3.0).abs() < 1e-6);
         assert!(average(&[]).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod speed_tests {
+    use super::threads_for;
+
+    #[test]
+    fn small_cpus_use_every_core_and_larger_ones_leave_one() {
+        assert_eq!(threads_for(0), 1);
+        assert_eq!(threads_for(2), 2);
+        assert_eq!(threads_for(4), 4);
+        assert_eq!(threads_for(6), 5);
     }
 }
 
