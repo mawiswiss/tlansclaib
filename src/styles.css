@@ -31,6 +31,10 @@
   --speaker-1: #c2560a;
   --speaker-2: #1d8a4e;
   --speaker-3: #8a4fd8;
+  --speaker-4: #0f8287;
+  --speaker-5: #c2378a;
+  --speaker-6: #737a10;
+  --speaker-7: #5d6b80;
   --radius-sm: 8px;
   --radius: 12px;
   --radius-lg: 16px;
@@ -76,6 +80,10 @@
     --speaker-1: #f3a04a;
     --speaker-2: #4cc27c;
     --speaker-3: #b691f5;
+    --speaker-4: #4fcfd2;
+    --speaker-5: #f07ac0;
+    --speaker-6: #c9cc4f;
+    --speaker-7: #a3b1c6;
     color-scheme: dark;
   }
 }
@@ -114,6 +122,10 @@
   --speaker-1: #f3a04a;
   --speaker-2: #4cc27c;
   --speaker-3: #b691f5;
+  --speaker-4: #4fcfd2;
+  --speaker-5: #f07ac0;
+  --speaker-6: #c9cc4f;
+  --speaker-7: #a3b1c6;
 }
 
 * {
@@ -1141,6 +1153,22 @@ button.speaker-chip svg {
 
 .s3 {
   --speaker: var(--speaker-3);
+}
+
+.s4 {
+  --speaker: var(--speaker-4);
+}
+
+.s5 {
+  --speaker: var(--speaker-5);
+}
+
+.s6 {
+  --speaker: var(--speaker-6);
+}
+
+.s7 {
+  --speaker: var(--speaker-7);
 }
 
 .transcript p.hit {

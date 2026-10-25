@@ -136,7 +136,7 @@ export function RunView({ run, showTimes, languageName, onCancel, onRestart }: P
           return (
             <p key={`${line.start}-${line.speaker ?? 0}`} className={[showTimes ? "timed" : "", voiced ? "voiced" : ""].join(" ").trim() || undefined}>
               {showTimes && <span className="time">{clock(line.start)}</span>}
-              {voiced && <span className={`line-dot${speaker !== undefined ? ` s${line.speaker! % 4}` : ""}`} title={speaker} />}
+              {voiced && <span className={`line-dot${speaker !== undefined ? ` s${line.speaker! % 8}` : ""}`} title={speaker} />}
               <span className={line.text ? "" : "muted"}>{line.text || "(nothing recognised)"}</span>
             </p>
           );

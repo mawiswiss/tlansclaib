@@ -478,7 +478,7 @@ export function ResultView(props: Props) {
                     key={track}
                     ref={speakerInput}
                     type="text"
-                    className={`speaker-editor s${track % 4}`}
+                    className={`speaker-editor s${track % 8}`}
                     value={speakerDraft}
                     maxLength={40}
                     size={Math.max(8, speakerDraft.length + 1)}
@@ -503,7 +503,7 @@ export function ResultView(props: Props) {
                   <button
                     key={track}
                     type="button"
-                    className={`speaker-chip s${track % 4}`}
+                    className={`speaker-chip s${track % 8}`}
                     onClick={() => startSpeakerRename(track)}
                     title="Click to rename"
                   >
@@ -627,7 +627,7 @@ export function ResultView(props: Props) {
                 {run.speakers.length > 1 &&
                   (line.speaker !== undefined ? (
                     <Tooltip content={run.speakers[line.speaker]} oneLine className="dot-tip">
-                      <span className={`line-dot s${line.speaker % 4}`} />
+                      <span className={`line-dot s${line.speaker % 8}`} />
                     </Tooltip>
                   ) : (
                     <span className="line-dot" />
