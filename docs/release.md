@@ -1,14 +1,20 @@
 # Releases
 
-Installers are built by GitHub Actions, never by hand.
+Installers are built by GitHub Actions, never by hand. The `release` skill in
+`.claude/skills/release/` walks through every step.
 
-1. Set the version in `src-tauri/tauri.conf.json`, `package.json` and the
-   workspace `Cargo.toml`.
-2. Commit, then tag `vX.Y.Z` and push the tag.
-3. `.github/workflows/release.yml` builds the Mac disk image, signed with the
+1. Pick the version from the commits since the last tag. A `feat` or a
+   breaking change raises the minor version, fixes alone the patch version.
+   A major version is chosen by hand.
+2. Add the release to `CHANGELOG.md`, and set the version in
+   `src-tauri/tauri.conf.json`, `package.json` and the workspace `Cargo.toml`.
+3. Commit, then tag `vX.Y.Z` and push the tag.
+4. `.github/workflows/release.yml` builds the Mac disk image, signed with the
    Developer ID and notarised by Apple, and the Windows installer, and
    attaches both to a draft GitHub release.
-4. Check the draft, then publish it as the latest release:
+5. Replace the draft's text with the release notes, a plain list of what
+   changed for users followed by the install text. Check the draft, then
+   publish it as the latest release:
    `gh release edit vX.Y.Z --draft=false --latest`. From then on the app
    offers it as an update.
 

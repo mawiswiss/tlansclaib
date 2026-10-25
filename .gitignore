@@ -36,5 +36,6 @@ src-tauri/binaries
 /models
 /scratch
 
-# Editor and agent settings
-.claude/
+# Editor and agent settings, except the project skills
+.claude/*
+!.claude/skills/
