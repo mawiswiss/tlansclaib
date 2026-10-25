@@ -56,16 +56,27 @@ function marked(text: string, query: string): ReactNode {
   return parts;
 }
 
+type Held = { row: number; index: number; from: number; until: number };
+
+const SEEK_SLACK = 0.25;
+
 function usePlayhead() {
   return useMemo(() => {
     let now = 0;
+    let held: Held | null = null;
     const listeners = new Set<() => void>();
     return {
       get: () => now,
       set: (seconds: number) => {
         now = seconds;
+        if (held && (seconds >= held.until || seconds < held.from - SEEK_SLACK)) held = null;
         listeners.forEach((listener) => listener());
       },
+      /** Keeps a clicked word marked while playback runs up to it from the word before. */
+      hold: (word: Held | null) => {
+        held = word;
+      },
+      heldIn: (row: number) => (held?.row === row ? held.index : -1),
       subscribe: (listener: () => void) => {
         listeners.add(listener);
         return () => listeners.delete(listener);
@@ -78,11 +89,15 @@ type Playhead = ReturnType<typeof usePlayhead>;
 
 const still = () => () => {};
 
-type SpokenProps = { row: number; text: string; words: Word[]; live: boolean; playhead: Playhead; onWord: (row: number, seconds: number) => void };
+type SpokenProps = { row: number; start: number; text: string; words: Word[]; live: boolean; playhead: Playhead; onWord: (word: Held) => void };
 
-const Spoken = memo(function Spoken({ row, text, words, live, playhead, onWord }: SpokenProps) {
+const Spoken = memo(function Spoken({ row, start, text, words, live, playhead, onWord }: SpokenProps) {
   const placed = useMemo(() => placeWords(text, words), [text, words]);
-  const now = useSyncExternalStore(live ? playhead.subscribe : still, () => (live ? wordAt(placed, playhead.get()) : -1));
+  const now = useSyncExternalStore(live ? playhead.subscribe : still, () => {
+    if (!live) return -1;
+    const held = playhead.heldIn(row);
+    return held >= 0 ? held : wordAt(placed, playhead.get());
+  });
   const parts: ReactNode[] = [];
   let from = 0;
   placed.forEach(({ word, from: at, to }, i) => {
@@ -93,7 +108,7 @@ const Spoken = memo(function Spoken({ row, text, words, live, playhead, onWord }
         className={i === now ? "word now" : "word"}
         onClick={(e) => {
           e.stopPropagation();
-          onWord(row, word.start);
+          onWord({ row, index: i, from: i > 0 ? placed[i - 1].word.start : start, until: word.start });
         }}
       >
         {word.text}
@@ -385,6 +400,7 @@ export function ResultView(props: Props) {
   };
 
   const onSeek = (seconds: number) => {
+    playhead.hold(null);
     playhead.set(seconds);
     if (!run.timed) return;
     const next = playingAt(lines, seconds);
@@ -394,10 +410,11 @@ export function ResultView(props: Props) {
   };
 
   const playWord = useCallback(
-    (row: number, seconds: number) => {
-      player.current?.seek(seconds);
-      playhead.set(seconds);
-      setHeard({ lines: [row], main: row });
+    (word: Held) => {
+      playhead.hold(word);
+      player.current?.seek(word.from);
+      playhead.set(word.from);
+      setHeard({ lines: [word.row], main: word.row });
       userScrolled.current = 0;
     },
     [playhead],
@@ -738,6 +755,7 @@ export function ResultView(props: Props) {
                 onClick={
                   syncable && !isEditing
                     ? () => {
+                        playhead.hold(null);
                         player.current?.seek(line.start);
                         setHeard({ lines: [i], main: i });
                         userScrolled.current = 0;
@@ -794,7 +812,7 @@ export function ResultView(props: Props) {
                 ) : (
                   <span onDoubleClick={() => startEdit(line.index, line.text)}>
                     {syncable && line.words?.length && !needle ? (
-                      <Spoken row={i} text={line.text} words={line.words} live={heard.lines.includes(i)} playhead={playhead} onWord={playWord} />
+                      <Spoken row={i} start={line.start} text={line.text} words={line.words} live={heard.lines.includes(i)} playhead={playhead} onWord={playWord} />
                     ) : (
                       marked(line.text, needle)
                     )}
