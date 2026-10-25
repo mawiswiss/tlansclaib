@@ -67,6 +67,9 @@ enum Command {
         /// A window whose average log probability is below this is retried
         #[arg(long, default_value_t = transcribe::Decoding::default().logprob_thold)]
         logprob_thold: f32,
+        /// Encode only as much of the 30 s input as each line needs. Faster, mostly on the CPU
+        #[arg(long)]
+        fit_encoder: bool,
     },
     /// Check whether a file is a whisper.cpp model and print what it is
     Check { file: PathBuf },
@@ -149,6 +152,7 @@ fn main() {
             temperature_inc,
             entropy_thold,
             logprob_thold,
+            fit_encoder,
         } => {
             lower_priority();
             let result = run(
@@ -171,6 +175,7 @@ fn main() {
                     temperature_inc,
                     entropy_thold,
                     logprob_thold,
+                    fit_encoder,
                 },
             );
             if let Err(error) = &result {

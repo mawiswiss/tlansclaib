@@ -219,15 +219,14 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     };
     #[cfg(not(windows))]
     let engine_name = "tlansclaib-engine";
+    let mut retry_args = args.clone();
     #[cfg(target_os = "macos")]
-    let retry_args = {
-        let mut args = args.clone();
-        args.push("--cpu".into());
-        args
-    };
-    #[cfg(not(target_os = "macos"))]
-    let retry_args = args.clone();
+    retry_args.push("--cpu".into());
+    retry_args.push("--fit-encoder".into());
     let mut gpu_attempt = cfg!(target_os = "macos") || engine_name == "tlansclaib-engine-vulkan";
+    if !gpu_attempt {
+        args.push("--fit-encoder".into());
+    }
     let backend = if cfg!(target_os = "macos") { "Metal" } else { "Vulkan" };
     let (mut events, child) = app.shell().sidecar(engine_name)?.args(args).spawn()?;
     let awake = keepawake::Builder::default()

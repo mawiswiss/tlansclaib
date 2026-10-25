@@ -55,6 +55,7 @@ pub struct Decoding {
     pub temperature_inc: f32,
     pub entropy_thold: f32,
     pub logprob_thold: f32,
+    pub fit_encoder: bool,
 }
 
 impl Default for Decoding {
@@ -64,6 +65,7 @@ impl Default for Decoding {
             temperature_inc: 0.2,
             entropy_thold: 2.8,
             logprob_thold: -1.0,
+            fit_encoder: false,
         }
     }
 }
@@ -75,6 +77,17 @@ pub fn default_threads() -> usize {
 // The engine runs at below-normal priority, so a small CPU can give it every core.
 fn threads_for(physical: usize) -> usize {
     if physical <= 4 { physical.max(1) } else { physical - 1 }
+}
+
+const AUDIO_CTX_FULL: usize = 1500;
+const AUDIO_CTX_PER_SECOND: usize = 50;
+// Turbo models repeated lines with a margin of 1 or 5 s in tests, not with 10 s.
+const AUDIO_CTX_MARGIN: usize = 500;
+const SHORTEST_REPEAT: usize = 24;
+
+/// Encoder positions for a window: whisper pads every window to 30 s, 50 positions per second.
+pub fn audio_ctx_for(samples: usize) -> usize {
+    (samples.div_ceil(RATE) * AUDIO_CTX_PER_SECOND + AUDIO_CTX_MARGIN).min(AUDIO_CTX_FULL)
 }
 
 impl Engine {
@@ -133,6 +146,19 @@ impl Engine {
         if samples.len() < RATE {
             return Ok(String::new());
         }
+        let audio_ctx = audio_ctx_for(samples.len());
+        if !self.decoding.fit_encoder || audio_ctx == AUDIO_CTX_FULL {
+            return self.decode(state, samples, language, 0);
+        }
+        let text = self.decode(state, samples, language, audio_ctx)?;
+        if !repeats_itself(&text) {
+            return Ok(text);
+        }
+        log::warn!("a {:.1} s window repeated itself with the shorter encoder, so it was decoded again in full", samples.len() as f32 / RATE as f32);
+        self.decode(state, samples, language, 0)
+    }
+
+    fn decode(&self, state: &mut WhisperState, samples: &[f32], language: &str, audio_ctx: usize) -> Result<String> {
         let strategy = if self.decoding.beam_size > 1 {
             SamplingStrategy::BeamSearch {
                 beam_size: self.decoding.beam_size as i32,
@@ -143,6 +169,7 @@ impl Engine {
         };
         let mut params = FullParams::new(strategy);
         params.set_n_threads(self.threads as i32);
+        params.set_audio_ctx(audio_ctx as i32);
         params.set_language(Some(language));
         params.set_translate(false);
         params.set_no_context(true);
@@ -244,6 +271,12 @@ fn register_vulkan() {}
 
 const NEAR_TOKEN_LIMIT: i32 = 200;
 
+/// Whether a stretch of at least SHORTEST_REPEAT characters follows itself straight away.
+fn repeats_itself(text: &str) -> bool {
+    let chars: Vec<char> = text.chars().chain([' ']).collect();
+    (SHORTEST_REPEAT..=chars.len() / 2).any(|length| (0..=chars.len() - 2 * length).any(|start| chars[start..start + length] == chars[start + length..start + 2 * length]))
+}
+
 pub fn languages() -> Vec<(String, String)> {
     (0..=whisper_rs::get_lang_max_id())
         .filter_map(|id| {
@@ -289,7 +322,8 @@ mod language_tests {
 
 #[cfg(test)]
 mod speed_tests {
-    use super::threads_for;
+    use super::{audio_ctx_for, repeats_itself, threads_for};
+    use crate::RATE;
 
     #[test]
     fn small_cpus_use_every_core_and_larger_ones_leave_one() {
@@ -297,6 +331,22 @@ mod speed_tests {
         assert_eq!(threads_for(2), 2);
         assert_eq!(threads_for(4), 4);
         assert_eq!(threads_for(6), 5);
+    }
+
+    #[test]
+    fn the_encoder_covers_the_window_plus_a_margin() {
+        assert_eq!(audio_ctx_for(5 * RATE), 750);
+        assert_eq!(audio_ctx_for(5 * RATE + 1), 800);
+        assert_eq!(audio_ctx_for(20 * RATE), 1500);
+        assert_eq!(audio_ctx_for(60 * RATE), 1500);
+    }
+
+    #[test]
+    fn finds_a_line_that_repeats_itself() {
+        assert!(repeats_itself("Bitte bereitet bis dahin eure Zahlen vor. Bitte bereitet bis dahin eure Zahlen vor."));
+        assert!(repeats_itself("ขอบคุณมากครับวันนี้อากาศดีขอบคุณมากครับวันนี้อากาศดี"));
+        assert!(!repeats_itself("Ja, ja, ja. Nein, nein. Gut, danke, wir sehen uns morgen."));
+        assert!(!repeats_itself(""));
     }
 }
 

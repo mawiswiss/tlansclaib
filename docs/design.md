@@ -69,6 +69,16 @@ once-a-second check, such as a sleeping computer, the 45 s start again.
   model event reports what was heard: a chosen language that is not spoken
   makes Whisper write in it, so the transcript turns into a translation. A
   line that uses 200 tokens or more logs a warning.
+- Whisper encodes 30 s for every line, however short. With `--fit-encoder`
+  the encoder covers the line plus 10 s (`audio_ctx`), and a line whose text
+  repeats a stretch of 24 characters or more is decoded again in full. The
+  app passes it on every CPU run. On the CPU the encoder is most of the work:
+  on synthesized speech, 72 s of German and 79 s of Thai, four threads of an
+  Apple M5 Max took 35 to 40% less time to transcribe, and the x86 AVX2 build
+  under Rosetta 46% less. German matched the
+  full run within the noise of a 60 ms shift. Thai lost one final character
+  on one word in every shift. A margin of 1 or 5 s made both turbo models
+  repeat lines, stock large-v3 did not.
 - The engine uses every physical core up to four, otherwise one less. It
   runs at below-normal priority, so a dual-core laptop keeps a usable
   window.
