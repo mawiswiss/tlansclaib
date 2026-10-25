@@ -1,7 +1,9 @@
 import type { EngineEvent, Heard, HistoryEntry, LoadPart, Match, Step, Timings } from "./types";
 import { titleOf } from "./format";
 
-export type Line = { start: number; end: number; text: string; speaker?: number };
+export type Word = { start: number; end: number; text: string };
+
+export type Line = { start: number; end: number; text: string; speaker?: number; words?: Word[] };
 
 export type StartError =
   | { kind: "memory"; message: string; free: number; budget: number | null; budget_without_speakers: number | null }
@@ -206,7 +208,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
         case "too_heavy":
           return { ...state, tooHeavy: e.model_id };
         case "line":
-          return { ...state, lines: [...state.lines, { start: e.start, end: e.end, text: e.text, speaker: e.speaker }] };
+          return { ...state, lines: [...state.lines, { start: e.start, end: e.end, text: e.text, speaker: e.speaker, words: e.words }] };
         case "speakers":
           return { ...state, speakers: e.speakers, voices: Math.max(1, e.speakers.length), detected: true };
         case "speaker_progress":

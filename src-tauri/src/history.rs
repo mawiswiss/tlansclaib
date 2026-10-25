@@ -431,7 +431,7 @@ mod tests {
         let stored = || history.get(1).unwrap().unwrap().file_sha256;
 
         let opened = fingerprint::transcript(&file).unwrap();
-        let lines = vec![Line { start: 0.0, end: 12.75, text: "first, corrected".into(), speaker: None }];
+        let lines = vec![Line { start: 0.0, end: 12.75, text: "first, corrected".into(), speaker: None, words: Vec::new() }];
         transcript::save(&file, &opened, &lines, true, &[]).unwrap();
         history.written(&file, true, &[], true).unwrap();
         assert_eq!(fingerprint::compare(stored().as_deref(), &file, fingerprint::transcript), Match::Same);
@@ -446,6 +446,7 @@ mod tests {
     #[test]
     fn app_record_keeps_metadata_lines_and_exports_until_deleted() {
         use crate::transcript::{self, Line, Stored};
+        use engine::words::Word;
 
         let dir = std::env::temp_dir().join(format!("tlansclaib-record-{}", std::process::id()));
         let records = dir.join("transcripts");
@@ -455,7 +456,8 @@ mod tests {
         let mut metadata = entry(1, file.to_str().unwrap());
         metadata.title = Some("Meeting".into());
         metadata.speakers = vec!["Speaker 1".into()];
-        let lines = vec![Line { start: 1.25, end: 3.5, text: "Hello".into(), speaker: Some(0) }];
+        let words = vec![Word { start: 1.25, end: 2.0, text: "Hello".into() }, Word { start: 2.0, end: 3.5, text: "there".into() }];
+        let lines = vec![Line { start: 1.25, end: 3.5, text: "Hello".into(), speaker: Some(0), words: words.clone() }];
         Stored::new(metadata.clone(), lines.clone()).write(&file).unwrap();
         metadata.file_sha256 = Some(crate::fingerprint::transcript(&file).unwrap());
         history.add(metadata).unwrap();
@@ -473,6 +475,7 @@ mod tests {
         assert!(!stored.entry.timestamps);
         assert_eq!(stored.entry.speakers, vec!["Host"]);
         assert_eq!(stored.lines[0].text, "Hello there");
+        assert_eq!(stored.lines[0].words, words);
 
         let hash = crate::fingerprint::transcript(&file).unwrap();
         let srt = dir.join("export.srt");

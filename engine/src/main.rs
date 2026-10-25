@@ -5,7 +5,7 @@ use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
 use engine::protocol::{Event, Heard, LoadPart, Step, Timings, emit};
 use engine::speakers::{nemotron, sherpa};
-use engine::{audio, model_file, output, speakers, transcribe, windows};
+use engine::{audio, model_file, output, speakers, transcribe, windows, words};
 use serde_json::json;
 
 #[derive(Parser)]
@@ -419,13 +419,15 @@ fn run(
     let mut position = 0.0f64;
     for (done, (track, speaker, window)) in segments.iter().enumerate() {
         let phase = Instant::now();
-        let text = engine.transcribe(&mut state, &tracks[*track][window.start..window.end], &language)?;
+        let decoded = engine.transcribe(&mut state, &tracks[*track][window.start..window.end], &language)?;
+        let text = decoded.text;
         timings.transcribe += phase.elapsed().as_secs_f64();
         emit(&Event::Line {
             start: window.start_seconds(),
             end: window.end_seconds(),
             text: text.clone(),
             speaker: *speaker,
+            words: words::group(&decoded.tokens, window.start_seconds(), window.end_seconds()),
         });
         let phase = Instant::now();
         writer.append(window, speaker.and_then(|s| speakers.get(s)).map(String::as_str), &text)?;

@@ -156,7 +156,8 @@ and close the result. The plus to the right starts the next recording.
 - Rename: click the pencil next to the title, or double-click it. This changes
   the title in history. The recording keeps its name.
 - Play: the player above the text plays the recording, at 1×, 1.5× or 2×.
-  Click a line to hear it from there. The line playing is highlighted.
+  Click a line to hear it from there, or a word to hear it from that word.
+  The line playing is highlighted, and in it the word being spoken.
 - Search: the search field, or ⌘F and Ctrl+F, finds words in the text.
 - Timecodes: the switch next to the search shows or hides times and controls
   whether text exports include them. The app retains the line timing.
@@ -170,8 +171,9 @@ and close the result. The plus to the right starts the next recording.
   and "Undo" shows for a few seconds.
 - Split or join lines: while correcting a line, Enter with the cursor inside
   the text splits it there. The second part goes to the next speaker and
-  shares the line's time by its length. Backspace at the start of a line joins
-  it to the line above.
+  starts at the time of its first word. A transcript made before word times
+  shares the line's time by the length of each part. Backspace at the start
+  of a line joins it to the line above.
 
 When detection found the wrong number of people, "Wrong number?" next to the
 names opens the dialog to transcribe again with another number. With one

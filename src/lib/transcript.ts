@@ -1,4 +1,4 @@
-import type { Line } from "./run";
+import type { Line, Word } from "./run";
 import type { ExportFormat } from "./types";
 
 export const EXPORT_NAMES: Record<ExportFormat, string> = { txt: "Text", srt: "SubRip subtitles", vtt: "WebVTT subtitles" };
@@ -79,16 +79,43 @@ export function nextSpeaker(speaker: number | undefined, count: number): number 
   return count > 1 ? ((speaker ?? 0) + 1) % count : speaker;
 }
 
-/** Cuts a line in two at a character of its text, sharing its time by the length of each half. */
+export type Placed = { word: Word; from: number; to: number };
+
+const LONGEST_GAP = 80;
+
+/** Finds each timed word in the text in order. A word a correction removed is left out. */
+export function placeWords(text: string, words: Word[] = []): Placed[] {
+  const placed: Placed[] = [];
+  let from = 0;
+  for (const word of words) {
+    const at = text.indexOf(word.text, from);
+    if (at < 0 || at - from > LONGEST_GAP) continue;
+    placed.push({ word, from: at, to: at + word.text.length });
+    from = at + word.text.length;
+  }
+  return placed;
+}
+
+export function wordAt(placed: Placed[], seconds: number): number {
+  return placed.findIndex(({ word }) => word.start <= seconds && seconds < word.end);
+}
+
+/** Cuts a line in two at a character of its text: at the time of the word there, or else by the length of each half. */
 export function splitLine(lines: Line[], index: number, text: string, at: number, count: number): Line[] {
   const line = lines[index];
   const before = text.slice(0, at).trim();
   const after = text.slice(at).trim();
-  const cut = line.start + ((line.end - line.start) * before.length) / (before.length + after.length || 1);
+  const placed = placeWords(text, line.words);
+  const next = placed.find((p) => p.from >= at)?.word.start;
+  const cut =
+    next !== undefined && next > line.start && next < line.end
+      ? next
+      : line.start + ((line.end - line.start) * before.length) / (before.length + after.length || 1);
+  const words = (second: boolean) => line.words && placed.filter((p) => p.from >= at === second).map((p) => p.word);
   return [
     ...lines.slice(0, index),
-    { ...line, text: before, end: cut },
-    { ...line, text: after, start: cut, speaker: nextSpeaker(line.speaker, count) },
+    { ...line, text: before, end: cut, words: words(false) },
+    { ...line, text: after, start: cut, speaker: nextSpeaker(line.speaker, count), words: words(true) },
     ...lines.slice(index + 1),
   ];
 }
@@ -98,11 +125,13 @@ export function joinLine(lines: Line[], index: number, text: string): { lines: L
   while (into >= 0 && !lines[into].text) into--;
   if (into < 0) return null;
   const earlier = lines[into];
+  const later = lines[index];
   const joined = [earlier.text, text.trim()].filter(Boolean).join(" ");
+  const words = earlier.words || later.words ? [...(earlier.words ?? []), ...(later.words ?? [])] : undefined;
   return {
     lines: [
       ...lines.slice(0, into),
-      { ...earlier, text: joined, end: Math.max(earlier.end, lines[index].end) },
+      { ...earlier, text: joined, end: Math.max(earlier.end, later.end), words },
       ...lines.slice(into + 1, index),
       ...lines.slice(index + 1),
     ],

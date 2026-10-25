@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { transcriptText } from "./format";
-import { addSpeaker, assignSpeaker, findMatches, joinLine, lineAt, nextSpeaker, parseTranscript, playingAt, splitLine, withTimes } from "./transcript";
+import { addSpeaker, assignSpeaker, findMatches, joinLine, lineAt, nextSpeaker, parseTranscript, placeWords, playingAt, splitLine, withTimes, wordAt } from "./transcript";
 
 describe("parseTranscript", () => {
   it("reads a file with timecodes back into lines", () => {
@@ -164,5 +164,47 @@ describe("speaker corrections", () => {
     expect(addSpeaker(["Speaker 1"], plain).speakers).toEqual(["Speaker 1", "Speaker 2"]);
     expect(addSpeaker(["Marc", "Client"], lines)).toEqual({ speakers: ["Marc", "Client", "Speaker 3"], lines });
     expect(addSpeaker(["Marc", "speaker 3"], lines).speakers).toEqual(["Marc", "speaker 3", "Speaker 4"]);
+  });
+});
+
+describe("word times", () => {
+  const words = [
+    { start: 0, end: 0.6, text: "Good" },
+    { start: 0.6, end: 1.4, text: "morning." },
+    { start: 2.2, end: 2.5, text: "Today" },
+    { start: 2.5, end: 4, text: "budget." },
+  ];
+  const line = { start: 0, end: 4, text: "Good morning. Today budget.", speaker: 0, words };
+
+  it("places each word in the text and skips words a correction removed", () => {
+    expect(placeWords(line.text, words).map((p) => [p.from, p.to])).toEqual([[0, 4], [5, 13], [14, 19], [20, 27]]);
+    expect(placeWords("Good evening. Today budget.", words).map((p) => p.word.text)).toEqual(["Good", "Today", "budget."]);
+    expect(placeWords("anything", undefined)).toEqual([]);
+  });
+
+  it("finds the word playing", () => {
+    const placed = placeWords(line.text, words);
+    expect(wordAt(placed, 0.7)).toBe(1);
+    expect(wordAt(placed, 1.8)).toBe(-1);
+    expect(wordAt(placed, 3.9)).toBe(3);
+  });
+
+  it("splits at the time of the word after the cursor and keeps each half's words", () => {
+    const [first, second] = splitLine([line], 0, line.text, 14, 2);
+    expect(first).toMatchObject({ text: "Good morning.", end: 2.2 });
+    expect(second).toMatchObject({ text: "Today budget.", start: 2.2, speaker: 1 });
+    expect(first.words?.map((w) => w.text)).toEqual(["Good", "morning."]);
+    expect(second.words?.map((w) => w.text)).toEqual(["Today", "budget."]);
+  });
+
+  it("falls back to the length of each half without words after the cursor", () => {
+    const [first] = splitLine([{ ...line, words: undefined }], 0, line.text, 14, 2);
+    expect(first.end).toBeCloseTo((4 * 13) / 26);
+    expect(first.words).toBeUndefined();
+  });
+
+  it("joins the words of both lines", () => {
+    const [first, second] = splitLine([line], 0, line.text, 14, 2);
+    expect(joinLine([first, second], 1, second.text)!.lines[0].words).toEqual(words);
   });
 });

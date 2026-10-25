@@ -67,7 +67,7 @@ impl Monitor {
             memory_total: system.total_memory(),
             memory_used: system.used_memory(),
             memory_free: free_memory(&system),
-            model_budget: crate::guard::model_budget(free_memory(&system)),
+            model_budget: crate::guard::run_model_budget(free_memory(&system)),
             swap_total: system.total_swap(),
             swap_used: system.used_swap(),
             app_memory: memory_of(own),

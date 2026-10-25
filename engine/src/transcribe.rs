@@ -6,10 +6,11 @@ use anyhow::{Result, anyhow};
 use serde::Serialize;
 use whisper_rs::whisper_rs_sys as sys;
 use whisper_rs::{
-    FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState,
+    DtwMode, DtwModelPreset, DtwParameters, FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState,
 };
 
 use crate::RATE;
+use crate::model_file::ModelInfo;
 
 pub struct Engine {
     context: WhisperContext,
@@ -102,6 +103,12 @@ impl Engine {
         #[cfg(all(target_os = "windows", feature = "vulkan"))]
         let use_gpu = use_gpu && gpu().is_some();
         params.use_gpu(use_gpu);
+        match crate::model_file::inspect(model) {
+            Ok(info) => {
+                params.dtw_parameters(DtwParameters { mode: alignment(&info), dtw_mem_size: crate::words::ALIGNMENT_BYTES });
+            }
+            Err(error) => log::warn!("word times are off, because the model header could not be read: {error:#}"),
+        }
         let context = WhisperContext::new_with_params(path, params).map_err(|error| {
             anyhow!(
                 "cannot load the model {}: the file is damaged or incomplete ({error}). Delete it, then add or download it again.",
@@ -142,23 +149,23 @@ impl Engine {
         Ok(probabilities)
     }
 
-    pub fn transcribe(&self, state: &mut WhisperState, samples: &[f32], language: &str) -> Result<String> {
+    pub fn transcribe(&self, state: &mut WhisperState, samples: &[f32], language: &str) -> Result<Decoded> {
         if samples.len() < RATE {
-            return Ok(String::new());
+            return Ok(Decoded::default());
         }
         let audio_ctx = audio_ctx_for(samples.len());
         if !self.decoding.fit_encoder || audio_ctx == AUDIO_CTX_FULL {
             return self.decode(state, samples, language, 0);
         }
-        let text = self.decode(state, samples, language, audio_ctx)?;
-        if !repeats_itself(&text) {
-            return Ok(text);
+        let decoded = self.decode(state, samples, language, audio_ctx)?;
+        if !repeats_itself(&decoded.text) {
+            return Ok(decoded);
         }
         log::warn!("a {:.1} s window repeated itself with the shorter encoder, so it was decoded again in full", samples.len() as f32 / RATE as f32);
         self.decode(state, samples, language, 0)
     }
 
-    fn decode(&self, state: &mut WhisperState, samples: &[f32], language: &str, audio_ctx: usize) -> Result<String> {
+    fn decode(&self, state: &mut WhisperState, samples: &[f32], language: &str, audio_ctx: usize) -> Result<Decoded> {
         let strategy = if self.decoding.beam_size > 1 {
             SamplingStrategy::BeamSearch {
                 beam_size: self.decoding.beam_size as i32,
@@ -194,7 +201,15 @@ impl Engine {
             );
         }
         let mut text = String::new();
+        let mut tokens = Vec::new();
+        let eot = self.context.token_eot();
         for segment in state.as_iter() {
+            for token in (0..segment.n_tokens()).filter_map(|i| segment.get_token(i)) {
+                if token.token_id() < eot {
+                    let at = token.token_data().t_dtw;
+                    tokens.push((token.to_bytes()?.to_vec(), (at >= 0).then(|| at as f64 / 100.0)));
+                }
+            }
             let piece = segment.to_str_lossy()?;
             let piece = piece.trim();
             if piece.is_empty() {
@@ -205,8 +220,35 @@ impl Engine {
             }
             text.push_str(piece);
         }
-        Ok(text)
+        Ok(Decoded { text, tokens })
     }
+}
+
+/// A line's text, and each text token with the second it starts at within the line, if aligned.
+#[derive(Default)]
+pub struct Decoded {
+    pub text: String,
+    pub tokens: Vec<(Vec<u8>, Option<f64>)>,
+}
+
+/// The cross-attention heads that follow the audio, known for each original model size.
+fn alignment(info: &ModelInfo) -> DtwMode<'static> {
+    let english = !info.multilingual;
+    let preset = match info.architecture.as_str() {
+        "tiny" if english => DtwModelPreset::TinyEn,
+        "tiny" => DtwModelPreset::Tiny,
+        "base" if english => DtwModelPreset::BaseEn,
+        "base" => DtwModelPreset::Base,
+        "small" if english => DtwModelPreset::SmallEn,
+        "small" => DtwModelPreset::Small,
+        "medium" if english => DtwModelPreset::MediumEn,
+        "medium" => DtwModelPreset::Medium,
+        "large" => DtwModelPreset::LargeV2,
+        "large-v3" => DtwModelPreset::LargeV3,
+        "large-v3-turbo" => DtwModelPreset::LargeV3Turbo,
+        _ => return DtwMode::TopMost { n_top: 1 },
+    };
+    DtwMode::ModelPreset { model_preset: preset }
 }
 
 #[derive(Debug, Serialize)]

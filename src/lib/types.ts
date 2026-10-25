@@ -1,3 +1,5 @@
+import type { Line, Word } from "./run";
+
 export type ModelStatus = {
   id: string;
   name: string;
@@ -57,7 +59,7 @@ export type HistoryEntry = {
 
 export type Match = "same" | "different" | "unknown" | "missing";
 
-export type Opened = { text: string; lines?: { start: number; end: number; text: string; speaker?: number }[] | null; timestamps?: boolean | null; hash: string; changed: boolean; audio: Match; times?: [number, number][] | null };
+export type Opened = { text: string; lines?: Line[] | null; timestamps?: boolean | null; hash: string; changed: boolean; audio: Match; times?: [number, number][] | null };
 
 export type FileKind = "transcript" | "audio";
 
@@ -95,7 +97,7 @@ export type EngineEvent =
   | { event: "loading"; part: LoadPart }
   | { event: "audio"; seconds: number; speakers?: string[]; video?: boolean }
   | { event: "model"; device: string; device_name?: string; threads: number; language: string; windows: number; heard?: Heard[] }
-  | { event: "line"; start: number; end: number; text: string; speaker?: number }
+  | { event: "line"; start: number; end: number; text: string; speaker?: number; words?: Word[] }
   | { event: "speakers"; speakers: string[] }
   | { event: "speaker_progress"; done: number; total: number }
   | { event: "progress"; done: number; total: number; position: number }

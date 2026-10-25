@@ -7,5 +7,6 @@ pub mod speakers;
 #[cfg(feature = "whisper")]
 pub mod transcribe;
 pub mod windows;
+pub mod words;
 
 pub const RATE: usize = 16_000;

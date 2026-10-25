@@ -15,6 +15,13 @@ pub const SHERPA_DETECTION_RAM: u64 = 3 << 29;
 const NEMOTRON_BASE_RAM: u64 = 512 * MIB;
 const NEMOTRON_RAM_PER_SECOND: u64 = 512 << 10;
 
+/// Word timing allocates this buffer for each line, plus a copy of the decoder's attention.
+pub const WORD_TIMING_RAM: u64 = engine::words::ALIGNMENT_BYTES as u64 + 64 * MIB;
+
+pub fn model_run_ram(model: u64) -> u64 {
+    model.saturating_add(WORD_TIMING_RAM)
+}
+
 pub fn detection_ram(backend: Backend, sample_seconds: Option<f64>) -> u64 {
     match backend {
         Backend::Sherpa => SHERPA_DETECTION_RAM,
@@ -77,11 +84,16 @@ pub fn model_budget(free: u64) -> u64 {
     free.saturating_sub(RUN_HEADROOM)
 }
 
-/// The largest model RAM that passes `can_start_recording`, or none when detection and audio alone do not fit.
+/// The largest model whose run, word timing included, passes `can_start_recording`, or none when detection and audio alone do not fit.
 pub fn recording_budget(free: u64, detection: u64, sample_seconds: Option<f64>) -> Option<u64> {
     let audio = sample_seconds.map(decoded_audio_bytes).unwrap_or(0);
     let budget = free.checked_sub(audio)?.checked_sub(RUN_HEADROOM)?;
-    (detection <= budget).then_some(budget)
+    (detection <= budget).then_some(budget)?.checked_sub(WORD_TIMING_RAM)
+}
+
+/// The largest model whose run, word timing included, passes `can_start`.
+pub fn run_model_budget(free: u64) -> u64 {
+    model_budget(free).saturating_sub(WORD_TIMING_RAM)
 }
 
 #[cfg(any(windows, test))]
@@ -150,6 +162,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn word_timing_adds_to_the_model_memory() {
+        assert_eq!(model_run_ram(GIB), GIB + WORD_TIMING_RAM);
+        assert_eq!(model_run_ram(u64::MAX), u64::MAX);
+        assert!(can_start(2 * GIB + WORD_TIMING_RAM, model_run_ram(GIB)).is_ok());
+        assert!(can_start(2 * GIB, model_run_ram(GIB)).is_err());
+        for free in [0, GIB, 9 * GIB + 7] {
+            let budget = run_model_budget(free);
+            assert_eq!(can_start(free, model_run_ram(budget)).is_ok(), free >= RUN_HEADROOM + WORD_TIMING_RAM);
+            assert!(can_start(free, model_run_ram(budget + 1)).is_err());
+        }
+    }
+
+    #[test]
     fn a_run_needs_the_model_plus_headroom() {
         assert!(can_start(4 * GIB, 2 * GIB).is_ok());
         assert!(can_start(3 * GIB, 2 * GIB).is_ok());
@@ -202,8 +227,8 @@ mod tests {
     fn the_recording_budget_is_the_largest_model_that_starts_with_this_recording() {
         for (free, detection, seconds) in [(3 * GIB, 0, Some(3600.0)), (9 * GIB + 7, SHERPA_DETECTION_RAM, Some(1059.0)), (4 * GIB, GIB, None)] {
             let budget = recording_budget(free, detection, seconds).unwrap();
-            assert!(can_start_recording(free, budget, detection, seconds).is_ok());
-            assert!(can_start_recording(free, budget + 1, detection, seconds).is_err());
+            assert!(can_start_recording(free, model_run_ram(budget), detection, seconds).is_ok());
+            assert!(can_start_recording(free, model_run_ram(budget + 1), detection, seconds).is_err());
         }
     }
 

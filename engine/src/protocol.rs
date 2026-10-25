@@ -3,6 +3,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+pub use crate::words::Word;
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Step {
@@ -67,6 +69,8 @@ pub enum Event {
         text: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         speaker: Option<usize>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        words: Vec<Word>,
     },
     Speakers {
         speakers: Vec<String>,
@@ -142,15 +146,17 @@ mod tests {
             end: 17.2,
             text: "สวัสดี".into(),
             speaker: None,
+            words: Vec::new(),
         };
         let json = serde_json::to_string(&event).unwrap();
-        assert!(!json.contains("speaker"));
+        assert!(!json.contains("speaker") && !json.contains("words"));
         assert_eq!(serde_json::from_str::<Event>(&json).unwrap(), event);
         let event = Event::Line {
             start: 4.0,
             end: 9.5,
             text: "hello".into(),
             speaker: Some(1),
+            words: vec![Word { start: 4.0, end: 9.5, text: "hello".into() }],
         };
         assert_eq!(serde_json::from_str::<Event>(&serde_json::to_string(&event).unwrap()).unwrap(), event);
     }

@@ -46,6 +46,12 @@ function silence(): string {
   return silent;
 }
 
+function spread(text: string, start: number, end: number) {
+  const words = text.split(" ");
+  const step = (end - start) / words.length;
+  return words.map((word, i) => ({ start: start + i * step, end: start + (i + 1) * step, text: word }));
+}
+
 export function mockBackend(): Backend {
   const target = new EventTarget();
   const emit = (name: string, detail: unknown) => target.dispatchEvent(new CustomEvent(name, { detail }));
@@ -376,7 +382,7 @@ export function mockBackend(): Backend {
       const entry = history.find((h) => h.id === id)!;
       return {
         text: mockTranscript(entry.timestamps, entry.speakers),
-        lines: entry.file.endsWith(".json") ? Array.from({ length: 12 }, (_, i) => ({ start: i * 13, end: i * 13 + 13, text: i % 2 ? EN : THAI, speaker: entry.speakers?.length ? TURNS[i] % entry.speakers.length : undefined })) : null,
+        lines: entry.file.endsWith(".json") ? Array.from({ length: 12 }, (_, i) => ({ start: i * 13, end: i * 13 + 13, text: i % 2 ? EN : THAI, speaker: entry.speakers?.length ? TURNS[i] % entry.speakers.length : undefined, words: i % 2 ? spread(EN, i * 13, i * 13 + 13) : undefined })) : null,
         timestamps: entry.timestamps,
         hash: "mock-opened",
         times: entry.timestamps ? null : Array.from({ length: 12 }, (_, i): [number, number] => [i * 13, i * 13 + 13]),

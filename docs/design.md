@@ -63,7 +63,14 @@ once-a-second check, such as a sleeping computer, the 45 s start again.
   greedy sampling, no context from the previous line, the chosen language,
   and temperature fallback when the decoder loops. A line's segments are
   joined into one text. Its times are the line's bounds, because the
-  fine-tuned Thai models do not emit usable timestamp tokens. A
+  fine-tuned Thai models do not emit usable timestamp tokens. Each word's
+  start comes from whisper.cpp's DTW alignment instead, which follows the
+  decoder's attention to the audio and needs no timestamp tokens. The
+  alignment heads are whisper.cpp's preset for the model's size, read from
+  its header, so fine-tunes use the heads of their base model, and a distil
+  model uses its top text layer. `words.rs` joins tokens into words, and in
+  Thai, Lao, Khmer, Myanmar, Chinese and Japanese into the smallest pieces
+  that render whole. A word ends where the next one starts. A
   multilingual model hears the first three lines of 17 s to 23 s, and their
   averaged language probabilities rank the languages. With language `auto`
   the first one is used for the whole file. A chosen language is kept, and the
@@ -135,7 +142,7 @@ The binary prints one JSON object per line on stdout:
 {"event":"speakers","speakers":["Speaker 1","Speaker 2","Speaker 3"]}
 {"event":"loading","part":"device|language"}
 {"event":"model","device":"metal|vulkan|cpu","device_name":"<GPU name>","threads":9,"language":"th","windows":323,"heard":[{"code":"th","probability":0.97}]}
-{"event":"line","start":0.0,"end":17.2,"text":"...","speaker":1}
+{"event":"line","start":0.0,"end":17.2,"text":"...","speaker":1,"words":[{"start":0.3,"end":0.7,"text":"..."}]}
 {"event":"progress","done":8,"total":323,"position":180.5}
 {"event":"done","lines":323,"elapsed":615.2,"file":"<path>","timings":{"decode":4.2,"speakers":0.0,"load":2.1,"transcribe":608.7,"write":0.1}}
 {"event":"error","message":"..."}
@@ -232,9 +239,9 @@ because progress reporting and other work are outside those stages.
   in the save dialog. Legacy text files keep their existing edit checks.
 - `guard.rs`: the safety rules as pure functions over numbers, fed by
   `sysinfo`. Before a run, free memory must cover the model's memory need,
-  or the speaker detection's when that is larger: 1.5 GB for the basic one, and
-  for the better one 512 MB plus 512 KB per second of audio, about 3.9 GB for
-  107 minutes. On top come an estimate of
+  plus 192 MB for word timing, or the speaker detection's when that is
+  larger: 1.5 GB for the basic one, and for the better one 512 MB plus 512 KB
+  per second of audio, about 3.9 GB for 107 minutes. On top come an estimate of
   three copies of decoded 16 kHz audio, the in-memory transcript and 1 GB of
   headroom. Free disk must also cover scratch text, the private record and
   1 GB of headroom. If the file has no usable duration, the duration-based

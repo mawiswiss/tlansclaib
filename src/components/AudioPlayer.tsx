@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { clock } from "../lib/format";
 import { Pause, Play } from "./icons";
 
@@ -7,6 +7,7 @@ export type PlayerHandle = { seek: (seconds: number) => void };
 type Props = {
   src: string;
   onTime: (seconds: number, playing: boolean) => void;
+  onFrame?: (seconds: number) => void;
   onSeek: (seconds: number) => void;
   onReady: (duration: number) => void;
   onFail: () => void;
@@ -15,12 +16,26 @@ type Props = {
 
 const SPEEDS = [1, 1.5, 2];
 
-export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer({ src, onTime, onSeek, onReady, onFail, onPlaybackError }, ref) {
+export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer({ src, onTime, onFrame, onSeek, onReady, onFail, onPlaybackError }, ref) {
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
+  const frame = useRef(onFrame);
+  frame.current = onFrame;
+
+  useEffect(() => {
+    if (!playing) return;
+    let id = 0;
+    const tick = () => {
+      if (audio.current) frame.current?.(audio.current.currentTime);
+      id = requestAnimationFrame(tick);
+    };
+    id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, [playing]);
+
   const play = () => {
     void audio.current?.play().then(() => onPlaybackError(null)).catch((error) => onPlaybackError(`Could not play the recording: ${String(error)}`));
   };

@@ -5289,6 +5289,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.1",
  "symphonia",
+ "unicode-segmentation",
  "whisper-rs",
  "windows-sys 0.61.2",
 ]

@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, anyhow};
 use engine::output::render;
+use engine::words::Word;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -11,6 +12,8 @@ pub struct Line {
     pub text: String,
     #[serde(default)]
     pub speaker: Option<usize>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub words: Vec<Word>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -212,9 +215,9 @@ mod tests {
 
     fn lines() -> Vec<Line> {
         vec![
-            Line { start: 0.0, end: 12.75, text: "first".into(), speaker: None },
-            Line { start: 12.75, end: 24.35, text: String::new(), speaker: None },
-            Line { start: 24.35, end: 39.25, text: "second".into(), speaker: None },
+            Line { start: 0.0, end: 12.75, text: "first".into(), speaker: None, words: Vec::new() },
+            Line { start: 12.75, end: 24.35, text: String::new(), speaker: None, words: Vec::new() },
+            Line { start: 24.35, end: 39.25, text: "second".into(), speaker: None, words: Vec::new() },
         ]
     }
 
@@ -245,8 +248,8 @@ mod tests {
         let file = dir.join("call_transcript.txt");
         std::fs::write(&file, "[00:00:00.00 --> 00:00:04.00] Speaker 1: Hello\n[00:00:04.50 --> 00:00:09.00] Speaker 2: Hi\n").unwrap();
         let lines = vec![
-            Line { start: 0.0, end: 4.0, text: "Hello".into(), speaker: Some(0) },
-            Line { start: 4.5, end: 9.0, text: "Hi".into(), speaker: Some(1) },
+            Line { start: 0.0, end: 4.0, text: "Hello".into(), speaker: Some(0), words: Vec::new() },
+            Line { start: 4.5, end: 9.0, text: "Hi".into(), speaker: Some(1), words: Vec::new() },
         ];
         let defaults = engine::output::speakers(2);
         set_timestamps(&file, &lines, false, &defaults).unwrap();
@@ -264,9 +267,9 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "Marc: Hello\nClient: Hi\n");
 
         let split = vec![
-            Line { start: 0.0, end: 2.0, text: "Hel".into(), speaker: Some(0) },
-            Line { start: 2.0, end: 4.0, text: "lo".into(), speaker: Some(2) },
-            Line { start: 4.5, end: 9.0, text: "Hi".into(), speaker: Some(1) },
+            Line { start: 0.0, end: 2.0, text: "Hel".into(), speaker: Some(0), words: Vec::new() },
+            Line { start: 2.0, end: 4.0, text: "lo".into(), speaker: Some(2), words: Vec::new() },
+            Line { start: 4.5, end: 9.0, text: "Hi".into(), speaker: Some(1), words: Vec::new() },
         ];
         let three = vec!["Marc".to_string(), "Client".to_string(), "Guest".to_string()];
         assert!(save(&file, &hash, &split, false, &named).unwrap_err().to_string().contains("not in the list"));

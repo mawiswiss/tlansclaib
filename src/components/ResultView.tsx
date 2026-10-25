@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/format";
 import { differs } from "../lib/language";
-import type { RunState } from "../lib/run";
-import { addSpeaker, assignSpeaker, EXPORT_NAMES, findMatches, joinLine, playingAt, splitLine, type Playing, type Transcript } from "../lib/transcript";
+import type { RunState, Word } from "../lib/run";
+import { addSpeaker, assignSpeaker, EXPORT_NAMES, findMatches, joinLine, placeWords, playingAt, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
 import type { ExportFormat } from "../lib/types";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
 import { Check, ChevronDown, Close, Copy, Download, Info, Pencil, Plus, Retry, Search } from "./icons";
@@ -56,6 +56,55 @@ function marked(text: string, query: string): ReactNode {
   return parts;
 }
 
+function usePlayhead() {
+  return useMemo(() => {
+    let now = 0;
+    const listeners = new Set<() => void>();
+    return {
+      get: () => now,
+      set: (seconds: number) => {
+        now = seconds;
+        listeners.forEach((listener) => listener());
+      },
+      subscribe: (listener: () => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+  }, []);
+}
+
+type Playhead = ReturnType<typeof usePlayhead>;
+
+const still = () => () => {};
+
+type SpokenProps = { row: number; text: string; words: Word[]; live: boolean; playhead: Playhead; onWord: (row: number, seconds: number) => void };
+
+const Spoken = memo(function Spoken({ row, text, words, live, playhead, onWord }: SpokenProps) {
+  const placed = useMemo(() => placeWords(text, words), [text, words]);
+  const now = useSyncExternalStore(live ? playhead.subscribe : still, () => (live ? wordAt(placed, playhead.get()) : -1));
+  const parts: ReactNode[] = [];
+  let from = 0;
+  placed.forEach(({ word, from: at, to }, i) => {
+    parts.push(text.slice(from, at));
+    parts.push(
+      <span
+        key={i}
+        className={i === now ? "word now" : "word"}
+        onClick={(e) => {
+          e.stopPropagation();
+          onWord(row, word.start);
+        }}
+      >
+        {word.text}
+      </span>,
+    );
+    from = to;
+  });
+  parts.push(text.slice(from));
+  return parts;
+});
+
 export function ResultView(props: Props) {
   const {
     run,
@@ -95,6 +144,7 @@ export function ResultView(props: Props) {
   const [query, setQuery] = useState("");
   const [hit, setHit] = useState(0);
   const player = useRef<PlayerHandle>(null);
+  const playhead = usePlayhead();
   const search = useRef<HTMLInputElement>(null);
   const rows = useRef<(HTMLParagraphElement | null)[]>([]);
   const userScrolled = useRef(0);
@@ -324,6 +374,7 @@ export function ResultView(props: Props) {
   };
 
   const onTime = (seconds: number, playing: boolean) => {
+    playhead.set(seconds);
     if (!run.timed) return;
     const next = playingAt(lines, seconds);
     if (next.main === heard.main && next.lines.join() === heard.lines.join()) return;
@@ -334,12 +385,23 @@ export function ResultView(props: Props) {
   };
 
   const onSeek = (seconds: number) => {
+    playhead.set(seconds);
     if (!run.timed) return;
     const next = playingAt(lines, seconds);
     setHeard(next);
     userScrolled.current = 0;
     if (next.main >= 0) rows.current[next.main]?.scrollIntoView({ block: "center" });
   };
+
+  const playWord = useCallback(
+    (row: number, seconds: number) => {
+      player.current?.seek(seconds);
+      playhead.set(seconds);
+      setHeard({ lines: [row], main: row });
+      userScrolled.current = 0;
+    },
+    [playhead],
+  );
 
   const step = (delta: number) => {
     if (hits.length > 0) setHit((h) => (h + delta + hits.length) % hits.length);
@@ -509,6 +571,7 @@ export function ResultView(props: Props) {
               ref={player}
               src={src}
               onTime={onTime}
+              onFrame={playhead.set}
               onSeek={onSeek}
               onReady={(d) => onLog("info", `playing a recording, ${Math.round(d)} s`)}
               onPlaybackError={setPlayerError}
@@ -729,7 +792,13 @@ export function ResultView(props: Props) {
                     aria-label="Edit this line"
                   />
                 ) : (
-                  <span onDoubleClick={() => startEdit(line.index, line.text)}>{marked(line.text, needle)}</span>
+                  <span onDoubleClick={() => startEdit(line.index, line.text)}>
+                    {syncable && line.words?.length && !needle ? (
+                      <Spoken row={i} text={line.text} words={line.words} live={heard.lines.includes(i)} playhead={playhead} onWord={playWord} />
+                    ) : (
+                      marked(line.text, needle)
+                    )}
+                  </span>
                 )}
                 {!isEditing && (
                   <button

@@ -200,7 +200,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     let monitor = app.state::<Arc<Monitor>>();
     let (free, _) = monitor.memory();
     let detection_ram = if speakers.is_some() { guard::detection_ram(detector, None) } else { 0 };
-    if !force && let Err(message) = guard::can_start(free, entry.ram_bytes().max(detection_ram)) {
+    if !force && let Err(message) = guard::can_start(free, guard::model_run_ram(entry.ram_bytes()).max(detection_ram)) {
         return Err(memory_refusal(message, free, detection_ram, None));
     }
     let audio_arg = audio.to_string_lossy().into_owned();
@@ -214,7 +214,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     }
     let (free, swap_at_start) = monitor.memory();
     let detection_ram = if speakers.is_some() { guard::detection_ram(detector, sample_seconds) } else { 0 };
-    if !force && let Err(message) = guard::can_start_recording(free, entry.ram_bytes(), detection_ram, sample_seconds) {
+    if !force && let Err(message) = guard::can_start_recording(free, guard::model_run_ram(entry.ram_bytes()), detection_ram, sample_seconds) {
         return Err(memory_refusal(message, free, detection_ram, sample_seconds));
     }
     if force {
@@ -535,11 +535,11 @@ fn track(run: &mut ActiveRun, event: &Event) {
             record.language = Some(language.clone());
             record.heard = heard.clone();
         }
-        Event::Line { start, end, text, speaker } => {
+        Event::Line { start, end, text, speaker, words } => {
             if !text.is_empty() {
                 record.lines += 1;
             }
-            record.transcript_lines.push(Line { start: *start, end: *end, text: text.clone(), speaker: *speaker });
+            record.transcript_lines.push(Line { start: *start, end: *end, text: text.clone(), speaker: *speaker, words: words.clone() });
         }
         Event::Error { .. } => {
             log::error!("engine reported an error");
@@ -725,7 +725,7 @@ mod tests {
         let json = serde_json::to_value(&refused).unwrap();
         assert_eq!(json["kind"], "memory");
         assert_eq!(json["budget"], serde_json::Value::Null);
-        assert_eq!(json["budget_without_speakers"], gib);
+        assert_eq!(json["budget_without_speakers"], gib - guard::WORD_TIMING_RAM);
         let other = serde_json::to_value(StartError::from(anyhow!("gone"))).unwrap();
         assert_eq!(other, serde_json::json!({ "kind": "other", "message": "gone" }));
     }
