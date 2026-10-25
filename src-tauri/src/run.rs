@@ -199,7 +199,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     let (entry, model_path) = app.state::<Models>().installed_path(model_id)?;
     let monitor = app.state::<Arc<Monitor>>();
     let (free, _) = monitor.memory();
-    let detection_ram = if speakers.is_some() { guard::detection_ram(detector) } else { 0 };
+    let detection_ram = if speakers.is_some() { guard::detection_ram(detector, None) } else { 0 };
     if !force && let Err(message) = guard::can_start(free, entry.ram_bytes().max(detection_ram)) {
         return Err(memory_refusal(message, free, detection_ram, None));
     }
@@ -213,6 +213,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         log::warn!("recording length is unavailable, so the decoded audio memory estimate was skipped");
     }
     let (free, swap_at_start) = monitor.memory();
+    let detection_ram = if speakers.is_some() { guard::detection_ram(detector, sample_seconds) } else { 0 };
     if !force && let Err(message) = guard::can_start_recording(free, entry.ram_bytes(), detection_ram, sample_seconds) {
         return Err(memory_refusal(message, free, detection_ram, sample_seconds));
     }

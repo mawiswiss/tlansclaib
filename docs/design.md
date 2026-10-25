@@ -232,7 +232,9 @@ because progress reporting and other work are outside those stages.
   in the save dialog. Legacy text files keep their existing edit checks.
 - `guard.rs`: the safety rules as pure functions over numbers, fed by
   `sysinfo`. Before a run, free memory must cover the model's memory need,
-  or 1.5 GB for either speaker detection when that is larger, plus an estimate of
+  or the speaker detection's when that is larger: 1.5 GB for the basic one, and
+  for the better one 512 MB plus 512 KB per second of audio, about 3.9 GB for
+  107 minutes. On top come an estimate of
   three copies of decoded 16 kHz audio, the in-memory transcript and 1 GB of
   headroom. Free disk must also cover scratch text, the private record and
   1 GB of headroom. If the file has no usable duration, the duration-based

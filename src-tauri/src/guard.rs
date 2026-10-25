@@ -11,12 +11,18 @@ pub const SWAP_GROWTH_LIMIT: u64 = 2 * GIB;
 
 /// sherpa-onnx detection peaked at 1.3 GB on a 107-minute recording. It runs before the model loads.
 pub const SHERPA_DETECTION_RAM: u64 = 3 << 29;
-pub const NEMOTRON_DETECTION_RAM: u64 = 3 << 29;
+/// Nemotron on Metal peaked at 0.51 GB for 5 minutes and 3.6 GB for 107, growing linearly with the length.
+const NEMOTRON_BASE_RAM: u64 = 512 * MIB;
+const NEMOTRON_RAM_PER_SECOND: u64 = 512 << 10;
 
-pub fn detection_ram(backend: Backend) -> u64 {
+pub fn detection_ram(backend: Backend, sample_seconds: Option<f64>) -> u64 {
     match backend {
         Backend::Sherpa => SHERPA_DETECTION_RAM,
-        Backend::Nemotron => NEMOTRON_DETECTION_RAM,
+        Backend::Nemotron => match sample_seconds {
+            Some(seconds) if !seconds.is_finite() || seconds < 0.0 => u64::MAX,
+            Some(seconds) => NEMOTRON_BASE_RAM.saturating_add((seconds.ceil() * NEMOTRON_RAM_PER_SECOND as f64) as u64),
+            None => NEMOTRON_BASE_RAM,
+        },
     }
 }
 
@@ -164,9 +170,21 @@ mod tests {
     #[test]
     fn speaker_detection_reserves_memory_before_loading_whisper() {
         for backend in [Backend::Sherpa, Backend::Nemotron] {
-            assert!(can_start_recording(3 * GIB, GIB, detection_ram(backend), Some(1059.0)).is_ok());
-            assert!(can_start_recording(2 * GIB, GIB, detection_ram(backend), Some(1059.0)).is_err());
+            assert!(can_start_recording(3 * GIB, GIB, detection_ram(backend, Some(1059.0)), Some(1059.0)).is_ok());
+            assert!(can_start_recording(2 * GIB, GIB, detection_ram(backend, Some(1059.0)), Some(1059.0)).is_err());
         }
+    }
+
+    #[test]
+    fn nemotron_reserves_its_measured_peak_for_the_recording_length() {
+        for (seconds, peak) in [(300.0, 513_246_192), (1503.0, 1_122_764_264), (3600.0, 2_163_312_800), (6425.0, 3_579_792_600)] {
+            let reserve = detection_ram(Backend::Nemotron, Some(seconds));
+            assert!(reserve >= peak && reserve < peak + peak / 2, "{seconds} s: {reserve} for a peak of {peak}");
+        }
+        assert!(can_start_recording(8 * GIB, GIB, detection_ram(Backend::Nemotron, Some(6425.0)), Some(6425.0)).is_ok());
+        assert!(can_start_recording(5 * GIB, GIB, detection_ram(Backend::Nemotron, Some(6425.0)), Some(6425.0)).is_err());
+        assert_eq!(detection_ram(Backend::Nemotron, Some(f64::INFINITY)), u64::MAX);
+        assert_eq!(detection_ram(Backend::Nemotron, Some(-1.0)), u64::MAX);
     }
 
     #[test]
