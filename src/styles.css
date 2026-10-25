@@ -1056,17 +1056,18 @@ input.toggle:checked::after {
 }
 
 .transcript .word {
-  border-radius: 3px;
+  border-radius: 4px;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .transcript .word:hover {
   background: var(--surface-2);
+  box-shadow: 0 0 0 2px var(--surface-2);
 }
 
 .transcript .word.now {
-  color: var(--accent);
-  text-decoration: underline 2px;
-  text-underline-offset: 3px;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 .transcript p.current .time {
