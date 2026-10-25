@@ -179,13 +179,16 @@ When detection found the wrong number of people, "Wrong number?" next to the
 names opens the dialog to transcribe again with another number. With one
 speaker and detection installed, "More people in this audio?" does the same. The dialog takes the
 settings the transcript used. Change the model, the recording language or the
-number of people for this run, then "Transcribe again". It replaces the result and any
-corrections in history. Files you exported remain where they are.
+number of people for this run, then "Transcribe again". It replaces the result in
+history. Files you exported remain where they are. After a correction, the dialog
+warns that the corrections will be lost, and its button reads "Discard corrections
+and transcribe".
 
 ## History
 
 "History" at the top right lists every transcript with its date and length,
-with a search above it. Click one to open it. The cross deletes an app record;
+with a search above it. A transcript you corrected carries an "Edited" label.
+Click one to open it. The cross deletes an app record;
 the app asks first and leaves the original recording and any exports alone.
 Older `.txt` entries still open from their original paths. Their cross only
 removes the history entry, and a moved text file can be located again. If a

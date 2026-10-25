@@ -2090,6 +2090,42 @@ button.icon-button.tiny {
   margin: 0;
 }
 
+.rerun-warning {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-sm);
+  background: var(--warn-soft);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.rerun-warning svg {
+  flex: none;
+  color: var(--warn);
+}
+
+.rerun-warning p {
+  margin: 0;
+}
+
+.rerun-warning strong {
+  color: var(--warn);
+}
+
+button.primary.destructive {
+  background: var(--warn);
+  color: var(--accent-text);
+}
+
+button.primary.destructive:hover:not(:disabled) {
+  background: var(--warn);
+  filter: brightness(1.08);
+}
+
 .field {
   position: relative;
   display: flex;
@@ -2657,6 +2693,20 @@ button.entry-retry:hover:not(:disabled) {
 
 .dot.warn {
   background: var(--warn);
+}
+
+.entry-edited {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-right: 7px;
+  padding: 1px 7px 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  vertical-align: 1px;
 }
 
 @keyframes fade {

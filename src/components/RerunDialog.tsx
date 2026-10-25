@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { DETECTION } from "../lib/detection";
 import { parseLanguage, type LanguageOption } from "../lib/setup";
 import type { ModelStatus, SpeakerBackend } from "../lib/types";
-import { Close, Retry } from "./icons";
+import { Alert, Close, Retry } from "./icons";
 import { menuLabel } from "./ModelsPanel";
 import { Select } from "./Select";
 
@@ -53,7 +53,7 @@ export function RerunDialog(props: Props) {
 
   return (
     <div className="overlay" onClick={props.onClose}>
-      <section className="modal rerun" role="dialog" aria-modal="true" aria-labelledby="rerun-title" onClick={(e) => e.stopPropagation()}>
+      <section className="modal rerun" role="dialog" aria-modal="true" aria-labelledby="rerun-title" aria-describedby={props.edited ? "rerun-warning" : undefined} onClick={(e) => e.stopPropagation()}>
         <header className="modal-head">
           <div>
             <h2 id="rerun-title">Transcribe again</h2>
@@ -64,6 +64,14 @@ export function RerunDialog(props: Props) {
           </button>
         </header>
         <div className="modal-body rerun-form">
+          {props.edited && (
+            <div className="rerun-warning" id="rerun-warning">
+              <Alert size={20} />
+              <p>
+                <strong>Your corrections will be lost.</strong> Transcribing again replaces this transcript and every correction in it. Files you exported stay where they are.
+              </p>
+            </div>
+          )}
           {props.missingModel && <p className="note">{props.missingModel} is not installed any more, so another model is chosen.</p>}
           <label className="field" htmlFor="rerun-model">
             <span className="label">Model</span>
@@ -128,16 +136,15 @@ export function RerunDialog(props: Props) {
               </span>
             )}
           </div>
-          {props.edited && <p className="note">Replaces this result and its corrections in history. Files outside the app stay where they are.</p>}
         </div>
         <footer className="modal-foot">
           <span className="rerun-actions">
             <button type="button" onClick={props.onClose}>
               Cancel
             </button>
-            <button type="button" className="primary" onClick={() => props.onRun({ ...choice, language: parseLanguage(locked ?? choice.language).code })} disabled={!model}>
+            <button type="button" className={props.edited ? "primary destructive" : "primary"} onClick={() => props.onRun({ ...choice, language: parseLanguage(locked ?? choice.language).code })} disabled={!model}>
               <Retry size={15} />
-              Transcribe again
+              {props.edited ? "Discard corrections and transcribe" : "Transcribe again"}
             </button>
           </span>
         </footer>

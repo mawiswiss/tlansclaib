@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clock, folderOf, titleOf } from "../lib/format";
 import type { HistoryEntry } from "../lib/types";
-import { Close, Folder, Retry, Search } from "./icons";
+import { Close, Folder, Pencil, Retry, Search } from "./icons";
 
 type Props = {
   open: boolean;
@@ -77,6 +77,12 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
                   </span>
                   <span className="entry-meta">
                     {e.status === "incomplete" && <span className="dot warn" title="Stopped early" />}
+                    {e.edited === true && (
+                      <span className="entry-edited" title="Corrected by hand">
+                        <Pencil size={11} strokeWidth={2.2} />
+                        Edited
+                      </span>
+                    )}
                     {e.audio_seconds !== null ? clock(e.audio_seconds) : `${e.lines} lines`} · {e.model}
                     {e.language && <> · {languageName(e.language)}</>}
                   </span>

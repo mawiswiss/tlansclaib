@@ -103,6 +103,7 @@ export default function App() {
   const savedHash = useRef<string | null>(null);
   savedHash.current = run.hash;
   const saving = useRef(Promise.resolve<Transcript | null>(null));
+  const editedFile = useRef<string | null>(null);
   const startLatest = useRef<(audio: string) => void>(() => {});
   const stageLatest = useRef<(audio: string) => void>(() => {});
   const [pending, setPending] = useState<string | null>(null);
@@ -533,6 +534,7 @@ export default function App() {
         const hash = await b.saveTranscript(file, expected, next.lines, timestamps, next.speakers);
         latest.current = next;
         savedHash.current = hash;
+        editedFile.current = file;
         dispatch({ type: "edit", lines: next.lines, speakers: next.speakers, hash });
         setResultError(null);
         return before;
@@ -581,6 +583,7 @@ export default function App() {
       return;
     }
     const speakers = choice.speakers !== "off" && choice.backend ? choice.speakers : null;
+    editedFile.current = null;
     setResultError(null);
     setHistoryError(null);
     setHistoryOpen(false);
@@ -602,10 +605,12 @@ export default function App() {
     );
   };
 
-  const rerunResult = (options: RerunOptions = {}) => {
+  const rerunResult = async (options: RerunOptions = {}) => {
     const file = run.result?.file;
     const entry = history.find((h) => h.file === file) ?? run.opened;
-    if (entry) openRerun(entry, options);
+    // A line still being saved after its blur has not reached history yet.
+    await saving.current;
+    if (entry) openRerun(file && editedFile.current === file ? { ...entry, edited: true } : entry, options);
     else setResultError("This transcript is not in the history, so its settings are unknown.");
   };
 
@@ -1283,7 +1288,7 @@ export default function App() {
       {rerunTarget && (
         <RerunDialog
           title={rerunTarget.entry.title ?? titleOf(rerunTarget.entry.file)}
-          edited={rerunTarget.entry.edited !== false}
+          edited={rerunTarget.entry.edited === true}
           tracks={!rerunTarget.entry.detected ? (rerunTarget.entry.speakers?.length ?? 0) : 0}
           models={models}
           languages={languageOptions}
