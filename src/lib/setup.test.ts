@@ -40,7 +40,7 @@ describe("wanted", () => {
   it("takes the mode's all-language model and speaker detection", () => {
     expect(wanted(models, setup("essential"))).toEqual(["turbo-q8", "speaker-detection-nemotron"]);
     expect(wanted(models, setup("precise"))).toEqual(["large-v3", "speaker-detection-nemotron"]);
-    expect(wanted(models, setup("minimal"))).toEqual(["tiny"]);
+    expect(wanted(models, setup("minimal"))).toEqual(["tiny", "speaker-detection"]);
   });
 
   it("adds the chosen language's model, and German never pulls in Swiss German", () => {
@@ -150,6 +150,7 @@ describe("downloads", () => {
   it("runs the setup's speaker detection when installed, else the other", () => {
     const both = detections.map((d) => ({ ...d, installed: true }));
     expect(wantedBackend(setup("essential"), both)).toBe("nemotron");
+    expect(wantedBackend(setup("minimal"), both)).toBe("sherpa");
     expect(wantedBackend(setup("essential"), [{ ...detections[0], installed: true }, detections[1]])).toBe("sherpa");
     expect(wantedBackend(null, detections)).toBeNull();
   });

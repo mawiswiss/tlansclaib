@@ -111,7 +111,7 @@ pnpm tauri dev
   [primeline](https://huggingface.co/primeline), English by
   [distil-whisper](https://huggingface.co/distil-whisper), French by
   [bofenghuang](https://huggingface.co/bofenghuang).
-- Basic speaker detection, optional under Models:
+- Basic speaker detection, in the Minimal setup:
   [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) by the k2-fsa team
   (Apache 2.0) on [ONNX Runtime](https://onnxruntime.ai) (MIT), with
   [pyannote segmentation 3.0](https://huggingface.co/pyannote/segmentation-3.0)

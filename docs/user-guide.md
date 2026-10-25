@@ -45,8 +45,8 @@ On the first start it asks two things:
     About 3.3 GB, more with a language of its own.
   - Essential: mid-sized models and the better speaker detection, for older
     computers or a slower connection. About 1.1 GB.
-  - Minimal: one small model for all languages and no speaker detection, for
-    when the others do not run. About 260 MB.
+  - Minimal: one small model for all languages and the basic speaker
+    detection, for when the others do not run. About 300 MB.
 
 The app measures the connection, checks for a graphics chip and marks one
 setup "Recommended for this computer". If the Precise model failed on this
@@ -92,15 +92,14 @@ model deletes the file.
 
 Speaker detection tells who speaks when in a recording with one audio track,
 such as a meeting room, and runs offline like the models. Precise and
-Essential bring the better one, Minimal none:
+Essential bring the better one, Minimal the basic one:
 
 - Better detection, about 202 MB, which keeps short replies apart.
   "Speakers" offers "Auto" or a cap of 2 to 8 people. A cap can suppress an
   extra label, but cannot recover a voice the model missed.
-- Basic detection, about 38 MB, under Models for a computer where the better
-  one is too slow. It runs only when the better one is not installed.
-  "Speakers" in the settings row
-  offers "Auto" or 2 to 6 people, and giving the number is more reliable. The
+- Basic detection, about 38 MB. In the other setups it runs only when the
+  better one is not installed. "Speakers" in the settings row offers "Auto"
+  or 2 to 6 people, and giving the number is more reliable. The
   small "Standard" next to "Speakers" can be switched to "Fast", which takes
   about a third of the time and gets a few more speaker changes wrong. Very
   short replies such as "yes" often go to the wrong person. Detection runs on
