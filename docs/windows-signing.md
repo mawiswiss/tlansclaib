@@ -127,7 +127,7 @@ because billing runs per account and not per validation.
   of tauri-action becomes
   `${{ matrix.args }} ${{ env.UPDATER_ARGS }} ${{ env.SIGNING_ARGS }}`, and
   Tauri CLI 2.12 merges several `--config` flags in the order given.
-- Tauri then runs the sign command on the app, both engine sidecars, the NSIS
+- Tauri then runs the sign command on the app, all four engine sidecars, the NSIS
   plugins, the uninstaller and the installer.
 - The Signing section in `docs/release.md` describes the setup in place of
   "The Windows installer is not signed".
@@ -144,7 +144,7 @@ has the details of `artifact-signing-cli`.
   leave no long-lived secret in the repository. This is untested.
 - Every signed file verifies and carries a timestamp. `signtool verify /pa /v`
   or `Get-AuthenticodeSignature` shows it, on the installer and on the
-  installed app and both sidecars.
+  installed app and all four sidecars.
 - The updater's `.sig` still matches the signed installer, and an update
   from the last unsigned version installs.
 

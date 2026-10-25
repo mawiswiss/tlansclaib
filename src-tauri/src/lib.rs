@@ -1,3 +1,4 @@
+mod cpu;
 mod detection;
 mod fingerprint;
 mod gpu;
@@ -94,7 +95,7 @@ fn reveal(path: String) -> Result<(), String> {
 async fn list_languages(app: AppHandle) -> Result<Vec<Language>, String> {
     let output = app
         .shell()
-        .sidecar("tlansclaib-engine")
+        .sidecar(cpu::engine())
         .map_err(|e| e.to_string())?
         .args(["languages"])
         .output()

@@ -52,7 +52,9 @@ jobs:
           if [[ $triple == *windows* ]]; then ext=".exe"; fi
           mkdir -p src-tauri/binaries
           touch "src-tauri/binaries/tlansclaib-engine-$triple$ext"
-          if [[ $triple == *windows* ]]; then touch "src-tauri/binaries/tlansclaib-engine-vulkan-$triple$ext"; fi
+          if [[ $triple == *windows* ]]; then
+            for name in vulkan avx sse; do touch "src-tauri/binaries/tlansclaib-engine-$name-$triple$ext"; done
+          fi
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       - name: Build Vulkan engine

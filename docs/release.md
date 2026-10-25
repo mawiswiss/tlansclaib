@@ -36,11 +36,22 @@ place first, because tauri-build refuses to compile the app without either.
   joins them with `lipo` for the bundle.
 - `GGML_NATIVE=OFF` keeps whisper.cpp at an AVX2 baseline on Windows. Without
   it the build optimises for the CI machine, which may have AVX-512, and the
-  binary then crashes on laptops without it.
-- The engine uses Metal on macOS. Windows bundles CPU and Vulkan sidecars. The
-  Vulkan build needs the Vulkan SDK on the build machine, which CI installs.
-  The app probes the GPU before a run and falls back to the CPU sidecar when
-  Vulkan is unavailable or has too little free memory.
+  binary then crashes on laptops without it. On MSVC that baseline also needs
+  FMA, F16C and BMI2, so Haswell from 2013 or newer.
+- The engine uses Metal on macOS. Windows bundles four sidecars: the main CPU
+  engine, the Vulkan engine, `tlansclaib-engine-avx` for CPUs with AVX but not
+  the full AVX2 set (Sandy Bridge, Ivy Bridge), and `tlansclaib-engine-sse`,
+  plain SSE2, for CPUs without AVX (Celeron, Pentium Silver, Core 2, Athlon
+  II). No ggml kernel needs SSE4, so the SSE engine leaves it out. The two older builds set
+  every instruction flag explicitly, each in its own target folder, because
+  whisper-rs-sys does not rebuild when only an environment variable changes.
+  Below AVX, ggml's dot products for quantized models fall back to scalar
+  code, so the SSE engine avoids a crash rather than being fast. The Vulkan build
+  needs the Vulkan SDK on the build machine, which CI installs. The app
+  probes the GPU before a run and falls back to the CPU engine for the
+  processor (`cpu.rs`) when Vulkan is unavailable or has too little free
+  memory. A processor without the AVX2 set never starts the Vulkan engine,
+  because its CPU code needs AVX2 too.
 - tauri-action names the files after `assetNamePattern`. Next to the two
   installers, the release holds the update files, see Updates.
 

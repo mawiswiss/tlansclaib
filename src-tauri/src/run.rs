@@ -156,7 +156,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     let detection_ram = if speakers.is_some() { guard::detection_ram(detector) } else { 0 };
     guard::can_start(free, entry.ram_bytes().max(detection_ram)).map_err(|e| anyhow!(e))?;
     let audio_arg = audio.to_string_lossy().into_owned();
-    let info = app.shell().sidecar("tlansclaib-engine")?.args(["audio-info", "--audio", &audio_arg]).output().await?;
+    let info = app.shell().sidecar(crate::cpu::engine())?.args(["audio-info", "--audio", &audio_arg]).output().await?;
     if !info.status.success() {
         return Err(anyhow!("Could not inspect the recording. Check that it is a supported audio or video file."));
     }
@@ -214,11 +214,11 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         if crate::gpu::device(app).await.is_some_and(|gpu| guard::can_use_gpu(gpu.free_bytes, entry.ram_bytes())) {
             "tlansclaib-engine-vulkan"
         } else {
-            "tlansclaib-engine"
+            crate::cpu::engine()
         }
     };
     #[cfg(not(windows))]
-    let engine_name = "tlansclaib-engine";
+    let engine_name = crate::cpu::engine();
     let mut retry_args = args.clone();
     #[cfg(target_os = "macos")]
     retry_args.push("--cpu".into());
@@ -367,7 +367,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                             format!("{backend} could not load the model. Retrying on CPU.")
                         };
                         let _ = app.emit("engine-event", AppEvent::Retry { message });
-                        let retry = (|| -> Result<_> { Ok(app.shell().sidecar("tlansclaib-engine")?.args(retry_args.clone()).spawn()?) })();
+                        let retry = (|| -> Result<_> { Ok(app.shell().sidecar(crate::cpu::engine())?.args(retry_args.clone()).spawn()?) })();
                         match retry {
                             Ok((new_events, child)) => {
                                 let state = app.state::<RunState>();

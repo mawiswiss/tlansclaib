@@ -20,7 +20,8 @@ scripts/     model conversion and the sidecar build, not shipped
 ```
 
 whisper.cpp runs inside `tlansclaib-engine`, bundled as a Tauri sidecar. On
-Windows, a second sidecar has the Vulkan backend. The app checks its free GPU
+Windows, a second sidecar has the Vulkan backend, and two more run on
+processors older than AVX2, see `docs/release.md`. The app checks its free GPU
 memory before each run and chooses the CPU sidecar when it cannot use Vulkan. It
 starts the chosen sidecar per run, reads JSON lines from its stdout, and kills
 it when memory gets tight. A crash in the engine becomes an error in the window
@@ -182,6 +183,9 @@ because progress reporting and other work are outside those stages.
     library archive and the 201 MB Nemotron GGUF model. Only the library and
     its MIT licence are extracted. The model's OpenMDW 1.1 licence and origin
     notice are saved beside it.
+- `cpu.rs`: which CPU engine the processor can run on Windows: the main one
+  with AVX2, FMA, F16C and BMI2, the AVX one, or the SSE one. Every CPU run
+  and helper call goes through it.
 - `gpu.rs`: whether the computer can run the Precise model on its graphics
   chip, for the setup's recommendation. `tlansclaib-engine probe` starts the
   GPU whisper.cpp would pick and prints its backend, name and free memory, or

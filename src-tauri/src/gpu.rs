@@ -26,6 +26,9 @@ pub struct Device {
 
 /// The GPU the engine sidecar starts, or None when it has none, fails or hangs.
 pub async fn device(app: &AppHandle) -> Option<Device> {
+    if cfg!(windows) && !crate::cpu::runs_vulkan_engine() {
+        return None;
+    }
     let sidecar = if cfg!(windows) { "tlansclaib-engine-vulkan" } else { "tlansclaib-engine" };
     let (mut events, child) = app.shell().sidecar(sidecar).ok()?.arg("probe").spawn().ok()?;
     let read = async {

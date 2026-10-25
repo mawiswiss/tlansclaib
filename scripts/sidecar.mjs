@@ -13,13 +13,22 @@ const targetDir = process.env.CARGO_TARGET_DIR || join(root, "target");
 const dir = join(root, "src-tauri", "binaries");
 mkdirSync(dir, { recursive: true });
 
-function build(target, features = []) {
+// Engines for CPUs older than AVX2. whisper-rs-sys passes GGML_* variables to CMake but does not rebuild when they change, hence a target folder each.
+// Every flag is explicit, because ggml turns all of them off by default in a cross build.
+const ISA_OFF = { GGML_NATIVE: "OFF", GGML_SSE42: "OFF", GGML_AVX: "OFF", GGML_AVX2: "OFF", GGML_FMA: "OFF", GGML_F16C: "OFF", GGML_BMI2: "OFF" };
+const OLDER_CPUS = {
+  avx: { ...ISA_OFF, GGML_SSE42: "ON", GGML_AVX: "ON" },
+  sse: ISA_OFF,
+};
+
+function build(target, features = [], cpu = null) {
   const args = ["build", "--release", "-p", "tlansclaib-engine"];
   if (target !== host) args.push("--target", target);
   if (features.length) args.push("--features", features.join(","));
-  execFileSync("cargo", args, { cwd: root, stdio: "inherit" });
+  const out = cpu ? join(targetDir, `cpu-${cpu}`) : targetDir;
+  execFileSync("cargo", args, { cwd: root, stdio: "inherit", env: { ...process.env, ...OLDER_CPUS[cpu], CARGO_TARGET_DIR: out } });
   const ext = target.includes("windows") ? ".exe" : "";
-  return join(targetDir, target === host ? "" : target, "release", `tlansclaib-engine${ext}`);
+  return join(out, target === host ? "" : target, "release", `tlansclaib-engine${ext}`);
 }
 
 function place(built, target, name = "tlansclaib-engine") {
@@ -36,6 +45,7 @@ if (triple === "universal-apple-darwin") {
   place(build(triple), triple);
   if (triple.includes("windows")) {
     place(build(triple, ["vulkan"]), triple, "tlansclaib-engine-vulkan");
+    for (const cpu of Object.keys(OLDER_CPUS)) place(build(triple, [], cpu), triple, `tlansclaib-engine-${cpu}`);
   }
 }
 console.log(`sidecar ready for ${triple}`);

@@ -2,7 +2,9 @@
   "bundle": {
     "externalBin": [
       "binaries/tlansclaib-engine",
-      "binaries/tlansclaib-engine-vulkan"
+      "binaries/tlansclaib-engine-vulkan",
+      "binaries/tlansclaib-engine-avx",
+      "binaries/tlansclaib-engine-sse"
     ]
   }
 }
