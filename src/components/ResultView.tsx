@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/format";
 import { differs } from "../lib/language";
 import type { RunState } from "../lib/run";
-import { EXPORT_NAMES, findMatches, playingAt, type Playing } from "../lib/transcript";
+import { addSpeaker, assignSpeaker, EXPORT_NAMES, findMatches, joinLine, playingAt, splitLine, type Playing, type Transcript } from "../lib/transcript";
 import type { ExportFormat } from "../lib/types";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
 import { Check, ChevronDown, Close, Copy, Download, Info, Pencil, Plus, Retry, Search } from "./icons";
@@ -18,7 +18,7 @@ type Props = {
   languageName: (code: string) => string;
   audioUrl: (path: string) => Promise<string>;
   onLocateAudio: () => void;
-  onSaveLine: (index: number, text: string) => Promise<boolean>;
+  onSave: (change: (current: Transcript) => Transcript | null) => Promise<Transcript | null>;
   onLog: (level: "info" | "warn", message: string) => void;
   onCopy: () => Promise<boolean>;
   onExport: (format: ExportFormat) => Promise<string | null>;
@@ -35,6 +35,12 @@ function when(ms: number): string {
   const date = new Date(ms);
   const thisYear = date.getFullYear() === new Date().getFullYear();
   return date.toLocaleString(undefined, { day: "numeric", month: "short", year: thisYear ? undefined : "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+const NEW_SPEAKER = "new";
+
+function flat(text: string): string {
+  return text.replace(/\s*[\r\n]+\s*/g, " ");
 }
 
 function marked(text: string, query: string): ReactNode {
@@ -60,7 +66,7 @@ export function ResultView(props: Props) {
     languageName,
     audioUrl,
     onLocateAudio,
-    onSaveLine,
+    onSave,
     onLog,
     onCopy,
     onExport,
@@ -74,8 +80,10 @@ export function ResultView(props: Props) {
   } = props;
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
-  const [lastEdit, setLastEdit] = useState<{ index: number; before: string } | null>(null);
+  const [lastEdit, setLastEdit] = useState<Transcript | null>(null);
   const committing = useRef(false);
+  const editingNow = useRef<number | null>(null);
+  const caret = useRef<number | null>(null);
   const editor = useRef<HTMLTextAreaElement>(null);
   const [copied, setCopied] = useState(false);
   const [exported, setExported] = useState<string | null>(null);
@@ -173,8 +181,10 @@ export function ResultView(props: Props) {
   useLayoutEffect(() => {
     const el = editor.current;
     if (!el) return;
+    const at = caret.current ?? el.value.length;
+    caret.current = null;
     el.focus();
-    el.setSelectionRange(el.value.length, el.value.length);
+    el.setSelectionRange(at, at);
   }, [editing]);
 
   useEffect(() => {
@@ -191,9 +201,9 @@ export function ResultView(props: Props) {
     if (speakerEdit !== null) speakerInput.current?.select();
   }, [speakerEdit]);
 
-  const startSpeakerRename = (track: number) => {
+  const startSpeakerRename = (track: number, name: string) => {
     speakerOpen.current = track;
-    setSpeakerDraft(run.speakers[track]);
+    setSpeakerDraft(name);
     setSpeakerEdit(track);
   };
 
@@ -240,32 +250,77 @@ export function ResultView(props: Props) {
     if (renamed || !fromEnter) closeRename();
   };
 
-  const startEdit = (index: number, text: string) => {
+  const startEdit = (index: number | null, text = "") => {
+    editingNow.current = index;
     setEditing(index);
     setDraft(text);
   };
 
-  const commit = async () => {
-    if (editing === null || committing.current) return;
-    const index = editing;
-    const before = run.lines[index].text;
-    const text = draft.replace(/\s*[\r\n]+\s*/g, " ").trim();
-    if (text === before) {
-      setEditing(null);
+  const save = async (change: (current: Transcript) => Transcript | null): Promise<Transcript | null> => {
+    const before = await onSave(change);
+    if (before) setLastEdit(before);
+    return before;
+  };
+
+  const saveEdit = async (index: number, change: (current: Transcript) => Transcript | null): Promise<boolean> => {
+    if (editingNow.current !== index || committing.current) return false;
+    committing.current = true;
+    const saved = await save(change);
+    committing.current = false;
+    return saved !== null;
+  };
+
+  const commit = async (index: number) => {
+    const text = flat(draft).trim();
+    if (editingNow.current === index && text === run.lines[index].text) {
+      startEdit(null);
       return;
     }
-    committing.current = true;
-    const saved = await onSaveLine(index, text);
-    committing.current = false;
-    setEditing(null);
-    if (saved) setLastEdit({ index, before });
+    if (await saveEdit(index, (t) => ({ ...t, lines: t.lines.map((l, i) => (i === index ? { ...l, text } : l)) }))) startEdit(null);
   };
+
+  const split = async (index: number, at: number) => {
+    const before = flat(draft.slice(0, at));
+    const after = flat(draft.slice(at)).trim();
+    if (!(await saveEdit(index, (t) => ({ ...t, lines: splitLine(t.lines, index, before + after, before.length, t.speakers.length) })))) return;
+    caret.current = 0;
+    startEdit(index + 1, after);
+  };
+
+  const join = async (index: number) => {
+    const joined = joinLine(run.lines, index, flat(draft));
+    if (!joined || !(await saveEdit(index, (t) => ({ ...t, lines: joinLine(t.lines, index, flat(draft))?.lines ?? t.lines })))) return;
+    caret.current = joined.at;
+    startEdit(joined.index, joined.lines[joined.index].text);
+  };
+
+  const renameNewest = (saved: Transcript | null) => {
+    if (!saved) return;
+    const named = addSpeaker(saved.speakers, saved.lines).speakers;
+    startSpeakerRename(named.length - 1, named[named.length - 1]);
+  };
+
+  const reassign = async (index: number, value: string) => {
+    if (value !== NEW_SPEAKER) {
+      await save((t) => ({ ...t, lines: assignSpeaker(t.lines, index, Number(value)) }));
+      return;
+    }
+    renameNewest(
+      await save((t) => {
+        const added = addSpeaker(t.speakers, t.lines);
+        return { ...added, lines: assignSpeaker(added.lines, index, added.speakers.length - 1) };
+      }),
+    );
+  };
+
+  const addOne = async () => renameNewest(await save((t) => addSpeaker(t.speakers, t.lines)));
 
   const undo = async () => {
     if (!lastEdit) return;
-    const { index, before } = lastEdit;
+    const before = lastEdit;
     setLastEdit(null);
-    await onSaveLine(index, before);
+    await onSave(() => before);
+    setLastEdit(null);
   };
 
   const onTime = (seconds: number, playing: boolean) => {
@@ -337,7 +392,7 @@ export function ResultView(props: Props) {
                 {[
                   run.finishedAt !== null ? when(run.finishedAt) : null,
                   run.audioSeconds !== null ? clock(run.audioSeconds) : null,
-                  sourceLabel(run.audio, run.video, run.detected ? 1 : run.speakers.length),
+                  sourceLabel(run.audio, run.video, run.detected ? 1 : run.tracks),
                   run.detected ? (run.speakers.length > 1 ? `${run.speakers.length} people` : "1 person") : null,
                   run.modelName || null,
                   run.language ? languageName(run.language) : null,
@@ -504,7 +559,7 @@ export function ResultView(props: Props) {
                     key={track}
                     type="button"
                     className={`speaker-chip s${track % 8}`}
-                    onClick={() => startSpeakerRename(track)}
+                    onClick={() => startSpeakerRename(track, name)}
                     title="Click to rename"
                   >
                     <span className="speaker-dot" />
@@ -531,6 +586,11 @@ export function ResultView(props: Props) {
           ) : (
             <span className="speakers-note">
               <span>{run.detected ? "1 person detected" : "One speaker"}</span>
+              {lines.length > 0 && (
+                <button type="button" className="inline-link" onClick={() => void addOne()}>
+                  Add a speaker
+                </button>
+              )}
               {!audioMissing &&
                 (!detectionInstalled ? (
                   <button type="button" className="inline-link" onClick={onSetUpDetection}>
@@ -624,14 +684,20 @@ export function ResultView(props: Props) {
                 title={syncable && !isEditing ? "Play from here" : undefined}
               >
                 {run.timestamps && <span className="time">{clock(line.start)}</span>}
-                {run.speakers.length > 1 &&
-                  (line.speaker !== undefined ? (
-                    <Tooltip content={run.speakers[line.speaker]} oneLine className="dot-tip">
-                      <span className={`line-dot s${line.speaker % 8}`} />
-                    </Tooltip>
-                  ) : (
-                    <span className="line-dot" />
-                  ))}
+                {run.speakers.length > 1 && (
+                  <span className="dot-pick" onClick={(e) => e.stopPropagation()}>
+                    <Select
+                      value={line.speaker !== undefined ? String(line.speaker) : ""}
+                      options={[...run.speakers.map((name, track) => ({ value: String(track), label: name })), { value: NEW_SPEAKER, label: "New speaker" }]}
+                      onChange={(value) => void reassign(line.index, value)}
+                      label="Speaker of this line"
+                      title={line.speaker !== undefined ? run.speakers[line.speaker] : "Choose the speaker"}
+                      className="dot-select"
+                      chevron={false}
+                      trigger={() => <span className={`line-dot ${line.speaker !== undefined ? `s${line.speaker % 8}` : "unassigned"}`} />}
+                    />
+                  </span>
+                )}
                 {isEditing ? (
                   <textarea
                     ref={editor}
@@ -641,17 +707,23 @@ export function ResultView(props: Props) {
                     autoFocus
                     onChange={(e) => setDraft(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
-                    onBlur={commit}
+                    onBlur={() => void commit(line.index)}
                     onKeyDown={(e) => {
                       if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                      const { selectionStart: from, selectionEnd: to, value } = e.currentTarget;
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
-                        void commit();
+                        if (from === to && value.slice(0, from).trim() && value.slice(from).trim()) void split(line.index, from);
+                        else void commit(line.index);
+                      }
+                      if (e.key === "Backspace" && from === 0 && to === 0) {
+                        e.preventDefault();
+                        void join(line.index);
                       }
                       if (e.key === "Escape") {
                         e.preventDefault();
                         e.stopPropagation();
-                        setEditing(null);
+                        startEdit(null);
                       }
                     }}
                     aria-label="Edit this line"

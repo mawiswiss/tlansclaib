@@ -1089,11 +1089,28 @@ input.toggle:checked::after {
   gap: 8px;
 }
 
-.dot-tip {
+.dot-pick {
   display: flex;
   justify-content: center;
   width: 16px;
   margin: 0 -4px;
+}
+
+.select-trigger.dot-select {
+  height: auto;
+  margin-top: 3px;
+  padding: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.select-trigger.dot-select .line-dot {
+  margin-top: 0;
+}
+
+.line-dot.unassigned {
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 
 .speakers-label {

@@ -594,6 +594,7 @@ fn entry(record: &Record, status: history::Status, lines: usize, elapsed: f64) -
         title: record.audio.file_stem().map(|name| name.to_string_lossy().into_owned()),
         heard: record.heard.clone(),
         edited: Some(false),
+        tracks: None,
     }
 }
 

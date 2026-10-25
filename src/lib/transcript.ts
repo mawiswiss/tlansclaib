@@ -9,6 +9,8 @@ function seconds(h: string, m: string, s: string): number {
   return Number(h) * 3600 + Number(m) * 60 + Number(s);
 }
 
+export type Transcript = { lines: Line[]; speakers: string[] };
+
 export type Parsed = { lines: Line[]; timestamps: boolean };
 
 function spoken(text: string, speakers: string[]): { text: string; speaker?: number } {
@@ -71,6 +73,55 @@ export function withTimes(parsed: Parsed, times: [number, number][] | null | und
 
 export function lineAt(lines: Line[], seconds: number): number {
   return playingAt(lines, seconds).main;
+}
+
+export function nextSpeaker(speaker: number | undefined, count: number): number | undefined {
+  return count > 1 ? ((speaker ?? 0) + 1) % count : speaker;
+}
+
+/** Cuts a line in two at a character of its text, sharing its time by the length of each half. */
+export function splitLine(lines: Line[], index: number, text: string, at: number, count: number): Line[] {
+  const line = lines[index];
+  const before = text.slice(0, at).trim();
+  const after = text.slice(at).trim();
+  const cut = line.start + ((line.end - line.start) * before.length) / (before.length + after.length || 1);
+  return [
+    ...lines.slice(0, index),
+    { ...line, text: before, end: cut },
+    { ...line, text: after, start: cut, speaker: nextSpeaker(line.speaker, count) },
+    ...lines.slice(index + 1),
+  ];
+}
+
+export function joinLine(lines: Line[], index: number, text: string): { lines: Line[]; index: number; at: number } | null {
+  let into = index - 1;
+  while (into >= 0 && !lines[into].text) into--;
+  if (into < 0) return null;
+  const earlier = lines[into];
+  const joined = [earlier.text, text.trim()].filter(Boolean).join(" ");
+  return {
+    lines: [
+      ...lines.slice(0, into),
+      { ...earlier, text: joined, end: Math.max(earlier.end, lines[index].end) },
+      ...lines.slice(into + 1, index),
+      ...lines.slice(index + 1),
+    ],
+    index: into,
+    at: earlier.text.length + (text.trim() ? 1 : 0),
+  };
+}
+
+export function assignSpeaker(lines: Line[], index: number, speaker: number): Line[] {
+  return lines.map((line, i) => (i === index ? { ...line, speaker } : line));
+}
+
+export function addSpeaker(speakers: string[], lines: Line[]): Transcript {
+  const taken = new Set(speakers.map((name) => name.toLowerCase()));
+  const named = speakers.length === 0 ? ["Speaker 1"] : [...speakers];
+  let n = named.length + 1;
+  while (taken.has(`speaker ${n}`)) n++;
+  named.push(`Speaker ${n}`);
+  return { speakers: named, lines: speakers.length <= 1 ? lines.map((line) => ({ ...line, speaker: line.speaker ?? 0 })) : lines };
 }
 
 export function findMatches(lines: Line[], needle: string): number[] {

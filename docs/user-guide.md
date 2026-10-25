@@ -160,10 +160,16 @@ and close the result. The plus to the right starts the next recording.
   whether text exports include them. The app retains the line timing.
 - Speakers: with several speakers, their names sit above the text. Click a
   name to change it. History saves the new name at once. A coloured dot on
-  each line names its speaker when pointed at.
+  each line names its speaker when pointed at. Click the dot to give the line
+  another speaker, or "New speaker" for a person detection missed. With one
+  speaker, "Add a speaker" next to it does the same.
 - Correct a line: point at it and click the pencil, or double-click its
   text. Enter or a click elsewhere saves it in history, Escape cancels,
   and "Undo" shows for a few seconds.
+- Split or join lines: while correcting a line, Enter with the cursor inside
+  the text splits it there. The second part goes to the next speaker and
+  shares the line's time by its length. Backspace at the start of a line joins
+  it to the line above.
 
 When detection found the wrong number of people, "Wrong number?" next to the
 names opens the dialog to transcribe again with another number. With one

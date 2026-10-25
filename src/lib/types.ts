@@ -42,6 +42,7 @@ export type HistoryEntry = {
   status: "done" | "incomplete";
   timestamps: boolean;
   speakers?: string[];
+  tracks?: number | null;
   detected?: boolean;
   video?: boolean | null;
   model_id?: string | null;

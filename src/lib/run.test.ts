@@ -86,7 +86,8 @@ describe("run reducer", () => {
     ]);
     expect(state.speakers).toEqual(["Speaker 1", "Speaker 2"]);
     expect(state.lines.map((l) => l.speaker)).toEqual([0, 1]);
-    const renamed = reduce(state, { type: "speakers", speakers: ["Marc", "Client"], hash: "h9" });
+    expect(state.tracks).toBe(2);
+    const renamed = reduce(state, { type: "edit", lines: state.lines, speakers: ["Marc", "Client"], hash: "h9" });
     expect(renamed.speakers).toEqual(["Marc", "Client"]);
     expect(renamed.hash).toBe("h9");
     expect(play([{ type: "engine", event: { event: "audio", seconds: 60 }, now: 1 }]).speakers).toEqual([]);
@@ -163,10 +164,12 @@ describe("run reducer", () => {
     expect(opened.result).toEqual({ lines: 2, elapsed: 8, file: "/rec/meeting_transcript.txt" });
     expect(reduce(idle, { type: "open", entry, lines, timestamps: false, check, hash: "h1" }).timed).toBe(false);
     expect(opened.hash).toBe("h1");
-    const edited = reduce(opened, { type: "edit", index: 1, text: "b, corrected", hash: "h2" });
+    expect(opened.tracks).toBe(1);
+    expect(reduce(idle, { type: "open", entry: { ...entry, speakers: ["A", "B", "C"], tracks: 2 }, lines, timestamps: true, check, hash: "h1" }).tracks).toBe(2);
+    const edited = reduce(opened, { type: "edit", lines: [lines[0], { ...lines[1], text: "b, corrected" }], speakers: [], hash: "h2" });
     expect(edited.lines[1].text).toBe("b, corrected");
     expect(edited.hash).toBe("h2");
-    expect(reduce(edited, { type: "edit", index: 0, text: "", hash: "h3" }).result?.lines).toBe(1);
+    expect(reduce(edited, { type: "edit", lines: [{ ...lines[0], text: "" }, lines[1]], speakers: [], hash: "h3" }).result?.lines).toBe(1);
     const moved = reduce({ ...opened, check: { changed: false, audio: "missing" } }, { type: "audio", path: "/new/meeting.m4a" });
     expect(moved.audio).toBe("/new/meeting.m4a");
     expect(moved.check?.audio).toBe("same");

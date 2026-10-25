@@ -57,6 +57,17 @@ pub struct Entry {
     pub heard: Vec<engine::protocol::Heard>,
     #[serde(default)]
     pub edited: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracks: Option<usize>,
+}
+
+impl Entry {
+    pub fn set_speakers(&mut self, speakers: &[String]) {
+        if self.tracks.is_none() && !self.detected && speakers.len() != self.speakers.len() {
+            self.tracks = Some(self.speakers.len().max(1));
+        }
+        self.speakers = speakers.to_vec();
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -240,7 +251,7 @@ impl History {
                     entry.edited = Some(true);
                 }
                 entry.timestamps = timestamps;
-                entry.speakers = speakers.to_vec();
+                entry.set_speakers(speakers);
                 entry.file_sha256 = hash.clone();
             }
             entries
@@ -322,6 +333,7 @@ mod tests {
             title: None,
             heard: Vec::new(),
             edited: Some(false),
+            tracks: None,
         }
     }
 
@@ -357,6 +369,9 @@ mod tests {
         assert_eq!(listed.len(), 1);
         assert!(!listed[0].entry.timestamps);
         assert_eq!(listed[0].entry.speakers, vec!["Marc", "Client"]);
+        assert_eq!(listed[0].entry.tracks, Some(1));
+        history.written(Path::new("/a.txt"), false, &["Marc".into(), "Client".into(), "Guest".into()], true).unwrap();
+        assert_eq!(history.get(1).unwrap().unwrap().tracks, Some(1));
         assert!(!listed[0].exists);
 
         let moved = dir.join("moved_transcript.txt");

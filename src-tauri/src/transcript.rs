@@ -129,6 +129,9 @@ pub fn set_timestamps(file: &Path, lines: &[Line], timestamps: bool, speakers: &
 
 pub fn save(file: &Path, expected: &str, lines: &[Line], timestamps: bool, speakers: &[String]) -> Result<String> {
     check_speakers(speakers)?;
+    if lines.iter().any(|line| line.speaker.is_some_and(|speaker| speaker >= speakers.len())) {
+        return Err(anyhow!("A line names a speaker that is not in the list."));
+    }
     let current = crate::fingerprint::transcript(file).with_context(|| format!("cannot read {}", file.display()))?;
     if current != expected {
         return Err(anyhow!(
@@ -141,7 +144,7 @@ pub fn save(file: &Path, expected: &str, lines: &[Line], timestamps: bool, speak
         stored.lines = lines.to_vec();
         stored.entry.lines = lines.iter().filter(|line| !line.text.is_empty()).count();
         stored.entry.timestamps = timestamps;
-        stored.entry.speakers = speakers.to_vec();
+        stored.entry.set_speakers(speakers);
         stored.write(file)?;
         return crate::fingerprint::transcript(file);
     }
@@ -259,6 +262,16 @@ mod tests {
             assert!(save(&file, &hash, &lines, false, &bad).is_err(), "{bad:?}");
         }
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "Marc: Hello\nClient: Hi\n");
+
+        let split = vec![
+            Line { start: 0.0, end: 2.0, text: "Hel".into(), speaker: Some(0) },
+            Line { start: 2.0, end: 4.0, text: "lo".into(), speaker: Some(2) },
+            Line { start: 4.5, end: 9.0, text: "Hi".into(), speaker: Some(1) },
+        ];
+        let three = vec!["Marc".to_string(), "Client".to_string(), "Guest".to_string()];
+        assert!(save(&file, &hash, &split, false, &named).unwrap_err().to_string().contains("not in the list"));
+        save(&file, &hash, &split, false, &three).unwrap();
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "Marc: Hel\nGuest: lo\nClient: Hi\n");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

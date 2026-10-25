@@ -24,6 +24,7 @@ export type RunState = {
   loadPart: LoadPart | null;
   audioSeconds: number | null;
   speakers: string[];
+  tracks: number;
   detecting: boolean;
   speakerProgress: number | null;
   voices: number | null;
@@ -65,6 +66,7 @@ export const idle: RunState = {
   loadPart: null,
   audioSeconds: null,
   speakers: [],
+  tracks: 1,
   detecting: false,
   speakerProgress: null,
   voices: null,
@@ -107,8 +109,7 @@ export type RunAction =
       hash: string;
     }
   | { type: "hash"; hash: string }
-  | { type: "edit"; index: number; text: string; hash: string }
-  | { type: "speakers"; speakers: string[]; hash: string }
+  | { type: "edit"; lines: Line[]; speakers: string[]; hash: string }
   | { type: "audio"; path: string }
   | { type: "rename"; file: string; title: string }
   | { type: "engine"; event: EngineEvent; now: number }
@@ -146,6 +147,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
         heard: e.heard ?? [],
         audioSeconds: e.audio_seconds,
         speakers: e.speakers ?? [],
+        tracks: e.tracks ?? (e.detected ? 1 : Math.max(1, (e.speakers ?? []).length)),
         detected: e.detected ?? false,
         voices: e.detected ? Math.max(1, (e.speakers ?? []).length) : null,
         video: e.video ?? null,
@@ -165,14 +167,10 @@ export function reduce(state: RunState, action: RunAction): RunState {
       return {
         ...state,
         hash: action.hash,
-        lines: state.lines.map((l, i) => (i === action.index ? { ...l, text: action.text } : l)),
-        result: state.result && {
-          ...state.result,
-          lines: state.lines.filter((l, i) => (i === action.index ? action.text : l.text)).length,
-        },
+        lines: action.lines,
+        speakers: action.speakers,
+        result: state.result && { ...state.result, lines: action.lines.filter((l) => l.text).length },
       };
-    case "speakers":
-      return { ...state, speakers: action.speakers, hash: action.hash };
     case "audio":
       return { ...state, audio: action.path, check: state.check && { ...state.check, audio: "same" } };
     case "rename":
@@ -200,7 +198,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
         case "loading":
           return { ...state, loadPart: e.part };
         case "audio":
-          return { ...state, audioSeconds: e.seconds, speakers: e.speakers ?? [], video: e.video ?? false };
+          return { ...state, audioSeconds: e.seconds, speakers: e.speakers ?? [], tracks: Math.max(1, e.speakers?.length ?? 0), video: e.video ?? false };
         case "model":
           return { ...state, device: e.device, deviceName: e.device_name ?? null, retryReason: state.retryReason && e.device === "cpu" ? state.retryReason.replace("Retrying on CPU.", "This run is using the CPU.") : state.retryReason, threads: e.threads, language: e.language, heard: e.heard ?? [], windows: e.windows, total: e.windows };
         case "retry":

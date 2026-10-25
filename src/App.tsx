@@ -20,7 +20,7 @@ import { idle, reduce, startError, type StartError } from "./lib/run";
 import { DONATE } from "./lib/about";
 import { loadSettings, saveSettings, settingsLoadError } from "./lib/settings";
 import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from "./lib/support";
-import { parseTranscript, withTimes } from "./lib/transcript";
+import { parseTranscript, withTimes, type Transcript } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
 import { checkDue, topBarLabel, type UpdateState } from "./lib/update";
 import { betterDownload, DETECTION_IDS, downloadOrder, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, sizeOf, wanted, wantedBackend, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
@@ -98,6 +98,11 @@ export default function App() {
   const [update, setUpdate] = useState<UpdateState>({ status: "idle" });
   const [dragging, setDragging] = useState(false);
   const [run, dispatch] = useReducer(reduce, idle);
+  const latest = useRef<Transcript>({ lines: run.lines, speakers: run.speakers });
+  latest.current = { lines: run.lines, speakers: run.speakers };
+  const savedHash = useRef<string | null>(null);
+  savedHash.current = run.hash;
+  const saving = useRef(Promise.resolve<Transcript | null>(null));
   const startLatest = useRef<(audio: string) => void>(() => {});
   const stageLatest = useRef<(audio: string) => void>(() => {});
   const [pending, setPending] = useState<string | null>(null);
@@ -514,20 +519,31 @@ export default function App() {
       .catch((error) => setResultError(`Could not check the saved transcript: ${String(error)}`));
   }, [run.status, run.opened, run.result]);
 
-  const saveLine = async (index: number, text: string): Promise<boolean> => {
+  const editTranscript = (change: (current: Transcript) => Transcript | null): Promise<Transcript | null> => {
     const b = backend.current;
-    if (!b || !run.result) return false;
-    try {
-      const expected = run.hash ?? (await b.transcriptHash(run.result.file));
-      const lines = run.lines.map((l, i) => (i === index ? { ...l, text } : l));
-      const hash = await b.saveTranscript(run.result.file, expected, lines, run.timestamps, run.speakers);
-      dispatch({ type: "edit", index, text, hash });
-      setResultError(null);
-      return true;
-    } catch (error) {
-      setResultError(String(error));
-      return false;
-    }
+    const file = run.result?.file;
+    const timestamps = run.timestamps;
+    if (!b || !file) return Promise.resolve(null);
+    const save = async () => {
+      const before = latest.current;
+      const next = change(before);
+      if (!next) return null;
+      try {
+        const expected = savedHash.current ?? (await b.transcriptHash(file));
+        const hash = await b.saveTranscript(file, expected, next.lines, timestamps, next.speakers);
+        latest.current = next;
+        savedHash.current = hash;
+        dispatch({ type: "edit", lines: next.lines, speakers: next.speakers, hash });
+        setResultError(null);
+        return before;
+      } catch (error) {
+        setResultError(String(error));
+        return null;
+      }
+    };
+    const queued = saving.current.then(save);
+    saving.current = queued;
+    return queued;
   };
 
   const openRerun = (entry: HistoryEntry, options: RerunOptions = {}) => {
@@ -593,21 +609,8 @@ export default function App() {
     else setResultError("This transcript is not in the history, so its settings are unknown.");
   };
 
-  const renameSpeaker = async (track: number, name: string): Promise<boolean> => {
-    const b = backend.current;
-    if (!b || !run.result) return false;
-    const speakers = run.speakers.map((s, i) => (i === track ? name : s));
-    try {
-      const expected = run.hash ?? (await b.transcriptHash(run.result.file));
-      const hash = await b.saveTranscript(run.result.file, expected, run.lines, run.timestamps, speakers);
-      dispatch({ type: "speakers", speakers, hash });
-      setResultError(null);
-      return true;
-    } catch (error) {
-      setResultError(String(error));
-      return false;
-    }
-  };
+  const renameSpeaker = async (track: number, name: string): Promise<boolean> =>
+    (await editTranscript((t) => ({ ...t, speakers: t.speakers.map((s, i) => (i === track ? name : s)) }))) !== null;
 
   useEffect(() => {
     if (import.meta.env.DEV) return;
@@ -1044,7 +1047,7 @@ export default function App() {
             languageName={languageName}
             audioUrl={(path) => backend.current?.audioUrl(path) ?? Promise.reject(new Error("not ready"))}
             onLocateAudio={locateAudio}
-            onSaveLine={saveLine}
+            onSave={editTranscript}
             onLog={(level, message) => backend.current?.log(level, message)}
             onCopy={async () => {
               try {
