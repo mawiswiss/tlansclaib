@@ -1,0 +1,9 @@
+{
+  "name": "tlansclaib-browser-spike",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@huggingface/transformers": "4.3.1",
+    "puppeteer-core": "25.16.0"
+  }
+}

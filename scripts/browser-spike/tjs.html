@@ -1,0 +1,62 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>transformers.js</title>
+<pre id="out">running</pre>
+<script type="module">
+import { AutoProcessor, WhisperForConditionalGeneration, env } from './node_modules/@huggingface/transformers/dist/transformers.js';
+import { CLIPS, RATE, loadLines, loadWav, slice } from './common.js';
+
+const params = new URLSearchParams(location.search);
+const device = params.get('device') ?? 'webgpu';
+const threads = Number(params.get('threads') ?? 4);
+const runs = Number(params.get('runs') ?? 2);
+const dtype = {
+    webgpu: { encoder_model: params.get('encoder') ?? 'fp16', decoder_model_merged: params.get('decoder') ?? 'q4' },
+    wasm: { encoder_model: params.get('encoder') ?? 'q8', decoder_model_merged: params.get('decoder') ?? 'q8' },
+}[device];
+const id = 'onnx-community/whisper-large-v3-turbo';
+
+env.allowLocalModels = false;
+env.allowRemoteModels = true;
+env.remoteHost = `${location.origin}/models/`;
+env.remotePathTemplate = '{model}/';
+env.useBrowserCache = false;
+const ort = '/node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.asyncify';
+env.backends.onnx.wasm.wasmPaths = { mjs: `${ort}.mjs`, wasm: `${ort}.wasm` };
+env.backends.onnx.wasm.numThreads = threads;
+
+async function main() {
+    const adapter = navigator.gpu ? await navigator.gpu.requestAdapter() : null;
+    const gpu = adapter && { vendor: adapter.info.vendor, architecture: adapter.info.architecture, description: adapter.info.description, f16: adapter.features.has('shader-f16') };
+    const started = performance.now();
+    const processor = await AutoProcessor.from_pretrained(id);
+    const model = await WhisperForConditionalGeneration.from_pretrained(id, { device, dtype });
+    const load = { total_ms: performance.now() - started };
+
+    const transcribe = async (samples, language) => {
+        const t0 = performance.now();
+        const inputs = await processor(samples);
+        const t1 = performance.now();
+        const ids = await model.generate({ ...inputs, language, task: 'transcribe', return_timestamps: false, do_sample: false, num_beams: 1 });
+        const t2 = performance.now();
+        const text = processor.batch_decode(ids, { skip_special_tokens: true })[0].trim();
+        return { text, tokens: ids.dims.at(-1), features_ms: t1 - t0, generate_ms: t2 - t1 };
+    };
+
+    const results = [];
+    for (const clip of CLIPS) {
+        const samples = await loadWav(`/audio/${clip.name}.wav`);
+        const lines = await loadLines(`/audio/${clip.name}.lines.json`);
+        for (let run = 1; run <= runs; run++) {
+            const t0 = performance.now();
+            const out = [];
+            for (const line of lines) out.push({ start: line.start, end: line.end, ...(await transcribe(slice(samples, line), clip.language)) });
+            results.push({ clip: clip.name, run, audio_s: samples.length / RATE, ms: performance.now() - t0, lines: out });
+        }
+    }
+    return { runtime: `transformers.js ${device}`, model: `${id} ${JSON.stringify(dtype)}`, threads, gpu, load, results };
+}
+
+window.result = main().catch((error) => ({ error: String(error?.stack ?? error) }));
+window.result.then((r) => { document.getElementById('out').textContent = JSON.stringify(r, null, 1); });
+</script>
