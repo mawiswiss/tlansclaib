@@ -37,7 +37,12 @@ function place(built, target, name = "tlansclaib-engine") {
   return path;
 }
 
-if (triple === "universal-apple-darwin") {
+const buildOlderCpus = () => Object.keys(OLDER_CPUS).map((cpu) => place(build(triple, [], cpu), triple, `tlansclaib-engine-${cpu}`));
+
+// `node scripts/sidecar.mjs older-cpus` builds only those, for CI.
+if (process.argv[2] === "older-cpus") {
+  buildOlderCpus();
+} else if (triple === "universal-apple-darwin") {
   // tauri-build checks for each slice's sidecar, the bundle takes the joined one.
   const slices = ["aarch64-apple-darwin", "x86_64-apple-darwin"].map((target) => place(build(target), target));
   execFileSync("lipo", ["-create", "-output", join(dir, "tlansclaib-engine-universal-apple-darwin"), ...slices], { stdio: "inherit" });
@@ -45,7 +50,7 @@ if (triple === "universal-apple-darwin") {
   place(build(triple), triple);
   if (triple.includes("windows")) {
     place(build(triple, ["vulkan"]), triple, "tlansclaib-engine-vulkan");
-    for (const cpu of Object.keys(OLDER_CPUS)) place(build(triple, [], cpu), triple, `tlansclaib-engine-${cpu}`);
+    buildOlderCpus();
   }
 }
 console.log(`sidecar ready for ${triple}`);

@@ -76,3 +76,14 @@ jobs:
         run: cargo test -p tlansclaib-engine --test english
         env:
           TLANSCLAIB_TINY_MODEL: ${{ github.workspace }}/ggml-tiny.bin
+      - name: Build and run the engines for older processors
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          node scripts/sidecar.mjs older-cpus
+          triple=$(rustc -vV | sed -n 's/^host: //p')
+          for cpu in avx sse; do
+            "src-tauri/binaries/tlansclaib-engine-$cpu-$triple.exe" transcribe --model ggml-tiny.bin --language en --cpu \
+              --audio engine/tests/fixtures/english.wav --output "older-$cpu.txt" > /dev/null
+            grep -qi "quick brown fox" "older-$cpu.txt"
+          done
