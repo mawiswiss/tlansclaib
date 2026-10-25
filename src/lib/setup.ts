@@ -103,6 +103,24 @@ export function betterDownload(models: ModelStatus[], setup: Setup | null, langu
   return better(own, null, resources) ?? better(offered.filter(multilingual), current, resources);
 }
 
+function largest(list: ModelStatus[]): ModelStatus | null {
+  return list.reduce<ModelStatus | null>((top, m) => (top && (rank(top) > rank(m) || (rank(top) === rank(m) && top.ram_gb >= m.ram_gb)) ? top : m), null);
+}
+
+function fitting(list: ModelStatus[], language: SetupLanguage, budget: number): ModelStatus | null {
+  const fits = list.filter((m) => !m.too_heavy && m.ram_gb * GIB <= budget);
+  return largest(fits.filter((m) => speaks(m, language))) ?? largest(fits.filter(multilingual));
+}
+
+/** The language's own models first, then those for all languages. Never one that failed here. */
+export function fittingInstalled(models: ModelStatus[], language: SetupLanguage, budget: number): ModelStatus | null {
+  return fitting(models.filter((m) => m.installed), language, budget);
+}
+
+export function fittingDownload(models: ModelStatus[], language: SetupLanguage, budget: number): ModelStatus | null {
+  return fitting(models.filter((m) => !m.installed && m.url), language, budget);
+}
+
 export function defaultModel(models: ModelStatus[], setup: Setup): ModelStatus | null {
   const ids = wanted(models, setup);
   const members = models.filter((m) => ids.includes(m.id));

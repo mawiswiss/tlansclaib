@@ -42,6 +42,7 @@ struct Record {
     speaker_precision: Option<String>,
     speaker_backend: Option<String>,
     timestamps: bool,
+    force: bool,
     language: Option<String>,
     heard: Vec<Heard>,
     audio_seconds: Option<f64>,
@@ -63,6 +64,49 @@ enum AppEvent {
     Cancelled,
     Restart { language: String },
     Retry { message: String },
+    TooHeavy { model_id: String },
+}
+
+/// A start refused for memory. The budgets are the largest model RAM that would start, with and without speaker detection.
+#[derive(Debug, Serialize)]
+pub struct MemoryRefusal {
+    message: String,
+    free: u64,
+    budget: Option<u64>,
+    budget_without_speakers: Option<u64>,
+}
+
+impl std::fmt::Display for MemoryRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for MemoryRefusal {}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum StartError {
+    Memory(MemoryRefusal),
+    Other { message: String },
+}
+
+impl From<anyhow::Error> for StartError {
+    fn from(error: anyhow::Error) -> Self {
+        match error.downcast::<MemoryRefusal>() {
+            Ok(refusal) => StartError::Memory(refusal),
+            Err(error) => StartError::Other { message: format!("{error:#}") },
+        }
+    }
+}
+
+fn memory_refusal(message: String, free: u64, detection: u64, sample_seconds: Option<f64>) -> anyhow::Error {
+    anyhow::Error::new(MemoryRefusal {
+        message,
+        free,
+        budget: guard::recording_budget(free, detection, sample_seconds),
+        budget_without_speakers: (detection > 0).then(|| guard::recording_budget(free, 0, sample_seconds)).flatten(),
+    })
 }
 
 #[derive(Deserialize)]
@@ -115,6 +159,7 @@ fn mark_too_heavy(app: &AppHandle, model_id: &str, reason: &str) {
         Ok(()) => {
             log::warn!("marked {model_id} as too heavy for this computer: {reason}");
             let _ = app.emit("models-changed", ());
+            let _ = app.emit("engine-event", AppEvent::TooHeavy { model_id: model_id.to_string() });
         }
         Err(error) => log::warn!("could not mark {model_id} as too heavy: {error:#}"),
     }
@@ -137,10 +182,11 @@ pub struct Request<'a> {
     pub speaker_precision: Option<&'a str>,
     pub speaker_backend: Option<&'a str>,
     pub transcript: Option<&'a Path>,
+    pub force: bool,
 }
 
 pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
-    let Request { audio, model_id, language, timestamps, speakers, speaker_precision, speaker_backend, transcript } = request;
+    let Request { audio, model_id, language, timestamps, speakers, speaker_precision, speaker_backend, transcript, force } = request;
     let detector: Backend = speaker_backend.unwrap_or("sherpa").parse().map_err(|e: String| anyhow!(e))?;
     let state = app.state::<RunState>();
     let _starting = state.1.lock().await;
@@ -154,7 +200,9 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     let monitor = app.state::<Arc<Monitor>>();
     let (free, _) = monitor.memory();
     let detection_ram = if speakers.is_some() { guard::detection_ram(detector) } else { 0 };
-    guard::can_start(free, entry.ram_bytes().max(detection_ram)).map_err(|e| anyhow!(e))?;
+    if !force && let Err(message) = guard::can_start(free, entry.ram_bytes().max(detection_ram)) {
+        return Err(memory_refusal(message, free, detection_ram, None));
+    }
     let audio_arg = audio.to_string_lossy().into_owned();
     let info = app.shell().sidecar(crate::cpu::engine())?.args(["audio-info", "--audio", &audio_arg]).output().await?;
     if !info.status.success() {
@@ -165,7 +213,12 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         log::warn!("recording length is unavailable, so the decoded audio memory estimate was skipped");
     }
     let (free, swap_at_start) = monitor.memory();
-    guard::can_start_recording(free, entry.ram_bytes(), detection_ram, sample_seconds).map_err(|e| anyhow!(e))?;
+    if !force && let Err(message) = guard::can_start_recording(free, entry.ram_bytes(), detection_ram, sample_seconds) {
+        return Err(memory_refusal(message, free, detection_ram, sample_seconds));
+    }
+    if force {
+        log::warn!("starting without the memory check, as asked");
+    }
 
     let data = app.path().app_data_dir()?;
     guard::can_store_transcript(crate::models::free_disk(&data), sample_seconds).map_err(|e| anyhow!(e))?;
@@ -264,6 +317,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
             speaker_precision: speakers.filter(|_| detector == Backend::Sherpa).and(speaker_precision).map(str::to_string),
             speaker_backend: speakers.map(|_| detector.as_str().to_string()),
             timestamps,
+            force,
             language: None,
             heard: Vec::new(),
             audio_seconds: None,
@@ -611,6 +665,7 @@ pub async fn restart(app: &AppHandle, language: &str) -> Result<()> {
             speaker_precision: record.speaker_precision.as_deref(),
             speaker_backend: record.speaker_backend.as_deref(),
             transcript: record.transcript.as_deref(),
+            force: record.force,
         },
     )
     .await
@@ -660,6 +715,18 @@ pub fn guard_tick(app: &AppHandle, stats: &Stats) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_memory_refusal_reaches_the_window_with_its_budgets() {
+        let gib = 1u64 << 30;
+        let refused = StartError::from(memory_refusal("short".into(), 2 * gib, guard::SHERPA_DETECTION_RAM, None));
+        let json = serde_json::to_value(&refused).unwrap();
+        assert_eq!(json["kind"], "memory");
+        assert_eq!(json["budget"], serde_json::Value::Null);
+        assert_eq!(json["budget_without_speakers"], gib);
+        let other = serde_json::to_value(StartError::from(anyhow!("gone"))).unwrap();
+        assert_eq!(other, serde_json::json!({ "kind": "other", "message": "gone" }));
+    }
 
     #[test]
     fn retries_only_a_gpu_failure_before_the_model_is_ready() {

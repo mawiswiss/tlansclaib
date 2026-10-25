@@ -102,5 +102,6 @@ export type EngineEvent =
   | { event: "error"; message: string }
   | { event: "warning"; message: string }
   | { event: "retry"; message: string }
+  | { event: "too_heavy"; model_id: string }
   | { event: "cancelled" }
   | { event: "restart"; language: string };

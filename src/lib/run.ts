@@ -3,6 +3,15 @@ import { titleOf } from "./format";
 
 export type Line = { start: number; end: number; text: string; speaker?: number };
 
+export type StartError =
+  | { kind: "memory"; message: string; free: number; budget: number | null; budget_without_speakers: number | null }
+  | { kind: "other"; message: string };
+
+export function startError(error: unknown): StartError {
+  if (typeof error === "object" && error !== null && "kind" in error && "message" in error) return error as StartError;
+  return { kind: "other", message: String(error) };
+}
+
 export type RunState = {
   status: "idle" | "running" | "done" | "error" | "cancelled";
   audio: string;
@@ -24,6 +33,7 @@ export type RunState = {
   device: string | null;
   deviceName: string | null;
   retryReason: string | null;
+  tooHeavy: string | null;
   timings: Timings | null;
   threads: number | null;
   language: string | null;
@@ -64,6 +74,7 @@ export const idle: RunState = {
   device: null,
   deviceName: null,
   retryReason: null,
+  tooHeavy: null,
   timings: null,
   threads: null,
   language: null,
@@ -194,6 +205,8 @@ export function reduce(state: RunState, action: RunAction): RunState {
           return { ...state, device: e.device, deviceName: e.device_name ?? null, retryReason: state.retryReason && e.device === "cpu" ? state.retryReason.replace("Retrying on CPU.", "This run is using the CPU.") : state.retryReason, threads: e.threads, language: e.language, heard: e.heard ?? [], windows: e.windows, total: e.windows };
         case "retry":
           return { ...state, retryReason: e.message };
+        case "too_heavy":
+          return { ...state, tooHeavy: e.model_id };
         case "line":
           return { ...state, lines: [...state.lines, { start: e.start, end: e.end, text: e.text, speaker: e.speaker }] };
         case "speakers":

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { betterDownload, defaultModel, downloadOrder, leftovers, missingBytes, modelFor, parseLanguage, recommend, runLanguages, setupLanguages, wanted, wantedBackend, type Resources, type Setup } from "./setup";
+import { betterDownload, defaultModel, downloadOrder, fittingDownload, fittingInstalled, leftovers, missingBytes, modelFor, parseLanguage, recommend, runLanguages, setupLanguages, wanted, wantedBackend, type Resources, type Setup } from "./setup";
 import type { Gpu, ModelStatus, SpeakerDetection } from "./types";
 
 const GIB = 2 ** 30;
@@ -201,5 +201,34 @@ describe("languages", () => {
   it("offers Swiss German in the settings row once its model is installed", () => {
     expect(runLanguages(models, whisper).map((o) => o.value)).not.toContain("de|Swiss German");
     expect(runLanguages(with_(["swiss-german"]), whisper).map((o) => o.value)).toEqual(["auto", "en", "de", "it", "de|Swiss German", "th"]);
+  });
+});
+
+describe("a model that fits the free memory", () => {
+  const thai = parseLanguage("th");
+  const list = [
+    model("thai-fast", ["th"], ["essential"], { quality: 1, ram_gb: 1.3, installed: true }),
+    model("thai-best", ["th"], ["precise"], { quality: 2, ram_gb: 2.4, installed: true }),
+    model("turbo-q8", ["all"], ["essential"], { quality: 3, ram_gb: 1.3, installed: true }),
+    model("large-v3", ["all"], ["precise"], { quality: 6, ram_gb: 4 }),
+    model("small", ["all"], ["minimal"], { quality: 1, ram_gb: 0.7 }),
+  ];
+
+  it("keeps the language's own model and takes the best that fits", () => {
+    expect(fittingInstalled(list, thai, 3 * GIB)?.id).toBe("thai-best");
+    expect(fittingInstalled(list, thai, 2 * GIB)?.id).toBe("thai-fast");
+  });
+
+  it("falls back to a model for all languages, never one that failed here", () => {
+    expect(fittingInstalled(list, parseLanguage("de"), 2 * GIB)?.id).toBe("turbo-q8");
+    const failed = list.map((m) => (m.id === "thai-fast" ? { ...m, too_heavy: "Memory ran low." } : m));
+    expect(fittingInstalled(failed, thai, 2 * GIB)?.id).toBe("turbo-q8");
+    expect(fittingInstalled(list, thai, GIB)).toBeNull();
+  });
+
+  it("offers the best download that fits", () => {
+    expect(fittingDownload(list, thai, GIB)?.id).toBe("small");
+    expect(fittingDownload(list, thai, 5 * GIB)?.id).toBe("large-v3");
+    expect(fittingDownload(list, thai, GIB / 2)).toBeNull();
   });
 });

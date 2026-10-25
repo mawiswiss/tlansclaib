@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AboutDialog } from "./components/AboutDialog";
 import { DropZone } from "./components/DropZone";
-import { ErrorView } from "./components/ErrorView";
+import { ErrorView, type ErrorAction } from "./components/ErrorView";
+import { Notices, type Notice, type NoticeAction } from "./components/Notices";
 import { HistoryDrawer } from "./components/HistoryDrawer";
 import { ModelDetails, ModelsDialog } from "./components/ModelsPanel";
 import { RerunDialog, type RerunChoice } from "./components/RerunDialog";
@@ -13,16 +14,16 @@ import { SetupProgress } from "./components/SetupProgress";
 import { SetupView } from "./components/SetupView";
 import { SystemBar } from "./components/SystemBar";
 import { TopBar } from "./components/TopBar";
-import { bytes, capitalize, titleOf, transcriptText } from "./lib/format";
+import { bytes, capitalize, gib, titleOf, transcriptText } from "./lib/format";
 import { getBackend, type Backend } from "./lib/ipc";
-import { idle, reduce } from "./lib/run";
+import { idle, reduce, startError, type StartError } from "./lib/run";
 import { DONATE } from "./lib/about";
 import { loadSettings, saveSettings, settingsLoadError } from "./lib/settings";
 import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from "./lib/support";
 import { parseTranscript, withTimes } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
 import { checkDue, topBarLabel, type UpdateState } from "./lib/update";
-import { betterDownload, DETECTION_IDS, downloadOrder, installed as isInstalled, languageKey, leftovers, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, sizeOf, wanted, wantedBackend, type Resources, type Setup } from "./lib/setup";
+import { betterDownload, DETECTION_IDS, downloadOrder, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, sizeOf, wanted, wantedBackend, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
 import type { DiskSpace, DownloadProgress, FileKind, Gpu, HistoryEntry, Language, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "./lib/types";
 
 function backendOf(id: string): SpeakerBackend | undefined {
@@ -30,6 +31,27 @@ function backendOf(id: string): SpeakerBackend | undefined {
 }
 
 type RerunOptions = { focus?: "speakers" | "language"; speakers?: string; language?: string };
+
+const GIB = 2 ** 30;
+
+function languageOf(model: ModelStatus, requested: SetupLanguage): SetupLanguage {
+  return model.languages.includes("all") ? requested : { code: model.languages[0], variant: model.language_name ?? null };
+}
+
+type Launch = {
+  audio: string;
+  model: ModelStatus;
+  language: SetupLanguage;
+  timestamps: boolean;
+  speakers: string | null;
+  precision: "standard" | "fast";
+  backend: SpeakerBackend | null;
+  outputFile: string | null;
+  pinned: boolean;
+  force: boolean;
+};
+
+type MemoryAsk = { launch: Launch; error: Extract<StartError, { kind: "memory" }> };
 
 async function copyText(text: string) {
   try {
@@ -56,7 +78,8 @@ export default function App() {
   const [folder, setFolder] = useState("");
   const [settings, setSettings] = useState(loadSettings);
   const settingsAtStart = useRef(settings);
-  const [appErrors, setAppErrors] = useState<string[]>(settingsLoadError ? [settingsLoadError] : []);
+  const [notices, setNotices] = useState<Notice[]>(settingsLoadError ? [{ id: 0, kind: "error", text: settingsLoadError }] : []);
+  const noticeId = useRef(1);
   const [panel, setPanel] = useState<"models" | "about" | "support" | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -80,6 +103,12 @@ export default function App() {
   const [pending, setPending] = useState<string | null>(null);
   const [modelsFocus, setModelsFocus] = useState<"detection" | null>(null);
   const [aboutFocus, setAboutFocus] = useState<"update" | null>(null);
+  const [memoryAsk, setMemoryAsk] = useState<MemoryAsk | null>(null);
+  const [waiting, setWaiting] = useState<Launch | null>(null);
+  const lastLaunch = useRef<Launch | null>(null);
+  const droppedCancels = useRef(0);
+  const runStatus = useRef(run.status);
+  runStatus.current = run.status;
   const [rerunTarget, setRerunTarget] = useState<{
     entry: HistoryEntry;
     focus: "speakers" | "language" | null;
@@ -111,9 +140,12 @@ export default function App() {
     [languages],
   );
   const languageLabel = (key: string) => parseLanguage(key).variant ?? languageName(parseLanguage(key).code);
-  const showError = useCallback((message: string) => {
-    setAppErrors((current) => current.includes(message) ? current : [...current, message].slice(-10));
+  const notify = useCallback((kind: Notice["kind"], text: string, actions?: NoticeAction[]) => {
+    const id = noticeId.current++;
+    setNotices((current) => current.some((n) => n.text === text) ? current : [...current, { id, kind, text, actions }].slice(-4));
   }, []);
+  const dismissNotice = useCallback((id: number) => setNotices((current) => current.filter((n) => n.id !== id)), []);
+  const showError = useCallback((message: string) => notify("error", message), [notify]);
   const reportError = useCallback((context: string, error: unknown) => {
     showError(`${context}: ${String(error)}`);
   }, [showError]);
@@ -249,6 +281,10 @@ export default function App() {
       backend.current = b;
       const listeners = [
         ["transcription events", b.onEngineEvent((event) => {
+          if (event.event === "cancelled" && droppedCancels.current > 0) {
+            droppedCancels.current -= 1;
+            return;
+          }
           if (event.event === "warning") showError(event.message);
           dispatch({ type: "engine", event, now: Date.now() });
         })],
@@ -303,54 +339,118 @@ export default function App() {
     };
   }, [refreshModels, reportError, showError, checkUpdate]);
 
-  const start = useCallback(
-    async (audio: string) => {
-      const b = backend.current;
-      if (!b) {
-        showError("The app is still starting. Please try again.");
+  const launch = async (l: Launch, current: ModelStatus[]): Promise<void> => {
+    const b = backend.current;
+    if (!b) {
+      showError("The app is still starting. Please try again.");
+      return;
+    }
+    lastLaunch.current = l;
+    setMemoryAsk(null);
+    const language = l.model.languages.includes("all") ? l.language.code : l.model.languages[0];
+    dispatch({
+      type: "start",
+      audio: l.audio,
+      folder: "app history",
+      modelName: l.model.name,
+      timestamps: l.timestamps,
+      autoLanguage: language === "auto",
+      detecting: l.speakers !== null,
+      now: Date.now(),
+    });
+    try {
+      await b.startRun(l.audio, l.model.id, language, l.timestamps, l.speakers, l.speakers && l.backend === "sherpa" ? l.precision : null, l.speakers ? l.backend : null, l.outputFile, l.force);
+    } catch (error) {
+      const refused = startError(error);
+      if (refused.kind !== "memory") {
+        dispatch({ type: "fail", message: refused.message });
         return;
       }
-      let current: ModelStatus[];
+      const smaller = refused.budget === null ? null : fittingInstalled(current.filter((m) => m.id !== l.model.id), l.language, refused.budget);
+      if (!l.pinned && smaller) {
+        notify("info", `Only ${gib(refused.free)} of memory is free, too little for ${l.model.name}. Transcribing with ${smaller.name} instead.`, [
+          { label: `Use ${l.model.name} anyway`, run: () => void forceAgain(l) },
+        ]);
+        await launch({ ...l, model: smaller, pinned: true }, current);
+        return;
+      }
+      setMemoryAsk({ launch: l, error: refused });
+      dispatch({ type: "fail", message: refused.message });
+    }
+  };
+
+  const forceAgain = async (l: Launch) => {
+    const b = backend.current;
+    if (!b) return;
+    if (runStatus.current === "running") {
+      droppedCancels.current += 1;
       try {
-        current = await b.listModels();
+        await b.cancelRun();
       } catch (error) {
-        reportError("Could not check installed models", error);
+        droppedCancels.current -= 1;
+        reportError("Could not stop transcription", error);
         return;
       }
-      const chosen = modelFor(current, settings.setup, parseLanguage(settings.language), settings.modelId, resources);
-      if (!chosen) {
-        setPanel("models");
-        return;
-      }
-      const fallback = modelFor(current, settings.setup, parseLanguage(settings.language), settings.modelId);
-      const speakers = settings.speakers !== "off" && speakerBackend ? settings.speakers : null;
-      setResultError(null);
-      const attempt = (m: ModelStatus) => {
-        const language = m.languages.includes("all") ? parseLanguage(settings.language).code : m.languages[0];
-        dispatch({
-          type: "start",
-          audio,
-          folder: "app history",
-          modelName: m.name,
-          timestamps: settings.timestamps,
-          autoLanguage: language === "auto",
-          detecting: speakers !== null,
-          now: Date.now(),
-        });
-        return b.startRun(audio, m.id, language, settings.timestamps, speakers, speakers && speakerBackend === "sherpa" ? settings.speakerPrecision : null, speakers ? speakerBackend : null);
-      };
-      try {
-        await attempt(chosen);
-      } catch (error) {
-        if (!fallback || fallback.id === chosen.id) {
-          dispatch({ type: "fail", message: String(error) });
-          return;
-        }
-        await attempt(fallback).catch((error) => dispatch({ type: "fail", message: String(error) }));
-      }
-    },
-    [settings, speakerBackend, resources, reportError, showError],
-  );
+    }
+    notify("warning", `Started ${l.model.name} without the memory check. The app stops it if memory runs out.`);
+    await launch({ ...l, pinned: true, force: true }, models);
+  };
+
+  const downloadAndStart = (l: Launch) => {
+    setWaiting(l);
+    setPending(null);
+    notify("info", `Downloading ${l.model.name}. The transcription starts when it is ready.`);
+    if (setup) {
+      setFailed(({ [l.model.id]: _, ...rest }) => rest);
+      include(l.model.id);
+      return;
+    }
+    fetchItem(l.model.id).catch((error) => {
+      setWaiting(null);
+      if (!l.outputFile) setPending(l.audio);
+      notify("error", `Could not download ${l.model.name}: ${String(error)}`, [{ label: "Try again", run: () => downloadAndStart(l) }]);
+    });
+  };
+
+  const start = async (audio: string) => {
+    const b = backend.current;
+    if (!b) {
+      showError("The app is still starting. Please try again.");
+      return;
+    }
+    let current: ModelStatus[];
+    try {
+      current = await b.listModels();
+    } catch (error) {
+      reportError("Could not check installed models", error);
+      return;
+    }
+    const requested = parseLanguage(settings.language);
+    const chosen = modelFor(current, settings.setup, requested, settings.modelId, resources);
+    if (!chosen) {
+      setPanel("models");
+      return;
+    }
+    const language = languageOf(chosen, requested);
+    const speakers = settings.speakers !== "off" && speakerBackend ? settings.speakers : null;
+    setResultError(null);
+    setWaiting(null);
+    await launch(
+      {
+        audio,
+        model: chosen,
+        language,
+        timestamps: settings.timestamps,
+        speakers,
+        precision: settings.speakerPrecision,
+        backend: speakerBackend,
+        outputFile: null,
+        pinned: current.some((m) => m.installed && m.id === settings.modelId),
+        force: false,
+      },
+      current,
+    );
+  };
   startLatest.current = start;
 
   const stage = (audio: string) => {
@@ -468,21 +568,22 @@ export default function App() {
     setResultError(null);
     setHistoryError(null);
     setHistoryOpen(false);
-    dispatch({
-      type: "start",
-      audio: entry.audio,
-      folder: "app history",
-      modelName: model.name,
-      timestamps: choice.timestamps,
-      autoLanguage: choice.language === "auto",
-      detecting: speakers !== null,
-      now: Date.now(),
-    });
-    try {
-      await b.startRun(entry.audio, model.id, choice.language, choice.timestamps, speakers, speakers && choice.backend === "sherpa" ? choice.precision : null, speakers ? choice.backend : null, entry.file);
-    } catch (error) {
-      dispatch({ type: "fail", message: String(error) });
-    }
+    setWaiting(null);
+    await launch(
+      {
+        audio: entry.audio,
+        model,
+        language: languageOf(model, { code: choice.language, variant: null }),
+        timestamps: choice.timestamps,
+        speakers,
+        precision: choice.precision,
+        backend: choice.backend,
+        outputFile: entry.file,
+        pinned: true,
+        force: false,
+      },
+      models,
+    );
   };
 
   const rerunResult = (options: RerunOptions = {}) => {
@@ -685,6 +786,67 @@ export default function App() {
 
   const downloadDetection = (detection: SpeakerBackend) => download(DETECTION_IDS[detection]);
 
+  useEffect(() => {
+    if (!waiting) return;
+    const ready = models.find((m) => m.id === waiting.model.id && m.installed);
+    if (ready) {
+      setWaiting(null);
+      void launch({ ...waiting, model: ready }, models);
+      return;
+    }
+    const failure = failed[waiting.model.id];
+    if (failure) {
+      setWaiting(null);
+      if (!waiting.outputFile) setPending(waiting.audio);
+      notify("error", `Could not download ${waiting.model.name}: ${failure}`, [{ label: "Try again", run: () => downloadAndStart(waiting) }]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waiting, models, failed]);
+
+  const ask = memoryAsk && run.status === "error" && run.error === memoryAsk.error.message ? memoryAsk : null;
+  const askSmaller = ask && ask.error.budget !== null ? fittingInstalled(models.filter((m) => m.id !== ask.launch.model.id), ask.launch.language, ask.error.budget) : null;
+  const askDownload = ask && !askSmaller && ask.error.budget !== null ? fittingDownload(models, ask.launch.language, ask.error.budget) : null;
+  const roomWithoutSpeakers = ask?.launch.speakers && ask.error.budget === null ? ask.error.budget_without_speakers : null;
+  const askWithoutSpeakers = ask && roomWithoutSpeakers != null
+    ? (ask.launch.model.ram_gb * GIB <= roomWithoutSpeakers ? ask.launch.model : fittingInstalled(models, ask.launch.language, roomWithoutSpeakers))
+    : null;
+  const answer = (next: Launch) => {
+    setMemoryAsk(null);
+    void launch(next, models);
+  };
+  const memoryActions = ask
+    ? [
+        askSmaller && { label: `Use ${askSmaller.name}`, run: () => answer({ ...ask.launch, model: askSmaller, pinned: true }) },
+        askDownload && {
+          label: `Download ${askDownload.name} (${bytes(askDownload.size_bytes)}) and start`,
+          run: () => {
+            setMemoryAsk(null);
+            dispatch({ type: "reset" });
+            downloadAndStart({ ...ask.launch, model: askDownload, pinned: true });
+          },
+        },
+        askWithoutSpeakers && {
+          label: askWithoutSpeakers.id === ask.launch.model.id ? "Transcribe without speaker detection" : `Without speaker detection, with ${askWithoutSpeakers.name}`,
+          run: () => {
+            notify("info", "Transcribing without speaker detection, which needs more free memory than there is right now.");
+            answer({ ...ask.launch, model: askWithoutSpeakers, speakers: null, pinned: true });
+          },
+        },
+        {
+          label: "Try anyway",
+          run: () => {
+            notify("warning", `Started ${ask.launch.model.name} without the memory check. The app stops it if memory runs out.`);
+            answer({ ...ask.launch, pinned: true, force: true });
+          },
+        },
+      ].filter((a): a is ErrorAction => Boolean(a))
+    : [];
+
+  const failedModel = run.status === "error" && run.tooHeavy ? models.find((m) => m.id === run.tooHeavy) : undefined;
+  const stepDown = failedModel && lastLaunch.current
+    ? fittingInstalled(models.filter((m) => m.id !== failedModel.id), lastLaunch.current.language, failedModel.ram_gb * GIB - 1)
+    : null;
+
   const leaveSetup = async (id: string) => {
     setPanelError(null);
     exclude(id);
@@ -867,7 +1029,7 @@ export default function App() {
             onRestart={(language) => {
               void Promise.resolve()
                 .then(() => requireBackend().restartRun(language))
-                .catch((error) => dispatch({ type: "fail", message: String(error) }));
+                .catch((error) => dispatch({ type: "fail", message: startError(error).message }));
             }}
           />
         );
@@ -918,11 +1080,28 @@ export default function App() {
           />
         );
       case "error":
+        if (ask) {
+          return (
+            <ErrorView
+              title={roomWithoutSpeakers != null ? "Not enough free memory for speaker detection" : `Not enough free memory for ${ask.launch.model.name}`}
+              message={ask.error.message}
+              note="Try anyway starts regardless. The app still stops the transcription before the computer runs out of memory."
+              actions={memoryActions}
+              retryLabel="Cancel"
+              onRetry={() => {
+                setMemoryAsk(null);
+                dispatch({ type: "reset" });
+                if (!ask.launch.outputFile) setPending(ask.launch.audio);
+              }}
+            />
+          );
+        }
         return (
           <ErrorView
             title="Something went wrong"
             message={run.error ?? ""}
             onRetry={() => dispatch({ type: "reset" })}
+            actions={stepDown && lastLaunch.current ? [{ label: `Transcribe again with ${stepDown.name}`, run: () => void launch({ ...lastLaunch.current!, model: stepDown, pinned: true, force: false }, models) }] : undefined}
           />
         );
       case "cancelled":
@@ -1157,12 +1336,7 @@ export default function App() {
           setHistoryError(null);
         }}
       />
-      {appErrors.length > 0 && (
-        <div className="problem app-error" role="alert">
-          <span>{appErrors[0]}{appErrors.length > 1 && ` (${appErrors.length - 1} more)`}</span>
-          <button type="button" className="inline-link" onClick={() => setAppErrors((current) => current.slice(1))}>Dismiss</button>
-        </div>
-      )}
+      <Notices notices={notices} onDismiss={dismissNotice} />
     </div>
   );
 }

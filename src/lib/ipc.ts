@@ -25,6 +25,7 @@ export type Backend = {
     speakerPrecision: string | null,
     speakerBackend: SpeakerBackend | null,
     outputFile?: string | null,
+    force?: boolean,
   ): Promise<void>;
   speakerDetection(): Promise<SpeakerDetection[]>;
   downloadSpeakerDetection(backend: SpeakerBackend): Promise<void>;
@@ -89,8 +90,8 @@ async function tauriBackend(): Promise<Backend> {
     renameModel: (id, name) => invoke("rename_model", { id, name }),
     reveal: (path) => invoke("reveal", { path }),
     listLanguages: () => invoke("list_languages"),
-    startRun: (audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile) =>
-      invoke("start_run", { audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile: outputFile ?? null }),
+    startRun: (audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile, force) =>
+      invoke("start_run", { audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile: outputFile ?? null, force: force ?? false }),
     speakerDetection: () => invoke("speaker_detection"),
     downloadSpeakerDetection: (backend) => invoke("download_speaker_detection", { backend }),
     cancelSpeakerDetection: (backend) => invoke("cancel_speaker_detection", { backend }),

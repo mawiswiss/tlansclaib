@@ -119,7 +119,8 @@ async fn start_run(
     speaker_precision: Option<String>,
     speaker_backend: Option<String>,
     output_file: Option<String>,
-) -> Result<(), String> {
+    force: bool,
+) -> Result<(), run::StartError> {
     let audio = PathBuf::from(audio);
     let output_file = output_file.map(PathBuf::from);
     run::start(
@@ -133,10 +134,11 @@ async fn start_run(
             speaker_precision: speaker_precision.as_deref(),
             speaker_backend: speaker_backend.as_deref(),
             transcript: output_file.as_deref(),
+            force,
         },
     )
     .await
-    .map_err(|e| format!("{e:#}"))
+    .map_err(run::StartError::from)
 }
 
 #[tauri::command]
@@ -359,8 +361,8 @@ fn cancel_run(app: AppHandle) {
 }
 
 #[tauri::command]
-async fn restart_run(app: AppHandle, language: String) -> Result<(), String> {
-    run::restart(&app, &language).await.map_err(|e| format!("{e:#}"))
+async fn restart_run(app: AppHandle, language: String) -> Result<(), run::StartError> {
+    run::restart(&app, &language).await.map_err(run::StartError::from)
 }
 
 #[tauri::command]

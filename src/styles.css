@@ -1563,6 +1563,7 @@ button.another:hover .another-glyph {
 }
 
 .notice-card .actions {
+  flex-wrap: wrap;
   justify-content: center;
   margin-top: 8px;
 }
@@ -1575,22 +1576,51 @@ button.another:hover .another-glyph {
   user-select: text;
 }
 
-.app-error {
+.notices {
   position: fixed;
   right: 16px;
   bottom: 56px;
   z-index: 60;
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   width: min(460px, calc(100vw - 32px));
-  border: 1px solid var(--problem);
-  box-shadow: var(--shadow-md);
 }
 
-.app-error span {
-  flex: 1;
+.notice-toast {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+  user-select: text;
+}
+
+.notice-toast.warning {
+  border-left-color: var(--warn);
+}
+
+.notice-toast.error {
+  border-color: var(--problem);
+  border-left-color: var(--problem);
+  background: var(--problem-soft);
+}
+
+.notice-toast span {
   overflow-wrap: anywhere;
+}
+
+.notice-toast-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 14px;
 }
 
 .problem-text {

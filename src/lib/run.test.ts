@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimate, idle, reduce, type RunState } from "./run";
+import { estimate, idle, reduce, startError, type RunState } from "./run";
 
 function play(events: Parameters<typeof reduce>[1][]): RunState {
   return events.reduce(reduce, idle);
@@ -174,5 +174,20 @@ describe("run reducer", () => {
     expect(renamed.result?.file).toBe("/rec/Weekly sync_transcript.txt");
     expect(renamed.opened?.file).toBe("/rec/Weekly sync_transcript.txt");
     expect(renamed.hash).toBe("h2");
+  });
+});
+
+describe("start errors", () => {
+  it("keeps a memory refusal and wraps anything else", () => {
+    const refusal = { kind: "memory", message: "short", free: 1, budget: null, budget_without_speakers: null };
+    expect(startError(refusal)).toBe(refusal);
+    expect(startError("gone")).toEqual({ kind: "other", message: "gone" });
+  });
+
+  it("remembers the model a failed run marked too heavy", () => {
+    const running = reduce(idle, { type: "start", audio: "/a.m4a", folder: "", modelName: "Large", timestamps: true, autoLanguage: false, now: 0 });
+    const marked = reduce(running, { type: "engine", event: { event: "too_heavy", model_id: "large-v3" }, now: 1 });
+    expect(marked.tooHeavy).toBe("large-v3");
+    expect(reduce(marked, { type: "engine", event: { event: "error", message: "Stopped." }, now: 2 }).tooHeavy).toBe("large-v3");
   });
 });

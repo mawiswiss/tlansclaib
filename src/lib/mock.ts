@@ -57,6 +57,8 @@ export function mockBackend(): Backend {
   const query = new URLSearchParams(location.search);
   const fresh = query.has("fresh");
   const heavy = query.has("heavy") ? "Memory ran low while it transcribed." : null;
+  const lowRam = query.has("lowram") ? Number(query.get("lowram") || 2) * 2 ** 30 : null;
+  const midStop = query.has("midstop");
   const models: ModelStatus[] = [
     { ...model("thai-fast", "Thai (fast)", ["th"], ["essential"], "Thai recordings on any computer", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh), too_heavy: heavy },
     model("thai-best", "Thai (best quality)", ["th"], ["precise"], "Thai recordings when time does not matter", 1656538283, 2.4, "large-v3", "q8_0", false),
@@ -87,7 +89,7 @@ export function mockBackend(): Backend {
     { code: "lo", probability: 0.01 },
   ];
   const detections: SpeakerDetection[] = [
-    { backend: "sherpa", available: true, installed: false, downloading: false, download_bytes: 38_113_781, disk_bytes: 0 },
+    { backend: "sherpa", available: true, installed: query.has("speakers"), downloading: false, download_bytes: 38_113_781, disk_bytes: 0 },
     { backend: "nemotron", available: true, installed: false, downloading: false, download_bytes: 202_061_718, disk_bytes: 0 },
   ];
   const detectionTimers: Partial<Record<SpeakerBackend, ReturnType<typeof setInterval>>> = {};
@@ -241,8 +243,22 @@ export function mockBackend(): Backend {
       { code: "fr", name: "french" },
       { code: "ja", name: "japanese" },
     ],
-    startRun: async (audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile) => {
-      lastRun = [audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile];
+    startRun: async (audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile, force) => {
+      const chosen = models.find((x) => x.id === modelId)!;
+      if (lowRam !== null && !force) {
+        const detection = speakers ? 1.5 * 2 ** 30 : 0;
+        const budget = (free: number, reserve: number) => (free - 2 ** 30 >= reserve ? free - 2 ** 30 : null);
+        if (Math.max(chosen.ram_gb * 2 ** 30, detection) + 2 ** 30 > lowRam) {
+          throw {
+            kind: "memory",
+            message: `This transcription needs about ${(Math.max(chosen.ram_gb, detection / 2 ** 30) + 1).toFixed(1)} GB of free RAM and ${(lowRam / 2 ** 30).toFixed(1)} GB is free. Close other programs, choose a smaller model, or use a shorter recording.`,
+            free: lowRam,
+            budget: budget(lowRam, detection),
+            budget_without_speakers: speakers ? budget(lowRam, 0) : null,
+          };
+        }
+      }
+      lastRun = [audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile, force];
       const run = ++generation;
       const name = audio.split("/").pop()!.replace(/\.[^.]+$/, "");
       const file = `/AppData/transcripts/${Date.now()}.json`;
@@ -277,6 +293,15 @@ export function mockBackend(): Backend {
             speaker: voices.length ? TURNS[done % TURNS.length] + (done % 7 === 0 ? 1 : 0) : undefined,
           });
           send({ event: "progress", done, total, position: start + 12.9 });
+          if (midStop && done === 10) {
+            clearInterval(timer!);
+            timer = null;
+            chosen.too_heavy = "Memory ran low while it transcribed.";
+            emit("models", null);
+            send({ event: "too_heavy", model_id: modelId });
+            send({ event: "error", message: "Stopped before the computer ran out of memory: only 0.3 GB was left. Close other programs or choose a smaller model. Automatic skips this model from now on. You can still pick it in the Model menu." });
+            return;
+          }
           if (done >= total) {
             clearInterval(timer!);
             timer = null;
@@ -308,8 +333,8 @@ export function mockBackend(): Backend {
       generation += 1;
       emit("engine", { event: "restart", language } satisfies EngineEvent);
       if (!lastRun) return;
-      const [audio, modelId, , timestamps, speakers, precision, outputFile] = lastRun;
-      await this.startRun(audio, modelId, language, timestamps, speakers, precision, outputFile);
+      const [audio, modelId, , timestamps, speakers, precision, backend, outputFile, force] = lastRun;
+      await this.startRun(audio, modelId, language, timestamps, speakers, precision, backend, outputFile, force);
     },
     listHistory: async () => history.map((h) => ({ ...h })),
     removeHistory: async (id) => {

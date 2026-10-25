@@ -241,7 +241,10 @@ because progress reporting and other work are outside those stages.
   plus 1 GB. Before a setup starts its downloads, free disk must cover all of
   them together plus 1 GB, so a full disk never ends with half a setup. During a run the engine
   is stopped when free memory falls under 400 MB or swap has grown by more
-  than 2 GB since the start.
+  than 2 GB since the start. A memory refusal at the start carries the
+  largest model RAM that would start (`recording_budget`), with and without
+  speaker detection, as a `memory` start error. `force` skips the start's
+  memory checks only, never the disk check or the stop during a run.
 - `system.rs`: CPU, memory, swap and the engine's memory, CPU time and disk
   reads, once a second, for the footer, the guard and the stall check. Free
   memory is total minus used. On macOS sysinfo's own "available" also counts
@@ -286,9 +289,8 @@ top bar picks one.
   model fits the free RAM right now (`guard::model_budget`, sent with the
   system stats), the GPU is usable, and on Windows the model fits the GPU
   memory. A language's own model is never traded for one for all languages.
-  The choice can change while other programs come and go. If the stepped-up
-  model fails to start at GO, such as on the start check's memory need for a
-  long recording, the run starts with the setup's model instead. When a better catalog model would fit but is not installed, a note
+  The choice can change while other programs come and go. If the start check
+  refuses the model for memory, see "Not enough memory" under "A run". When a better catalog model would fit but is not installed, a note
   below the row offers to download it (`betterDownload`). It never takes a
   model marked too heavy, which the menu lists with "(failed here)". Picking a
   model pins it, and a pinned single-language model fixes the language. It shows only before a transcription. Timecodes
@@ -330,7 +332,22 @@ top bar picks one.
   (`lib/language.ts`). The note never stops the run, because the detection
   can be wrong, for instance with a dialect. The result keeps the note with
   "Transcribe again in English", which opens the dialog with that language.
-- Errors say what happened and what to do.
+- Errors say what happened and what to do. Where the app can fix the problem
+  itself, the error card offers the fix as a button.
+- Not enough memory: when the start check refuses the model, `launch` in
+  `App.tsx` reads the `memory` start error. With "Automatic" it starts the
+  best installed model that fits (`fittingInstalled`) once, with a notice
+  and "Use … anyway". A pinned model, or no installed model that fits, ends
+  on the error card with the fixes that apply: a smaller installed model, a
+  download that fits (`fittingDownload`), which starts the recording once it
+  is installed, no speaker detection when detection alone does not fit, and
+  "Try anyway". Cancel stages the recording again.
+- A run stopped for memory, a crash or a stall marks the model too heavy and
+  sends `too_heavy`. The error card then offers the best installed model
+  with less RAM.
+- Notices (`Notices.tsx`) stack at the bottom right: info, warning and
+  error, each optionally with buttons. Info without a button fades after
+  8 s, the others stay until dismissed. App errors arrive here too.
 
 ### The result
 

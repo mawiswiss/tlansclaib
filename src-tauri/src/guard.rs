@@ -71,6 +71,13 @@ pub fn model_budget(free: u64) -> u64 {
     free.saturating_sub(RUN_HEADROOM)
 }
 
+/// The largest model RAM that passes `can_start_recording`, or none when detection and audio alone do not fit.
+pub fn recording_budget(free: u64, detection: u64, sample_seconds: Option<f64>) -> Option<u64> {
+    let audio = sample_seconds.map(decoded_audio_bytes).unwrap_or(0);
+    let budget = free.checked_sub(audio)?.checked_sub(RUN_HEADROOM)?;
+    (detection <= budget).then_some(budget)
+}
+
 #[cfg(any(windows, test))]
 pub fn can_use_gpu(free: u64, needed: u64) -> bool {
     needed.checked_add(RUN_HEADROOM).is_some_and(|minimum| free >= minimum)
@@ -171,6 +178,23 @@ mod tests {
             assert!(can_start(free, budget + 1).is_err());
             assert!(!can_use_gpu(free, budget + 1));
         }
+    }
+
+    #[test]
+    fn the_recording_budget_is_the_largest_model_that_starts_with_this_recording() {
+        for (free, detection, seconds) in [(3 * GIB, 0, Some(3600.0)), (9 * GIB + 7, SHERPA_DETECTION_RAM, Some(1059.0)), (4 * GIB, GIB, None)] {
+            let budget = recording_budget(free, detection, seconds).unwrap();
+            assert!(can_start_recording(free, budget, detection, seconds).is_ok());
+            assert!(can_start_recording(free, budget + 1, detection, seconds).is_err());
+        }
+    }
+
+    #[test]
+    fn no_recording_budget_when_detection_or_audio_alone_do_not_fit() {
+        assert_eq!(recording_budget(2 * GIB, SHERPA_DETECTION_RAM, Some(60.0)), None);
+        assert!(recording_budget(3 * GIB, SHERPA_DETECTION_RAM, Some(60.0)).is_some());
+        assert_eq!(recording_budget(GIB / 2, 0, None), None);
+        assert_eq!(recording_budget(u64::MAX, 0, Some(f64::INFINITY)), None);
     }
 
     #[test]

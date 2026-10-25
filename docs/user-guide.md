@@ -216,10 +216,17 @@ The computer stays usable in the meantime.
 
 ## If something goes wrong
 
-- "This transcription needs about X GB of free RAM": close other programs,
-  pick a smaller model, or set Speakers to "Disabled". The app refuses to
-  start rather than let the computer freeze, and stops a running
-  transcription when memory gets dangerously low.
+- Not enough free memory for the model: with "Automatic", the app takes the
+  best installed model that fits and says so in a notice, with a button to
+  use the first model anyway. With a model you picked, or when no installed
+  model fits, the window offers what helps: a smaller installed model, a
+  smaller model to download, which then starts the transcription by itself,
+  transcribing without speaker detection, or "Try anyway". Even then the
+  app stops a running transcription when memory gets dangerously low, so the
+  computer does not freeze.
+- A transcription stopped because memory ran low, or the model crashed or
+  stopped responding: the window offers to transcribe again with the next
+  smaller installed model.
 - A file that is "not a model": it is not a whisper.cpp model. The message
   names what the file is instead.
 - A file that is not an audio file, or whose codec is not supported:
