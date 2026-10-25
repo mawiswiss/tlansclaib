@@ -43,8 +43,8 @@ On the first start it asks two things:
   - Precise: the most accurate results, with the biggest models and the better
     speaker detection. For a computer with a graphics chip and 16 GB RAM.
     About 3.3 GB, more with a language of its own.
-  - Essential: mid-sized models and basic speaker detection, for older
-    computers or a slower connection. About 900 MB.
+  - Essential: mid-sized models and the better speaker detection, for older
+    computers or a slower connection. About 1.1 GB.
   - Minimal: one small model for all languages and no speaker detection, for
     when the others do not run. About 260 MB.
 
@@ -91,18 +91,21 @@ model deletes the file.
 ## Speaker detection
 
 Speaker detection tells who speaks when in a recording with one audio track,
-such as a meeting room, and runs offline like the models. The setup brings it:
+such as a meeting room, and runs offline like the models. Precise and
+Essential bring the better one, Minimal none:
 
-- Essential: basic detection, about 38 MB. "Speakers" in the settings row
+- Better detection, about 202 MB, which keeps short replies apart.
+  "Speakers" offers "Auto" or a cap of 2 to 8 people. A cap can suppress an
+  extra label, but cannot recover a voice the model missed.
+- Basic detection, about 38 MB, under Models for a computer where the better
+  one is too slow. It runs only when the better one is not installed.
+  "Speakers" in the settings row
   offers "Auto" or 2 to 6 people, and giving the number is more reliable. The
   small "Standard" next to "Speakers" can be switched to "Fast", which takes
   about a third of the time and gets a few more speaker changes wrong. Very
   short replies such as "yes" often go to the wrong person. Detection runs on
   the processor: on a recent Mac about 2 to 4 minutes for a 25-minute call,
   and 10 minutes for a 107-minute meeting.
-- Precise: better detection, about 202 MB, which keeps short replies apart.
-  "Speakers" offers "Auto" or a cap of 2 to 8 people. A cap can suppress an
-  extra label, but cannot recover a voice the model missed.
 
 Calls need none of this when each side is on its own track. Screen and call
 recordings often keep your microphone on one track and the computer's sound,

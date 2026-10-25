@@ -33,7 +33,7 @@ const PITCH: Record<Mode, string> = {
   minimal: "One small model, no speaker names. For when the others don't run.",
 };
 
-const SPEAKERS: Record<Mode, string> = { precise: "Better detection", essential: "Basic detection", minimal: "Not named" };
+const SPEAKERS: Record<Mode, string> = { precise: "Better detection", essential: "Better detection", minimal: "Not named" };
 
 const BARS: Record<Mode, number> = { precise: 30, essential: 16, minimal: 8 };
 

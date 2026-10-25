@@ -38,19 +38,19 @@ const plenty: Resources = { budget: 8 * GIB, gpu };
 
 describe("wanted", () => {
   it("takes the mode's all-language model and speaker detection", () => {
-    expect(wanted(models, setup("essential"))).toEqual(["turbo-q8", "speaker-detection"]);
+    expect(wanted(models, setup("essential"))).toEqual(["turbo-q8", "speaker-detection-nemotron"]);
     expect(wanted(models, setup("precise"))).toEqual(["large-v3", "speaker-detection-nemotron"]);
     expect(wanted(models, setup("minimal"))).toEqual(["tiny"]);
   });
 
   it("adds the chosen language's model, and German never pulls in Swiss German", () => {
-    expect(wanted(models, setup("essential", "de"))).toEqual(["german-fast", "turbo-q8", "speaker-detection"]);
+    expect(wanted(models, setup("essential", "de"))).toEqual(["german-fast", "turbo-q8", "speaker-detection-nemotron"]);
     expect(wanted(models, setup("precise", "de|Swiss German"))).toEqual(["swiss-german", "large-v3", "speaker-detection-nemotron"]);
     expect(wanted(models, setup("precise", "de"))).toEqual(["large-v3", "speaker-detection-nemotron"]);
   });
 
   it("keeps what a technical user added or removed by hand", () => {
-    expect(wanted(models, setup("essential", "th", { added: ["base"], removed: ["speaker-detection"] }))).toEqual(["thai-fast", "turbo-q8", "base"]);
+    expect(wanted(models, setup("essential", "th", { added: ["base"], removed: ["speaker-detection-nemotron"] }))).toEqual(["thai-fast", "turbo-q8", "base"]);
   });
 });
 
@@ -131,7 +131,7 @@ describe("betterDownload", () => {
 describe("downloads", () => {
   it("fetches the language's model first, then speaker detection", () => {
     expect(defaultModel(models, setup("essential", "th"))?.id).toBe("thai-fast");
-    expect(downloadOrder(models, setup("essential", "th"))).toEqual(["thai-fast", "speaker-detection", "turbo-q8"]);
+    expect(downloadOrder(models, setup("essential", "th"))).toEqual(["thai-fast", "speaker-detection-nemotron", "turbo-q8"]);
     expect(downloadOrder(models, setup("precise"))).toEqual(["large-v3", "speaker-detection-nemotron"]);
   });
 
@@ -144,14 +144,13 @@ describe("downloads", () => {
   it("lists leftovers after switching down, never custom or linked files", () => {
     const installed = [...with_(["large-v3", "turbo-q8", "thai-best"]), model("custom:mine", ["all"], null, { installed: true, custom: true }), model("linked:abc", ["all"], null, { installed: true, custom: true, linked: true })];
     const both = detections.map((d) => ({ ...d, installed: true }));
-    expect(leftovers(installed, both, setup("essential"))).toEqual(["thai-best", "large-v3", "speaker-detection-nemotron"]);
+    expect(leftovers(installed, both, setup("essential"))).toEqual(["thai-best", "large-v3", "speaker-detection"]);
   });
 
   it("runs the setup's speaker detection when installed, else the other", () => {
     const both = detections.map((d) => ({ ...d, installed: true }));
-    expect(wantedBackend(setup("essential"), both)).toBe("sherpa");
-    expect(wantedBackend(setup("precise"), both)).toBe("nemotron");
-    expect(wantedBackend(setup("precise"), [{ ...detections[0], installed: true }, detections[1]])).toBe("sherpa");
+    expect(wantedBackend(setup("essential"), both)).toBe("nemotron");
+    expect(wantedBackend(setup("essential"), [{ ...detections[0], installed: true }, detections[1]])).toBe("sherpa");
     expect(wantedBackend(null, detections)).toBeNull();
   });
 });

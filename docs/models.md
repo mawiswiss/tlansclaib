@@ -65,7 +65,7 @@ older version lists as a custom model.
 | | Precise | Essential | Minimal |
 |---|---|---|---|
 | All languages | `large-v3`, 3.10 GB | `large-v3-turbo-q8_0`, 874 MB | `small-q8_0`, 264 MB |
-| Speakers | better, 202 MB | basic, 38 MB | none |
+| Speakers | better, 202 MB | better, 202 MB | none |
 | Thai | `thai-best`, 1.66 GB | `thai-fast`, 874 MB | none |
 | German | `german-full`, 1.62 GB | `german-full`, 1.62 GB | none |
 | Swiss German | `swiss-german`, 874 MB | `swiss-german`, 874 MB | none |

@@ -451,7 +451,7 @@ start again as "Speaker 1" and so on.
   dialog, which dims the window behind it.
   - Precise: the most accurate results, the biggest models and the better
     speaker detection.
-  - Essential: mid-sized models and the basic speaker detection.
+  - Essential: mid-sized models and the better speaker detection.
   - Minimal: one small model for all languages, no speaker detection, for
     when the others do not run. Never recommended.
 - A setup downloads the entries of `models.json` whose `setups` name it and

@@ -7,7 +7,7 @@ export const MODES: Mode[] = ["precise", "essential", "minimal"];
 
 export const MODE_NAMES: Record<Mode, string> = { precise: "Precise", essential: "Essential", minimal: "Minimal" };
 
-export const MODE_DETECTION: Record<Mode, SpeakerBackend | null> = { precise: "nemotron", essential: "sherpa", minimal: null };
+export const MODE_DETECTION: Record<Mode, SpeakerBackend | null> = { precise: "nemotron", essential: "nemotron", minimal: null };
 
 export const DETECTION_IDS: Record<SpeakerBackend, string> = { sherpa: "speaker-detection", nemotron: "speaker-detection-nemotron" };
 
