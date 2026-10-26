@@ -22,7 +22,7 @@ import { loadSettings, saveSettings, settingsLoadError } from "./lib/settings";
 import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from "./lib/support";
 import { parseTranscript, withTimes, type Transcript } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
-import { checkDue, topBarLabel, type UpdateState } from "./lib/update";
+import { quietCheckAllowed, RECHECK_MS, releasePage, topBarLabel, type UpdateState } from "./lib/update";
 import { betterDownload, DETECTION_IDS, downloadOrder, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_DETECTION, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, sizeOf, wanted, wantedBackend, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
 import type { DiskSpace, DownloadProgress, FileKind, Gpu, HistoryEntry, Language, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "./lib/types";
 
@@ -96,6 +96,10 @@ export default function App() {
   const [setupError, setSetupError] = useState<string | null>(null);
   const [batch, setBatch] = useState<{ sizes: Record<string, number>; total: number } | null>(null);
   const [update, setUpdate] = useState<UpdateState>({ status: "idle" });
+  const updateLatest = useRef(update);
+  updateLatest.current = update;
+  const startUpdateLatest = useRef<(version: string) => void>(() => {});
+  const announced = useRef<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [run, dispatch] = useReducer(reduce, idle);
   const latest = useRef<Transcript>({ lines: run.lines, speakers: run.speakers });
@@ -239,18 +243,30 @@ export default function App() {
 
   const checkUpdate = useCallback(async (quiet: boolean) => {
     const b = backend.current;
-    if (!b) return;
+    if (!b || (quiet && !quietCheckAllowed(updateLatest.current))) return;
     if (!quiet) setUpdate({ status: "checking" });
     try {
       const found = await b.checkUpdate();
-      setSettings((s) => ({ ...s, updateCheckedAt: Date.now() }));
       if (found) setUpdate({ status: "available", version: found });
       else if (!quiet) setUpdate({ status: "current" });
+      if (found && quiet && announced.current !== found) {
+        announced.current = found;
+        notify("info", `Version ${found} of tlansclaib is available. Models, history and settings stay as they are.`, [
+          { label: "Update and restart", tone: "primary", run: () => startUpdateLatest.current(found) },
+          { label: "What's new", run: () => void b.openUrl(releasePage(found)).catch(() => {}) },
+        ]);
+      }
     } catch (error) {
       if (quiet) b.log("warn", `Could not check for updates: ${String(error)}`);
       else setUpdate({ status: "failed", version: null, message: String(error) });
     }
-  }, []);
+  }, [notify]);
+
+  useEffect(() => {
+    if (!settings.checkUpdates) return;
+    const timer = setInterval(() => void checkUpdate(true), RECHECK_MS);
+    return () => clearInterval(timer);
+  }, [settings.checkUpdates, checkUpdate]);
 
   const installUpdate = async (version: string) => {
     setUpdate({ status: "installing", version });
@@ -278,6 +294,7 @@ export default function App() {
     if (updateWaitLatest.current) setUpdate({ status: "ready", version });
     else await installUpdate(version);
   };
+  startUpdateLatest.current = (version) => void startUpdate(version);
 
   useEffect(() => {
     let active = true;
@@ -331,8 +348,7 @@ export default function App() {
         setHistory(entries);
         setSettings((s) => countFromHistory(s, entries));
       }).catch((error) => reportError("Could not load history", error));
-      const saved = settingsAtStart.current;
-      if (checkDue(saved.checkUpdates, saved.updateCheckedAt, Date.now())) void checkUpdate(true);
+      if (settingsAtStart.current.checkUpdates) void checkUpdate(true);
       void b.autorun().then((audio) => {
         if (active && audio) startLatest.current(audio);
       }).catch((error) => reportError("Could not start the requested recording", error));

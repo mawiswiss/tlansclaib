@@ -88,9 +88,10 @@ The Windows installer is not signed. SmartScreen asks once.
 
 The app updates itself with Tauri's updater plugin, from GitHub. It asks
 `releases/latest/download/latest.json`, which GitHub serves from the newest
-published release, never from a draft or a pre-release. It asks once a day
-on start, and when someone presses "Check for updates" in About. The switch
-"Check for updates on start" there turns the daily check off.
+published release, never from a draft or a pre-release. It asks at every
+start, once a day while the app stays open, and when someone presses "Check
+for updates" in About. The switch "Check for updates on start" there turns
+the automatic checks off.
 
 With the updater key in the repository's secrets, the release workflow passes
 `src-tauri/tauri.updater.conf.json` to the build, which signs one update per

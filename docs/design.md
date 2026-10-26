@@ -289,8 +289,11 @@ top bar picks one.
   opens the release on GitHub. The card turns blue once a version is found.
   The download shows a bar. The install waits while a transcription or a
   download runs, and a failure links the release page. The switch "Check for
-  updates on start" is on by default and checks at most once a day, rule in
-  `lib/update.ts`.
+  updates on start" is on by default and checks at every start and once a
+  day while the window stays open (`RECHECK_MS` in `lib/update.ts`). A check
+  in the background never interrupts a download or install under way.
+- A version found in the background shows once per start as a notice with
+  "Update and restart" and "What's new".
 - A found update also puts a blue button in the top bar, "Update to X", which
   follows the download and opens About at the card. While it shows, narrow
   windows drop "Offline processing" so the bar does not overflow.

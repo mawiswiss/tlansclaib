@@ -24,8 +24,9 @@ Once a new version is found, a blue "Update to …" button in the top bar shows
 it and the download progress, and leads back to Updates.
 
 "Check for updates on start" is on at first. The app then asks GitHub for the
-newest version number once a day when it starts, and sends nothing else. Turn
-it off, and the app checks only when you press the button.
+newest version number at every start and once a day while it stays open, and
+sends nothing else. A new version shows as a notice with "Update and
+restart". Turn it off, and the app checks only when you press the button.
 
 An update waits while a transcription or a download runs. On a Mac the app
 has to be in Applications. When an update fails, "Download from GitHub" leads
@@ -215,9 +216,9 @@ and the RAM figure adds how much of it the transcription uses.
 Recordings and transcripts never leave the computer, and there are no
 analytics. The app goes online only for the downloads of your setup or one
 you start, for four seconds on the first start or when you first open Models
-after a start, to measure how long a download would take, and once a day on
-start to ask GitHub for the newest version number, unless you turn that off
-under Updates in About.
+after a start, to measure how long a download would take, and at every start
+and once a day while open to ask GitHub for the newest version number, unless
+you turn that off under Updates in About.
 
 ## How long it takes
 

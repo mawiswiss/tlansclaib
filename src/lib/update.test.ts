@@ -1,21 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { checkDue, percent, releasePage, topBarLabel } from "./update";
+import { percent, quietCheckAllowed, releasePage, topBarLabel } from "./update";
 
-const HOUR = 60 * 60 * 1000;
-
-describe("checkDue", () => {
-  it("never checks when the setting is off", () => {
-    expect(checkDue(false, null, 100 * HOUR)).toBe(false);
-  });
-
-  it("checks at most once a day", () => {
-    expect(checkDue(true, null, 100 * HOUR)).toBe(true);
-    expect(checkDue(true, 100 * HOUR, 123 * HOUR)).toBe(false);
-    expect(checkDue(true, 100 * HOUR, 124 * HOUR)).toBe(true);
-  });
-
-  it("checks again when the clock went back", () => {
-    expect(checkDue(true, 100 * HOUR, 99 * HOUR)).toBe(true);
+describe("quietCheckAllowed", () => {
+  it("checks in the background until a download starts", () => {
+    expect(quietCheckAllowed({ status: "idle" })).toBe(true);
+    expect(quietCheckAllowed({ status: "available", version: "0.4.0" })).toBe(true);
+    expect(quietCheckAllowed({ status: "failed", version: null, message: "offline" })).toBe(true);
+    expect(quietCheckAllowed({ status: "downloading", version: "0.4.0", received: 1, total: 2 })).toBe(false);
+    expect(quietCheckAllowed({ status: "ready", version: "0.4.0" })).toBe(false);
+    expect(quietCheckAllowed({ status: "failed", version: "0.4.0", message: "offline" })).toBe(false);
   });
 });
 

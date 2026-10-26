@@ -10,10 +10,12 @@ export type UpdateState =
   | { status: "installing"; version: string }
   | { status: "failed"; version: string | null; message: string };
 
-const DAY = 24 * 60 * 60 * 1000;
+/** How often a window left open asks again, after the check at start. */
+export const RECHECK_MS = 24 * 60 * 60 * 1000;
 
-export function checkDue(enabled: boolean, checkedAt: number | null, now: number): boolean {
-  return enabled && (checkedAt === null || now - checkedAt >= DAY || now < checkedAt);
+/** A check in the background may announce a version, but never interrupts a download or install that is under way. */
+export function quietCheckAllowed(state: UpdateState): boolean {
+  return state.status === "idle" || state.status === "current" || state.status === "available" || (state.status === "failed" && state.version === null);
 }
 
 export function topBarLabel(state: UpdateState): string | null {

@@ -13,7 +13,6 @@ export type Settings = {
   supportAskedAt: number | null;
   supported: boolean;
   checkUpdates: boolean;
-  updateCheckedAt: number | null;
   setup: Setup | null;
   showDetails: boolean;
 };
@@ -32,7 +31,6 @@ export const DEFAULTS: Settings = {
   supportAskedAt: null,
   supported: false,
   checkUpdates: true,
-  updateCheckedAt: null,
   setup: null,
   showDetails: false,
 };

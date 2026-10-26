@@ -130,7 +130,7 @@ export function UpdateSection(props: Props) {
           <input type="checkbox" role="switch" className="toggle" checked={props.checkOnStart} onChange={(e) => props.onCheckOnStart(e.target.checked)} />
           <span>
             <strong>Check for updates on start</strong>
-            <small>At most once a day. A new version then shows in the top bar.</small>
+            <small>At every start and once a day while the app is open. A new version then shows as a notice and in the top bar.</small>
           </span>
         </label>
       </div>
