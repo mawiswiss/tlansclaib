@@ -514,6 +514,17 @@ start again as "Speaker 1" and so on.
 - Switching to a smaller setup deletes nothing by itself. The dialog offers
   to remove installed listed models and speaker detections the setup no
   longer wants, never custom or linked files.
+- The saved setup keeps the members the user agreed to download
+  (`accepted`), set by "Apply" and by a download from the catalogue, and the
+  queue downloads only those (`agreed`). A member a newer model list adds
+  waits (`setupChanges`): a notice names it with its size and offers
+  "Download" or "Later", and the setup's list in the details marks it
+  "New" with a download button. Once nothing is left to download, a notice
+  offers to delete the installed models the newer list took out of the
+  setup, or to keep them in it. The list comes with the app, so this runs at
+  every start, also the first one after an update. A setup saved before the
+  snapshot existed records its current members on the first start, and a
+  new member that is installed already joins without asking.
 - "Delete all models" at the bottom of the Models dialog deletes every
   listed model, every copy in the models folder and both speaker detections,
   after a confirmation that names the space it frees. Linked files stay where

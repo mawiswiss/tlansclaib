@@ -62,9 +62,11 @@ Models at the top right opens the same choice later. Switching to a smaller
 setup deletes nothing by itself: the dialog offers to remove the models no
 longer in it.
 
-"Delete all models" at the bottom of Models deletes every downloaded model and
-speaker detection and frees the space they take. Your transcripts stay, and
-you choose a setup again.
+When an update of the app brings a new model for your setup, a notice names
+it and its size and asks before it downloads. Once it is in, a notice offers
+to delete the model it replaces. "Delete all models" at the bottom of Models
+deletes every downloaded model and speaker detection and frees the space they
+take. Your transcripts stay, and you choose a setup again.
 
 ### Models and details
 

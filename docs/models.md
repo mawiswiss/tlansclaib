@@ -79,6 +79,13 @@ precision, so English stays on the model for all languages. German is
 different: there Essential only trades the q5_0 file for the f16 file of the
 same model.
 
+To replace a model, add an entry with a new `id` and `file`, move the
+`setups` of the old entry to it, and keep the old entry without `setups`. The
+app never downloads a new setup member on its own: after the update a notice
+asks first, and once the new model is in, it offers to delete the old one,
+which it still knows by its entry. A changed file under the same `id` would
+go unnoticed, because an installed model counts by its file name.
+
 ## Checks
 
 Every file, downloaded or added:

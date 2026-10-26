@@ -3183,6 +3183,18 @@ button.setup-details-toggle:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 
+.setup-news {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 8px 8px 8px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  font-size: 13px;
+}
+
 .danger-zone {
   display: flex;
   align-items: center;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { betterDownload, defaultModel, downloadOrder, fittingDownload, fittingInstalled, leftovers, missingBytes, modelFor, parseLanguage, recommend, runLanguages, setupLanguages, wanted, wantedBackend, type Resources, type Setup } from "./setup";
+import { agreed, betterDownload, defaultModel, downloadOrder, fittingDownload, fittingInstalled, leftovers, missingBytes, modelFor, parseLanguage, recommend, runLanguages, setupChanges, setupLanguages, wanted, wantedBackend, type Resources, type Setup } from "./setup";
 import type { Gpu, ModelStatus, SpeakerDetection } from "./types";
 
 const GIB = 2 ** 30;
@@ -51,6 +51,28 @@ describe("wanted", () => {
 
   it("keeps what a technical user added or removed by hand", () => {
     expect(wanted(models, setup("essential", "th", { added: ["base"], removed: ["speaker-detection-nemotron"] }))).toEqual(["thai-fast", "turbo-q8", "base"]);
+  });
+});
+
+describe("setupChanges", () => {
+  it("holds back a member a newer model list adds until the user agrees", () => {
+    const old = setup("precise", "th", { accepted: ["large-v3", "speaker-detection-nemotron", "thai-fast"] });
+    const listed = models.map((m) => (m.id === "thai-fast" ? { ...m, setups: [], installed: true } : m));
+    expect(agreed(listed, old)).toEqual(["speaker-detection-nemotron", "large-v3"]);
+    expect(setupChanges(listed, detections, old)).toEqual({ fresh: ["thai-best"], dropped: ["thai-fast"] });
+    const yes = { ...old, accepted: [...old.accepted!, "thai-best"] };
+    expect(agreed(listed, yes)).toEqual(["thai-best", "speaker-detection-nemotron", "large-v3"]);
+    expect(setupChanges(listed, detections, yes).fresh).toEqual([]);
+  });
+
+  it("counts every member as agreed in a setup saved before the snapshot", () => {
+    expect(agreed(models, setup("essential"))).toEqual(downloadOrder(models, setup("essential")));
+    expect(setupChanges(models, detections, setup("essential"))).toEqual({ fresh: [], dropped: [] });
+  });
+
+  it("offers nothing for a new member that is installed already", () => {
+    const old = setup("precise", "th", { accepted: ["large-v3", "speaker-detection-nemotron"] });
+    expect(setupChanges(with_(["thai-best"]), detections, old).fresh).toEqual([]);
   });
 });
 

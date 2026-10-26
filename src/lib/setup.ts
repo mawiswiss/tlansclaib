@@ -13,7 +13,8 @@ export const DETECTION_IDS: Record<SpeakerBackend, string> = { sherpa: "speaker-
 
 export type SetupLanguage = { code: string; variant: string | null };
 
-export type Setup = { mode: Mode; language: SetupLanguage; added: string[]; removed: string[] };
+/** `accepted` holds the members the user agreed to download. Without it, every member counts. */
+export type Setup = { mode: Mode; language: SetupLanguage; added: string[]; removed: string[]; accepted?: string[] };
 
 export const SEVERAL: SetupLanguage = { code: "auto", variant: null };
 
@@ -133,6 +134,22 @@ export function downloadOrder(models: ModelStatus[], setup: Setup): string[] {
   const first = defaultModel(models, setup)?.id;
   const detections = Object.values(DETECTION_IDS);
   return [...ids.filter((id) => id === first), ...ids.filter((id) => detections.includes(id)), ...ids.filter((id) => id !== first && !detections.includes(id))];
+}
+
+/** The setup's download queue: members a newer model list added wait until the user agrees. */
+export function agreed(models: ModelStatus[], setup: Setup): string[] {
+  const ids = downloadOrder(models, setup);
+  return setup.accepted ? ids.filter((id) => setup.accepted!.includes(id)) : ids;
+}
+
+/** What a newer model list changed: members to download that the user has not agreed to, and installed models it took out. */
+export function setupChanges(models: ModelStatus[], detections: SpeakerDetection[], setup: Setup): { fresh: string[]; dropped: string[] } {
+  const ids = wanted(models, setup);
+  const accepted = setup.accepted ?? ids;
+  return {
+    fresh: missing(ids.filter((id) => !accepted.includes(id)), models, detections),
+    dropped: accepted.filter((id) => !ids.includes(id) && installed(id, models, detections)),
+  };
 }
 
 function detectionOf(id: string, detections: SpeakerDetection[]): SpeakerDetection | undefined {

@@ -18,16 +18,21 @@ import { bytes, capitalize, gib, titleOf, transcriptText } from "./lib/format";
 import { getBackend, type Backend } from "./lib/ipc";
 import { idle, reduce, startError, type StartError } from "./lib/run";
 import { DONATE } from "./lib/about";
+import { DETECTION } from "./lib/detection";
 import { loadSettings, saveSettings, settingsLoadError } from "./lib/settings";
 import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from "./lib/support";
 import { parseTranscript, withTimes, type Transcript } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
 import { quietCheckAllowed, RECHECK_MS, releasePage, topBarLabel, type UpdateState } from "./lib/update";
-import { betterDownload, DETECTION_IDS, downloadOrder, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_DETECTION, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, sizeOf, wanted, wantedBackend, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
+import { agreed, betterDownload, DETECTION_IDS, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_DETECTION, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, setupChanges, sizeOf, wanted, wantedBackend, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
 import type { DiskSpace, DownloadProgress, FileKind, Gpu, HistoryEntry, Language, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "./lib/types";
 
 function backendOf(id: string): SpeakerBackend | undefined {
   return (Object.keys(DETECTION_IDS) as SpeakerBackend[]).find((b) => DETECTION_IDS[b] === id);
+}
+
+function accept(accepted: string[] | undefined, ids: string[]): string[] | undefined {
+  return accepted && [...accepted, ...ids.filter((id) => !accepted.includes(id))];
 }
 
 type RerunOptions = { focus?: "speakers" | "language"; speakers?: string; language?: string };
@@ -716,17 +721,26 @@ export default function App() {
   };
 
   const include = (id: string) =>
-    setSettings((s) => (s.setup ? { ...s, setup: { ...s.setup, added: s.setup.added.includes(id) ? s.setup.added : [...s.setup.added, id], removed: s.setup.removed.filter((r) => r !== id) } } : s));
+    setSettings((s) => (s.setup ? { ...s, setup: { ...s.setup, added: s.setup.added.includes(id) ? s.setup.added : [...s.setup.added, id], removed: s.setup.removed.filter((r) => r !== id), accepted: accept(s.setup.accepted, [id]) } } : s));
 
   const exclude = (id: string) =>
-    setSettings((s) => (s.setup ? { ...s, setup: { ...s.setup, added: s.setup.added.filter((a) => a !== id), removed: s.setup.removed.includes(id) ? s.setup.removed : [...s.setup.removed, id] } } : s));
+    setSettings((s) => (s.setup ? { ...s, setup: { ...s.setup, added: s.setup.added.filter((a) => a !== id), removed: s.setup.removed.includes(id) ? s.setup.removed : [...s.setup.removed, id], accepted: s.setup.accepted?.filter((a) => a !== id) } } : s));
+
+  const acceptChanges = (ids: string[]) => setSettings((s) => (s.setup ? { ...s, setup: { ...s.setup, accepted: accept(s.setup.accepted, ids) } } : s));
+
+  useEffect(() => {
+    if (!modelsLoaded || !setup) return;
+    const ids = wanted(models, setup);
+    const kept = setup.accepted ? ids.filter((id) => !setup.accepted!.includes(id) && isInstalled(id, models, detections)) : ids;
+    if (kept.length) setSettings((s) => (s.setup ? { ...s, setup: { ...s.setup, accepted: accept(s.setup.accepted ?? [], kept) } } : s));
+  }, [modelsLoaded, setup, models, detections]);
 
   const queue = useRef({ busy: false, checked: "" });
   const setupKey = setup ? JSON.stringify(setup) : "";
   useEffect(() => {
     const b = backend.current;
     if (!b || !setup || !modelsLoaded || queue.current.busy) return;
-    const pending = missing(downloadOrder(models, setup), models, detections).filter((id) => !failed[id]);
+    const pending = missing(agreed(models, setup), models, detections).filter((id) => !failed[id]);
     if (pending.length === 0) {
       setBatch(null);
       return;
@@ -769,12 +783,55 @@ export default function App() {
     setFailed({});
     setSetupError(null);
     setPanelError(null);
-    setSettings((s) => ({ ...s, setup: next, modelId: "auto", language: languageKey(next.language) }));
+    setSettings((s) => ({ ...s, setup: { ...next, accepted: ids }, modelId: "auto", language: languageKey(next.language) }));
     setPanel(null);
     setModelsFocus(null);
   };
 
-  const pendingIds = setup ? missing(wanted(models, setup), models, detections) : [];
+  const pendingIds = setup ? missing(agreed(models, setup), models, detections) : [];
+  const changes = setup && modelsLoaded ? setupChanges(models, detections, setup) : { fresh: [], dropped: [] };
+  const nameOf = (id: string) => {
+    const detection = backendOf(id);
+    return detection ? DETECTION[detection].name : (models.find((m) => m.id === id)?.name ?? id);
+  };
+  const listOf = (ids: string[]) => (ids.length === 1 ? nameOf(ids[0]) : `${ids.slice(0, -1).map(nameOf).join(", ")} and ${nameOf(ids[ids.length - 1])}`);
+  const bytesOf = (ids: string[]) => bytes(ids.reduce((sum, id) => sum + sizeOf(id, models, detections), 0));
+  const offered = useRef({ fresh: "", dropped: "" });
+  const freshKey = changes.fresh.join(" ");
+  const droppedKey = changes.fresh.length === 0 && pendingIds.length === 0 ? changes.dropped.join(" ") : "";
+  useEffect(() => {
+    if (!setup || !freshKey || offered.current.fresh === freshKey) return;
+    offered.current.fresh = freshKey;
+    const ids = freshKey.split(" ");
+    notify("info", `Your ${MODE_NAMES[setup.mode]} setup has ${ids.length === 1 ? "a new model" : "new models"}: ${listOf(ids)} (${bytesOf(ids)}).`, [
+      { label: "Download", tone: "primary", run: () => acceptChanges(ids) },
+      { label: "Later", run: () => {} },
+    ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freshKey]);
+  useEffect(() => {
+    if (!setup || !droppedKey || offered.current.dropped === droppedKey) return;
+    offered.current.dropped = droppedKey;
+    const ids = droppedKey.split(" ");
+    const one = ids.length === 1;
+    notify("info", `${listOf(ids)} ${one ? "is" : "are"} no longer part of your ${MODE_NAMES[setup.mode]} setup. Delete ${one ? "it" : "them"} to free ${bytesOf(ids)}?`, [
+      {
+        label: "Delete",
+        tone: "danger",
+        run: () => {
+          void (async () => {
+            for (const id of ids) await deleteItem(id);
+            setSettings((s) => (s.setup ? { ...s, setup: { ...s.setup, accepted: s.setup.accepted?.filter((a) => !ids.includes(a)) } } : s));
+          })().catch((error) => reportError("Could not delete the model", error)).finally(() => {
+            void refreshModels();
+            refreshDetections();
+          });
+        },
+      },
+      { label: "Keep", run: () => ids.forEach(include) },
+    ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [droppedKey]);
   const failure = setupError ?? pendingIds.map((id) => failed[id]).find(Boolean) ?? null;
   const percent = batch && batch.total > 0
     ? Math.min(100, Math.round((Object.entries(batch.sizes).reduce((sum, [id, size]) => sum + (isInstalled(id, models, detections) ? size : (downloads[id]?.bytes ?? 0)), 0) / batch.total) * 100))
@@ -1304,6 +1361,8 @@ export default function App() {
       onCancelDetection={(b) => { void cancelDownload(DETECTION_IDS[b]); }}
       onRemoveDetection={removeDetection}
       onLeaveSetup={leaveSetup}
+      fresh={changes.fresh}
+      onAcceptFresh={() => acceptChanges(changes.fresh)}
     />
   );
 

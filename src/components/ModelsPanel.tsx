@@ -32,6 +32,9 @@ export type DetailsProps = {
   onCancelDetection: (backend: SpeakerBackend) => void;
   onRemoveDetection: (backend: SpeakerBackend) => void;
   onLeaveSetup: (id: string) => void;
+  /** Members a newer model list added to the setup, waiting for the user to agree. */
+  fresh: string[];
+  onAcceptFresh: () => void;
 };
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -159,7 +162,9 @@ export function ModelDetails(props: DetailsProps) {
     const file = backend ? (backend === "sherpa" ? "sherpa-onnx 1.13.8 · pyannote, CAM++" : "Nemotron 3 Diarization · f16 GGUF") : `${fileName(m!.file)} · ${m!.label ?? [m!.architecture, m!.quantization].filter(Boolean).join(", ")}`;
     const done = isInstalled(id, models, detections);
     const dl = downloads[id];
-    const status = done ? (
+    const status = props.fresh.includes(id) ? (
+      <span className="setup-status">New</span>
+    ) : done ? (
       <span className="setup-status ok">
         <Check size={13} /> Installed
       </span>
@@ -410,6 +415,14 @@ export function ModelDetails(props: DetailsProps) {
       {setup && (
         <div className="setup-list">
           <h3>In your setup</h3>
+          {props.fresh.length > 0 && (
+            <p className="setup-news">
+              <span>{props.fresh.length === 1 ? "A new model joined" : "New models joined"} your setup with this version of the app.</span>
+              <button type="button" className="primary small" onClick={props.onAcceptFresh} disabled={busy}>
+                Download {bytes(props.fresh.reduce((sum, id) => sum + sizeOf(id, models, detections), 0))}
+              </button>
+            </p>
+          )}
           <ul>{ids.map(setupRow)}</ul>
         </div>
       )}
