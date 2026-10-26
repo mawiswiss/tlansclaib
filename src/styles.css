@@ -1118,6 +1118,7 @@ input.toggle:checked::after {
 
 .dot-pick {
   display: flex;
+  align-items: flex-start;
   justify-content: center;
   width: 16px;
   margin: 0 -4px;

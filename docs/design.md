@@ -431,7 +431,8 @@ top bar picks one.
   names live in the history entry (`speakers`), which is how a reopened file
   is read back: a line belongs to a speaker when it starts with that name and
   a colon. A name cannot be empty, hold a colon or be used twice. Every line
-  carries its speaker's dot, which names the speaker when pointed at.
+  carries its speaker's dot at the height of its first line, which names the
+  speaker when pointed at.
 - With one speaker, the row says so, or "1 person detected" after detection.
   Without detection installed it offers "Set up speaker detection", with it
   "More people in this audio?". After detection with several people, "Wrong
