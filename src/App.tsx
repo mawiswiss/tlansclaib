@@ -132,6 +132,10 @@ export default function App() {
   } | null>(null);
 
   const installed = useMemo(() => models.filter((m) => m.installed), [models]);
+  const shownHistory = useMemo(
+    () => history.map((e) => ({ ...e, model: models.find((m) => m.id === e.model_id)?.name ?? e.model })),
+    [history, models],
+  );
   const setup = settings.setup;
   const runLanguage = parseLanguage(settings.language);
   const resources: Resources | null = stats && runGpu ? { budget: stats.model_budget, gpu: runGpu } : null;
@@ -1515,7 +1519,7 @@ export default function App() {
       )}
       <HistoryDrawer
         open={historyOpen}
-        entries={history}
+        entries={shownHistory}
         languageName={languageName}
         busy={running}
         error={historyError}
