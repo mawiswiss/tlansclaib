@@ -375,7 +375,7 @@ export default function App() {
       const smaller = refused.budget === null ? null : fittingInstalled(current.filter((m) => m.id !== l.model.id), l.language, refused.budget);
       if (!l.pinned && smaller) {
         notify("info", `Only ${gib(refused.free)} of memory is free, too little for ${l.model.name}. Transcribing with ${smaller.name} instead.`, [
-          { label: `Use ${l.model.name} anyway`, run: () => void forceAgain(l) },
+          { label: `Use ${l.model.name} anyway`, tone: "danger", run: () => void forceAgain(l) },
         ]);
         await launch({ ...l, model: smaller, pinned: true }, current);
         return;
@@ -414,7 +414,7 @@ export default function App() {
     fetchItem(l.model.id).catch((error) => {
       setWaiting(null);
       if (!l.outputFile) setPending(l.audio);
-      notify("error", `Could not download ${l.model.name}: ${String(error)}`, [{ label: "Try again", run: () => downloadAndStart(l) }]);
+      notify("error", `Could not download ${l.model.name}: ${String(error)}`, [{ label: "Try again", tone: "primary", run: () => downloadAndStart(l) }]);
     });
   };
 
@@ -791,7 +791,7 @@ export default function App() {
         await fetchItem(id);
       }
     } catch (error) {
-      notify("error", `Could not download speaker detection: ${String(error)}`, [{ label: "Try again", run: () => void fixSpeakers(backend) }]);
+      notify("error", `Could not download speaker detection: ${String(error)}`, [{ label: "Try again", tone: "primary", run: () => void fixSpeakers(backend) }]);
     }
   };
 
@@ -839,7 +839,7 @@ export default function App() {
     if (failure) {
       setWaiting(null);
       if (!waiting.outputFile) setPending(waiting.audio);
-      notify("error", `Could not download ${waiting.model.name}: ${failure}`, [{ label: "Try again", run: () => downloadAndStart(waiting) }]);
+      notify("error", `Could not download ${waiting.model.name}: ${failure}`, [{ label: "Try again", tone: "primary", run: () => downloadAndStart(waiting) }]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waiting, models, failed]);
@@ -875,6 +875,7 @@ export default function App() {
         },
         {
           label: "Try anyway",
+          tone: "danger",
           run: () => {
             notify("warning", `Started ${ask.launch.model.name} without the memory check. The app stops it if memory runs out.`);
             answer({ ...ask.launch, pinned: true, force: true });

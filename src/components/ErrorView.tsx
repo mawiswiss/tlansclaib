@@ -1,6 +1,7 @@
 import { Alert } from "./icons";
+import { toneClass, type NoticeAction } from "./Notices";
 
-export type ErrorAction = { label: string; run: () => void };
+export type ErrorAction = NoticeAction;
 
 type Props = {
   title: string;
@@ -22,7 +23,7 @@ export function ErrorView({ title, message, note, onRetry, retryLabel = "Start o
         <p role="alert">{message}</p>
         <div className="actions">
           {actions.map((action, i) => (
-            <button key={action.label} type="button" className={i === 0 ? "primary" : undefined} onClick={action.run}>
+            <button key={action.label} type="button" className={toneClass(action.tone ?? (i === 0 ? "primary" : "neutral"))} onClick={action.run}>
               {action.label}
             </button>
           ))}

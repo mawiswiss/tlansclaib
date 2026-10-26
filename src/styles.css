@@ -234,6 +234,18 @@ button.primary:hover:not(:disabled) {
   border-color: transparent;
 }
 
+button.danger {
+  background: var(--problem);
+  border-color: transparent;
+  color: var(--accent-text);
+}
+
+button.danger:hover:not(:disabled) {
+  background: var(--problem);
+  border-color: transparent;
+  filter: brightness(1.08);
+}
+
 button.large {
   height: 40px;
   padding: 0 20px;
@@ -1644,15 +1656,32 @@ button.another:hover .another-glyph {
   background: var(--problem-soft);
 }
 
-.notice-toast span {
+.notice-toast-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.notice-toast-body span {
+  flex: 1;
+  padding-top: 3px;
   overflow-wrap: anywhere;
+}
+
+.notice-toast-body .icon-button {
+  flex: none;
+  margin: -2px -6px 0 0;
 }
 
 .notice-toast-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 14px;
+  gap: 8px;
+}
+
+.notice-toast-actions button:not(.primary, .danger) {
+  background: var(--surface);
 }
 
 .problem-text {

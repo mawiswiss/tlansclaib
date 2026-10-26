@@ -364,7 +364,10 @@ top bar picks one.
   with less RAM.
 - Notices (`Notices.tsx`) stack at the bottom right: info, warning and
   error, each optionally with buttons. Info without a button fades after
-  8 s, the others stay until dismissed. App errors arrive here too.
+  8 s, the others stay until dismissed with the cross. App errors arrive
+  here too. Buttons here and on error cards carry a tone: blue for the fix
+  the app recommends, red for one that deletes or skips a safety check, plain
+  for the rest.
 
 ### The result
 
