@@ -73,7 +73,7 @@ pub fn can_start(free: u64, needed: u64) -> Result<(), String> {
         return Ok(());
     }
     Err(format!(
-        "This transcription needs about {} of free RAM and {} is free. Close other programs, choose a smaller model, or use a shorter recording.",
+        "This transcription needs about {} of free memory and {} is free. Close other programs, choose a smaller model, or use a shorter recording.",
         gb(minimum),
         gb(free)
     ))
@@ -179,7 +179,7 @@ mod tests {
         assert!(can_start(4 * GIB, 2 * GIB).is_ok());
         assert!(can_start(3 * GIB, 2 * GIB).is_ok());
         let refused = can_start(3 * GIB - 1, 2 * GIB).unwrap_err();
-        assert!(refused.contains("3.0 GB of free RAM"), "{refused}");
+        assert!(refused.contains("3.0 GB of free memory"), "{refused}");
         assert!(refused.contains("smaller model"));
     }
 

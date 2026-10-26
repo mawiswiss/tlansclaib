@@ -374,7 +374,7 @@ export default function App() {
       }
       const smaller = refused.budget === null ? null : fittingInstalled(current.filter((m) => m.id !== l.model.id), l.language, refused.budget);
       if (!l.pinned && smaller) {
-        notify("info", `Only ${gib(refused.free)} of memory is free, too little for ${l.model.name}. Transcribing with ${smaller.name} instead.`, [
+        notify("info", `Only ${gib(refused.free)} of memory is free, too little for ${l.model.name}. ${smaller.name} transcribes this recording instead.`, [
           { label: `Use ${l.model.name} anyway`, tone: "danger", run: () => void forceAgain(l) },
         ]);
         await launch({ ...l, model: smaller, pinned: true }, current);
@@ -398,7 +398,7 @@ export default function App() {
         return;
       }
     }
-    notify("warning", `Started ${l.model.name} without the memory check. The app stops it if memory runs out.`);
+    notify("warning", `Transcribing with ${l.model.name} anyway. The app stops it if the computer runs low on memory.`);
     await launch({ ...l, pinned: true, force: true }, models);
   };
 
@@ -877,7 +877,7 @@ export default function App() {
           label: "Try anyway",
           tone: "danger",
           run: () => {
-            notify("warning", `Started ${ask.launch.model.name} without the memory check. The app stops it if memory runs out.`);
+            notify("warning", `Transcribing with ${ask.launch.model.name} anyway. The app stops it if the computer runs low on memory.`);
             answer({ ...ask.launch, pinned: true, force: true });
           },
         },
@@ -1173,7 +1173,7 @@ export default function App() {
         }
         return (
           <ErrorView
-            title="Something went wrong"
+            title="The transcription did not finish"
             message={run.error ?? ""}
             onRetry={() => dispatch({ type: "reset" })}
             actions={stepDown && lastLaunch.current ? [{ label: `Transcribe again with ${stepDown.name}`, run: () => void launch({ ...lastLaunch.current!, model: stepDown, pinned: true, force: false }, models) }] : undefined}

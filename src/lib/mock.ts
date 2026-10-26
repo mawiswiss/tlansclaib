@@ -254,7 +254,7 @@ export function mockBackend(): Backend {
         if (Math.max(chosen.ram_gb * 2 ** 30, detection) + 2 ** 30 > lowRam) {
           throw {
             kind: "memory",
-            message: `This transcription needs about ${(Math.max(chosen.ram_gb, detection / 2 ** 30) + 1).toFixed(1)} GB of free RAM and ${(lowRam / 2 ** 30).toFixed(1)} GB is free. Close other programs, choose a smaller model, or use a shorter recording.`,
+            message: `This transcription needs about ${(Math.max(chosen.ram_gb, detection / 2 ** 30) + 1).toFixed(1)} GB of free memory and ${(lowRam / 2 ** 30).toFixed(1)} GB is free. Close other programs, choose a smaller model, or use a shorter recording.`,
             free: lowRam,
             budget: budget(lowRam, detection),
             budget_without_speakers: speakers ? budget(lowRam, 0) : null,

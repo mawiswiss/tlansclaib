@@ -249,7 +249,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         let detections = app.state::<crate::detection::Detections>();
         let detection = detections.get(detector);
         if !detection.installed() {
-            return Err(anyhow!("Speaker detection is not set up. Download it under Models, or set Speakers to Off."));
+            return Err(anyhow!("Speaker detection is not installed. Download it next to Speakers, or set Speakers to Disabled."));
         }
         args.extend([
             "--speakers".into(),
@@ -451,7 +451,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                                 let _ = app.emit(
                                     "engine-event",
                                     Event::Error {
-                                        message: format!("{backend} model startup failed, and the CPU retry could not start: {error}"),
+                                        message: format!("The model could not start on the graphics chip ({backend}), and the processor could not take over: {error}"),
                                     },
                                 );
                             }
@@ -470,10 +470,10 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                                         if payload.code == Some(0) {
                                             return "The transcription process ended without saving a result.".into();
                                         }
-                                        format!(
-                                            "The engine stopped unexpectedly (exit code {}). The log file has details.",
-                                            payload.code.map(|c| c.to_string()).unwrap_or_else(|| "none".into())
-                                        )
+                                        match payload.code {
+                                            Some(code) => format!("The transcription stopped unexpectedly (error code {code}). Try again, or choose a smaller model."),
+                                            None => "The transcription stopped unexpectedly. Try again, or choose a smaller model.".into(),
+                                        }
                                     });
                             let message = if marked.is_some() { format!("{message} {SKIPPED}") } else { message };
                             let _ = app.emit("engine-event", Event::Error { message });
