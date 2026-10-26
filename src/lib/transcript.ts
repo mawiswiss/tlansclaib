@@ -144,6 +144,9 @@ export function assignSpeaker(lines: Line[], index: number, speaker: number): Li
   return lines.map((line, i) => (i === index ? { ...line, speaker } : line));
 }
 
+/** Speakers have eight colours, so a transcript names at most eight. */
+export const MAX_SPEAKERS = 8;
+
 export function addSpeaker(speakers: string[], lines: Line[]): Transcript {
   const taken = new Set(speakers.map((name) => name.toLowerCase()));
   const named = speakers.length === 0 ? ["Speaker 1"] : [...speakers];

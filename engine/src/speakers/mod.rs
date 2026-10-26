@@ -13,6 +13,8 @@ pub mod nemotron;
 pub mod sherpa;
 
 const SHORTEST_PART_SECONDS: f64 = 0.3;
+/// A transcript names at most this many speakers, one per colour in the app.
+pub const MAX_SPEAKERS: usize = 8;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Turn {
@@ -84,6 +86,30 @@ fn open(path: &Path) -> Result<Library> {
     #[cfg(not(windows))]
     let library = unsafe { Library::new(path) };
     library.context("speaker detection could not start on this computer")
+}
+
+/// Keeps the most active speakers and gives the turns of the rest to the nearest of them.
+#[cfg(feature = "whisper")]
+fn limit_speakers(turns: Vec<Turn>, count: usize) -> Vec<Turn> {
+    let found = turns.iter().map(|t| t.speaker + 1).max().unwrap_or(0);
+    if found <= count {
+        return turns;
+    }
+    let mut ranked: Vec<(usize, f64)> = (0..found)
+        .map(|speaker| (speaker, turns.iter().filter(|t| t.speaker == speaker).map(|t| t.end - t.start).sum()))
+        .collect();
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    let kept: Vec<usize> = ranked.into_iter().take(count).map(|(speaker, _)| speaker).collect();
+    let major: Vec<Turn> = turns.iter().copied().filter(|t| kept.contains(&t.speaker)).collect();
+    renumber(
+        turns
+            .iter()
+            .map(|t| {
+                let speaker = if kept.contains(&t.speaker) { t.speaker } else { nearest(&major, (t.start + t.end) / 2.0) };
+                (t.start, t.end, speaker as i32)
+            })
+            .collect(),
+    )
 }
 
 #[cfg(feature = "whisper")]
@@ -275,5 +301,21 @@ pub(crate) mod tests {
         let lines = attribute(&[window(0.0, 3.0), window(30.0, 34.0)], &[turn(5.0, 9.0, 0), turn(20.0, 25.0, 1)]);
         assert_eq!(seconds(&lines).iter().map(|l| l.2).collect::<Vec<_>>(), vec![0, 1]);
         assert!(attribute(&[window(0.0, 3.0)], &[]).iter().all(|(_, s)| *s == 0));
+    }
+
+    #[cfg(feature = "whisper")]
+    #[test]
+    fn limits_extra_speakers_without_erasing_a_short_reply() {
+        let turns = vec![turn(0.0, 30.0, 0), turn(30.0, 31.0, 1), turn(31.0, 60.0, 0), turn(60.8, 61.0, 2), turn(61.0, 90.0, 1)];
+        let kept = limit_speakers(turns, 2);
+        assert_eq!(kept.iter().map(|t| t.speaker).collect::<Vec<_>>(), vec![0, 1, 0, 1, 1]);
+    }
+
+    #[cfg(feature = "whisper")]
+    #[test]
+    fn never_names_more_speakers_than_there_are_colours() {
+        let turns: Vec<Turn> = (0..10).map(|s| turn(s as f64 * 20.0, s as f64 * 20.0 + 5.0 + s as f64, s)).collect();
+        let kept = limit_speakers(turns, MAX_SPEAKERS);
+        assert_eq!(kept.iter().map(|t| t.speaker).max(), Some(MAX_SPEAKERS - 1));
     }
 }

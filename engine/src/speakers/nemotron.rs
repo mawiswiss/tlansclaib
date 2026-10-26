@@ -12,7 +12,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 #[cfg(feature = "whisper")]
-use super::{Turn, nearest, open, renumber};
+use super::{Turn, limit_speakers, open, renumber};
 #[cfg(feature = "whisper")]
 use crate::RATE;
 
@@ -146,42 +146,5 @@ pub fn detect(audio: &[f32], detection: &Detection, mut progress: impl FnMut(usi
         free(context);
         progress(1, 1);
         result
-    }
-}
-
-/// Keeps the most active speakers and gives the turns of the rest to the nearest of them.
-#[cfg(feature = "whisper")]
-fn limit_speakers(turns: Vec<Turn>, count: usize) -> Vec<Turn> {
-    let found = turns.iter().map(|t| t.speaker + 1).max().unwrap_or(0);
-    if found <= count {
-        return turns;
-    }
-    let mut ranked: Vec<(usize, f64)> = (0..found)
-        .map(|speaker| (speaker, turns.iter().filter(|t| t.speaker == speaker).map(|t| t.end - t.start).sum()))
-        .collect();
-    ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    let kept: Vec<usize> = ranked.into_iter().take(count).map(|(speaker, _)| speaker).collect();
-    let major: Vec<Turn> = turns.iter().copied().filter(|t| kept.contains(&t.speaker)).collect();
-    renumber(
-        turns
-            .iter()
-            .map(|t| {
-                let speaker = if kept.contains(&t.speaker) { t.speaker } else { nearest(&major, (t.start + t.end) / 2.0) };
-                (t.start, t.end, speaker as i32)
-            })
-            .collect(),
-    )
-}
-
-#[cfg(all(test, feature = "whisper"))]
-mod tests {
-    use super::*;
-    use crate::speakers::tests::turn;
-
-    #[test]
-    fn limits_extra_speakers_without_erasing_a_short_reply() {
-        let turns = vec![turn(0.0, 30.0, 0), turn(30.0, 31.0, 1), turn(31.0, 60.0, 0), turn(60.8, 61.0, 2), turn(61.0, 90.0, 1)];
-        let kept = limit_speakers(turns, 2);
-        assert_eq!(kept.iter().map(|t| t.speaker).collect::<Vec<_>>(), vec![0, 1, 0, 1, 1]);
     }
 }

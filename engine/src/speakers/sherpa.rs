@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, anyhow, bail};
 
 #[cfg(feature = "whisper")]
-use super::{Turn, nearest, open, renumber};
+use super::{MAX_SPEAKERS, Turn, limit_speakers, nearest, open, renumber};
 #[cfg(feature = "whisper")]
 use crate::RATE;
 
@@ -192,7 +192,7 @@ pub fn detect(audio: &[f32], detection: &Detection, mut progress: impl FnMut(usi
         free_result(result);
         destroy(detector);
         let turns = renumber(turns);
-        Ok(if detection.speakers.is_none() { absorb_minor(turns) } else { turns })
+        Ok(if detection.speakers.is_none() { limit_speakers(absorb_minor(turns), MAX_SPEAKERS) } else { turns })
     }
 }
 

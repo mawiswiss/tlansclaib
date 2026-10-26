@@ -124,6 +124,9 @@ once-a-second check, such as a sleeping computer, the 45 s start again.
     into dozens, and 1.1 merged two voices.
   - A voice with under 10 s, and under 5% of all speech, goes to the nearest
     other speaker.
+  - Without a given number, the eight most active voices keep their own
+    speaker and the rest go to the nearest of them, because the app has
+    eight speaker colours (`MAX_SPEAKERS`).
   - Interjections under a second came out right about a third of the time at
     every setting, so rapid exchanges are a limit of the models. Separate
     tracks avoid it.
@@ -419,6 +422,10 @@ top bar picks one.
   again, and "Repair speaker detection", which downloads it again and stages
   the recording. The engine's message follows as details.
 - With several speakers, a row above the text lists them with a colour each.
+  The eight colours keep any two speakers clearly apart in light and dark
+  mode, and neighbouring numbers also for colour-blind readers. A transcript
+  names at most eight speakers, so "New speaker" leaves the line menu at
+  eight.
   Clicking a name renames it, and the file is saved with the new name in
   front of each of that speaker's lines, through the fingerprint check. The
   names live in the history entry (`speakers`), which is how a reopened file

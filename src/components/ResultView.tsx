@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/format";
 import { differs } from "../lib/language";
 import type { RunState, Word } from "../lib/run";
-import { addSpeaker, assignSpeaker, EXPORT_NAMES, findMatches, joinLine, placeWords, playingAt, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
+import { addSpeaker, assignSpeaker, EXPORT_NAMES, MAX_SPEAKERS, findMatches, joinLine, placeWords, playingAt, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
 import type { ExportFormat } from "../lib/types";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
 import { Check, ChevronDown, Close, Copy, Download, Info, Pencil, Plus, Retry, Search } from "./icons";
@@ -769,7 +769,7 @@ export function ResultView(props: Props) {
                   <span className="dot-pick" onClick={(e) => e.stopPropagation()}>
                     <Select
                       value={line.speaker !== undefined ? String(line.speaker) : ""}
-                      options={[...run.speakers.map((name, track) => ({ value: String(track), label: name })), { value: NEW_SPEAKER, label: "New speaker" }]}
+                      options={[...run.speakers.map((name, track) => ({ value: String(track), label: name })), ...(run.speakers.length < MAX_SPEAKERS ? [{ value: NEW_SPEAKER, label: "New speaker" }] : [])]}
                       onChange={(value) => void reassign(line.index, value)}
                       label="Speaker of this line"
                       title={line.speaker !== undefined ? run.speakers[line.speaker] : "Choose the speaker"}
