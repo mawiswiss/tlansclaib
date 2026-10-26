@@ -1000,6 +1000,32 @@ export default function App() {
     void refreshModels();
   };
 
+  const ownFiles = models.filter((m) => m.installed && !m.linked);
+  const installedDetections = detections.filter((d) => d.installed);
+  const ownBytes = ownFiles.reduce((sum, m) => sum + m.size_bytes, 0) + installedDetections.reduce((sum, d) => sum + d.disk_bytes, 0);
+
+  const deleteAll = async () => {
+    setPanelError(null);
+    try {
+      const b = requireBackend();
+      if (!(await b.confirm(`Delete all downloaded models and speaker detection? This frees ${bytes(ownBytes)}. Transcripts in the history stay, and the app asks for a setup again.`, "Delete all"))) return;
+      setSettings((s) => ({ ...s, setup: null, modelId: "auto", speakers: "off" }));
+      setFailed({});
+      setSetupError(null);
+      setBatch(null);
+      setWaiting(null);
+      for (const id of Object.keys(downloads)) await cancelItem(id).catch(() => {});
+      for (const m of ownFiles) await b.deleteModel(m.id);
+      for (const d of installedDetections) await b.removeSpeakerDetection(d.backend);
+      closePanel();
+      notify("info", `Deleted all models and freed ${bytes(ownBytes)}.`);
+    } catch (error) {
+      setPanelError(`Could not delete all models: ${String(error)}`);
+    }
+    void refreshModels();
+    refreshDetections();
+  };
+
   const closePanel = () => {
     setPanel(null);
     setModelsFocus(null);
@@ -1347,7 +1373,23 @@ export default function App() {
       </main>
       <SystemBar stats={stats} running={running} onCredit={() => setPanel("support")} />
       {panel === "models" && (
-        <ModelsDialog error={panelError} onClose={closePanel}>
+        <ModelsDialog
+          error={panelError}
+          onClose={closePanel}
+          footer={
+            ownBytes > 0 && (
+              <div className="danger-zone">
+                <div>
+                  <strong>Delete all models</strong>
+                  <p className="muted">Frees {bytes(ownBytes)}. Transcripts in the history stay, and you choose a setup again.</p>
+                </div>
+                <button type="button" className="danger small" onClick={() => void deleteAll()} disabled={running}>
+                  Delete all…
+                </button>
+              </div>
+            )
+          }
+        >
           <SetupView
             variant="dialog"
             models={models}

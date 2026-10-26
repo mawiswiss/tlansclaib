@@ -444,7 +444,7 @@ export function ModelDetails(props: DetailsProps) {
   );
 }
 
-export function ModelsDialog({ error, onClose, children }: { error: string | null; onClose: () => void; children: ReactNode }) {
+export function ModelsDialog({ error, onClose, children, footer }: { error: string | null; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
   return (
     <div className="overlay" onClick={onClose}>
       <section className="modal" role="dialog" aria-modal="true" aria-labelledby="models-title" onClick={(e) => e.stopPropagation()}>
@@ -464,6 +464,7 @@ export function ModelsDialog({ error, onClose, children }: { error: string | nul
             </p>
           )}
           {children}
+          {footer}
         </div>
       </section>
     </div>

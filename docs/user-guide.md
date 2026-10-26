@@ -62,6 +62,10 @@ Models at the top right opens the same choice later. Switching to a smaller
 setup deletes nothing by itself: the dialog offers to remove the models no
 longer in it.
 
+"Delete all models" at the bottom of Models deletes every downloaded model and
+speaker detection and frees the space they take. Your transcripts stay, and
+you choose a setup again.
+
 ### Models and details
 
 "Show models and details" below the setups is for technical users. It shows

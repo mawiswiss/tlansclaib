@@ -3182,3 +3182,19 @@ button.setup-details-toggle:hover:not(:disabled) {
 .setting .label .setting-action:hover:not(:disabled) {
   background: var(--accent-hover);
 }
+
+.danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.danger-zone p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}

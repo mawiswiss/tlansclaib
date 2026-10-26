@@ -514,6 +514,12 @@ start again as "Speaker 1" and so on.
 - Switching to a smaller setup deletes nothing by itself. The dialog offers
   to remove installed listed models and speaker detections the setup no
   longer wants, never custom or linked files.
+- "Delete all models" at the bottom of the Models dialog deletes every
+  listed model, every copy in the models folder and both speaker detections,
+  after a confirmation that names the space it frees. Linked files stay where
+  they are. It clears the setup and cancels running downloads first, so the
+  queue fetches nothing again, and the setup screen returns. Transcripts
+  stay.
 - An existing user with models and no saved setup is not sent to the setup
   screen. The Models dialog opens with the details open.
 
