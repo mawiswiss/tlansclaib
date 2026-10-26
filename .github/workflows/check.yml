@@ -44,7 +44,7 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - name: Stand in for the engine sidecar
-        # tauri-build refuses to compile without it. No test starts it.
+        # tauri-build refuses to compile without it or the bundled resources. No test starts it.
         shell: bash
         run: |
           triple=$(rustc -vV | sed -n 's/^host: //p')
@@ -54,6 +54,8 @@ jobs:
           touch "src-tauri/binaries/tlansclaib-engine-$triple$ext"
           if [[ $triple == *windows* ]]; then
             for name in vulkan avx sse; do touch "src-tauri/binaries/tlansclaib-engine-$name-$triple$ext"; done
+            # The real runtime, since tauri-build copies it next to the engine the tests start.
+            node scripts/sidecar.mjs msvc-runtime
           fi
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace

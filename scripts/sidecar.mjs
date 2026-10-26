@@ -1,8 +1,9 @@
 // Builds the engine in release mode and places it where Tauri expects a sidecar:
 // src-tauri/binaries/tlansclaib-engine-<target triple>[.exe]
 // A universal macOS build compiles both Apple targets and joins them with lipo.
+// On Windows it also copies the Microsoft C++ runtime into src-tauri/binaries/msvc, which the installer puts beside the engines.
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,11 +38,26 @@ function place(built, target, name = "tlansclaib-engine") {
   return path;
 }
 
+// parakeet.cpp's library and the engines need it, and a PC without the Visual C++ Redistributable has none.
+function placeMsvcRuntime() {
+  const vswhere = join(process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)", "Microsoft Visual Studio", "Installer", "vswhere.exe");
+  const vs = execFileSync(vswhere, ["-latest", "-products", "*", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath"], { encoding: "utf8" }).trim();
+  const version = readFileSync(join(vs, "VC", "Auxiliary", "Build", "Microsoft.VCRedistVersion.default.txt"), "utf8").trim();
+  const redist = join(vs, "VC", "Redist", "MSVC", version, "x64");
+  const folder = (kind) => join(redist, readdirSync(redist).find((name) => new RegExp(`^Microsoft\\.VC\\d+\\.${kind}$`).test(name)));
+  const runtime = join(dir, "msvc");
+  mkdirSync(runtime, { recursive: true });
+  for (const name of ["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"]) copyFileSync(join(folder("CRT"), name), join(runtime, name));
+  copyFileSync(join(folder("OpenMP"), "vcomp140.dll"), join(runtime, "vcomp140.dll"));
+}
+
 const buildOlderCpus = () => Object.keys(OLDER_CPUS).map((cpu) => place(build(triple, [], cpu), triple, `tlansclaib-engine-${cpu}`));
 
-// `node scripts/sidecar.mjs older-cpus` builds only those, for CI.
+// `node scripts/sidecar.mjs older-cpus` builds only those, and `msvc-runtime` only copies the runtime, for CI.
 if (process.argv[2] === "older-cpus") {
   buildOlderCpus();
+} else if (process.argv[2] === "msvc-runtime") {
+  placeMsvcRuntime();
 } else if (triple === "universal-apple-darwin") {
   // tauri-build checks for each slice's sidecar, the bundle takes the joined one.
   const slices = ["aarch64-apple-darwin", "x86_64-apple-darwin"].map((target) => place(build(target), target));
@@ -51,6 +67,7 @@ if (process.argv[2] === "older-cpus") {
   if (triple.includes("windows")) {
     place(build(triple, ["vulkan"]), triple, "tlansclaib-engine-vulkan");
     buildOlderCpus();
+    placeMsvcRuntime();
   }
 }
 console.log(`sidecar ready for ${triple}`);

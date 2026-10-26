@@ -5,6 +5,12 @@
       "binaries/tlansclaib-engine-vulkan",
       "binaries/tlansclaib-engine-avx",
       "binaries/tlansclaib-engine-sse"
-    ]
+    ],
+    "resources": {
+      "binaries/msvc/vcruntime140.dll": "vcruntime140.dll",
+      "binaries/msvc/vcruntime140_1.dll": "vcruntime140_1.dll",
+      "binaries/msvc/msvcp140.dll": "msvcp140.dll",
+      "binaries/msvc/vcomp140.dll": "vcomp140.dll"
+    }
   }
 }

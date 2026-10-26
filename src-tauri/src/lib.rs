@@ -430,6 +430,12 @@ pub fn run() {
         )
         .manage(run::RunState::default())
         .setup(|app| {
+            // Engine processes inherit it: a missing DLL then ends them with an error code instead of a Windows dialog.
+            #[cfg(windows)]
+            unsafe {
+                use windows_sys::Win32::System::Diagnostics::Debug::{SEM_FAILCRITICALERRORS, SetErrorMode};
+                SetErrorMode(SEM_FAILCRITICALERRORS);
+            }
             let data = app.path().app_data_dir()?;
             let dir = data.join("models");
             std::fs::create_dir_all(&dir)?;

@@ -22,7 +22,11 @@ scripts/     model conversion and the sidecar build, not shipped
 whisper.cpp runs inside `tlansclaib-engine`, bundled as a Tauri sidecar. On
 Windows, a second sidecar has the Vulkan backend, and two more run on
 processors older than AVX2, see `docs/release.md`. The app checks its free GPU
-memory before each run and chooses the CPU sidecar when it cannot use Vulkan. It
+memory before each run and chooses the CPU sidecar when it cannot use Vulkan.
+Without `vulkan-1.dll` in System32, which a graphics driver installs, the app
+never starts the Vulkan sidecar, because Windows refuses it with a dialog of its
+own. The app also sets its error mode at start, which the sidecars inherit, so
+a DLL missing in an engine ends it with an error code instead of a dialog. It
 starts the chosen sidecar per run, reads JSON lines from its stdout, and kills
 it when memory gets tight. A crash in the engine becomes an error in the window
 instead of a vanished app. The same binary works from a terminal.
@@ -189,7 +193,8 @@ because progress reporting and other work are outside those stages.
   - Better, in `models/speaker-detection-nemotron`: the parakeet.cpp 0.6.1
     library archive and the 201 MB Nemotron GGUF model. Only the library and
     its MIT licence are extracted. The model's OpenMDW 1.1 licence and origin
-    notice are saved beside it.
+    notice are saved beside it. On Windows the library needs the Microsoft C++
+    runtime the installer brings, see `docs/release.md`.
 - `cpu.rs`: which CPU engine the processor can run on Windows: the main one
   with AVX2, FMA, F16C and BMI2, the AVX one, or the SSE one. Every CPU run
   and helper call goes through it.

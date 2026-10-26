@@ -66,14 +66,15 @@ pub fn detect(audio: &[f32], detection: &Detection, progress: impl FnMut(usize, 
 
 #[cfg(feature = "whisper")]
 fn open(path: &Path) -> Result<Library> {
+    // The library's own folder first, then the engine's, where the Windows installer puts the Microsoft C++ runtime.
     #[cfg(windows)]
     let library = unsafe {
-        libloading::os::windows::Library::load_with_flags(path, libloading::os::windows::LOAD_WITH_ALTERED_SEARCH_PATH)
-            .map(Library::from)
+        use libloading::os::windows::{LOAD_LIBRARY_SEARCH_DEFAULT_DIRS, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR};
+        libloading::os::windows::Library::load_with_flags(path, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS).map(Library::from)
     };
     #[cfg(not(windows))]
     let library = unsafe { Library::new(path) };
-    library.with_context(|| format!("cannot load speaker detection from {}", path.display()))
+    library.context("speaker detection could not start on this computer")
 }
 
 #[cfg(feature = "whisper")]

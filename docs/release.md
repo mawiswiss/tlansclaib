@@ -58,6 +58,15 @@ place first, because tauri-build refuses to compile the app without either.
   processor (`cpu.rs`) when Vulkan is unavailable or has too little free
   memory. A processor without the AVX2 set never starts the Vulkan engine,
   because its CPU code needs AVX2 too.
+- On Windows the script also copies the Microsoft C++ runtime from the build
+  machine's Visual Studio into `src-tauri/binaries/msvc`: `vcruntime140.dll`,
+  `vcruntime140_1.dll`, `msvcp140.dll` and the OpenMP `vcomp140.dll`.
+  `tauri.windows.conf.json` installs them beside the engines. parakeet.cpp's
+  library needs all four, and a PC without the Visual C++ Redistributable has
+  none of them, so the better speaker detection could not start there.
+  sherpa-onnx's archive is the static `-MT` build and needs none. The engine
+  loads a detection library with its own folder and then the engine's folder
+  on the search path.
 - tauri-action names the files after `assetNamePattern`. Next to the two
   installers, the release holds the update files, see Updates.
 
