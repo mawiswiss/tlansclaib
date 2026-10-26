@@ -4,6 +4,21 @@ All notable changes to tlansclaib. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-10-26
+
+### Fixed
+
+- The better speaker detection starts on Windows PCs without the Visual C++ Redistributable, because the installer brings the Microsoft C++ runtime, and a PC without a Vulkan driver no longer shows a Windows error at start (windows, b7e8fb0)
+- Speaker detection is checked before use: Speakers stay greyed out with a Download or Repair button while none works, and a run that fails while finding the speakers offers to transcribe without them (speakers, 0cde2a2)
+- The app checks for a new version at every start and shows a found one as a notice with "Update and restart" (updates, c220a99)
+- A model that a new version adds to the setup downloads only after a click, and the model it replaces is offered for deletion (models, de308b6)
+- Every model has a short name of language and tier, such as Thai Compact or Universal Best, also in the history (models, f5517eb, c591641)
+- Delete all downloaded models from the Models dialog, with the space it frees (models, cffaac7)
+- Up to eight speakers get clearly different colours, and a transcript names at most eight (speakers, 4d7ed27)
+- The speaker dot sits on the first line of a long line (transcription, 2743b60)
+- Notice and error card actions are buttons coloured by what they do (notices, 1a38b2b)
+- Memory and crash errors in plainer words (transcription, ecb8dcd)
+
 ## [0.3.0] - 2026-10-25
 
 ### Added
@@ -80,6 +95,7 @@ All notable changes to tlansclaib. The format follows
 - Play, search and correct transcripts in a redesigned window (ui, be70525)
 - App icon (app, 0c9a0c4)
 
+[0.3.1]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/mawiswiss/tlansclaib/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mawiswiss/tlansclaib/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/mawiswiss/tlansclaib/releases/tag/v0.1.0
