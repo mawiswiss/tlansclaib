@@ -64,6 +64,15 @@ pub fn detect(audio: &[f32], detection: &Detection, progress: impl FnMut(usize, 
     }
 }
 
+/// Opens the backend's library as a run does, so a part missing on this computer shows before a recording waits on it.
+#[cfg(feature = "whisper")]
+pub fn check(backend: Backend, folder: &Path) -> Result<()> {
+    match backend {
+        Backend::Sherpa => sherpa::check(folder),
+        Backend::Nemotron => nemotron::check(folder),
+    }
+}
+
 #[cfg(feature = "whisper")]
 fn open(path: &Path) -> Result<Library> {
     // The library's own folder first, then the engine's, where the Windows installer puts the Microsoft C++ runtime.

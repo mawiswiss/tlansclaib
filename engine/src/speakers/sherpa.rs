@@ -108,6 +108,13 @@ pub fn library_path(folder: &Path) -> PathBuf {
 }
 
 #[cfg(feature = "whisper")]
+pub fn check(folder: &Path) -> Result<()> {
+    let library = open(&library_path(folder))?;
+    unsafe { library.get::<unsafe extern "C" fn()>(b"SherpaOnnxCreateOfflineSpeakerDiarization\0")? };
+    Ok(())
+}
+
+#[cfg(feature = "whisper")]
 pub fn detect(audio: &[f32], detection: &Detection, mut progress: impl FnMut(usize, usize)) -> Result<Vec<Turn>> {
     let folder = detection.folder;
     let segmentation = folder.join(SEGMENTATION_FILE);

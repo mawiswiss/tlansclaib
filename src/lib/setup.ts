@@ -52,8 +52,9 @@ export function wanted(models: ModelStatus[], setup: Setup): string[] {
   return ids.filter((id) => !setup.removed.includes(id));
 }
 
+/** The speaker detection a run uses: the setup's when it works here, otherwise the other one. */
 export function wantedBackend(setup: Setup | null, detections: SpeakerDetection[]): SpeakerBackend | null {
-  const installed = detections.filter((d) => d.installed).map((d) => d.backend);
+  const installed = detections.filter((d) => d.installed && !d.broken).map((d) => d.backend);
   const preferred = setup ? MODE_DETECTION[setup.mode] : null;
   if (preferred && installed.includes(preferred)) return preferred;
   return installed.includes("nemotron") ? "nemotron" : installed.includes("sherpa") ? "sherpa" : null;

@@ -153,6 +153,8 @@ describe("downloads", () => {
     expect(wantedBackend(setup("minimal"), both)).toBe("sherpa");
     expect(wantedBackend(setup("essential"), [{ ...detections[0], installed: true }, detections[1]])).toBe("sherpa");
     expect(wantedBackend(null, detections)).toBeNull();
+    expect(wantedBackend(setup("essential"), [{ ...detections[0], installed: true }, { ...detections[1], installed: true, broken: "a part is missing" }])).toBe("sherpa");
+    expect(wantedBackend(setup("essential"), [detections[0], { ...detections[1], installed: true, broken: "a part is missing" }])).toBeNull();
   });
 });
 

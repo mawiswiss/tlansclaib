@@ -21,6 +21,8 @@ pub const MODEL_FILE: &str = "nemotron-3-diarization-f16.gguf";
 pub const MODEL_SIZE: u64 = 200_715_072;
 pub const MODEL_SHA256: &str = "b0edbc0ca9bbe1e35bf79d7df80bdec4a7c0f588b943d1346856891a0e628534";
 pub const MAX_SPEAKERS: usize = 8;
+#[cfg(feature = "whisper")]
+const ABI_VERSION: i32 = 10;
 
 #[cfg(target_os = "macos")]
 pub const LIBRARY_FILE: &str = "libparakeet.dylib";
@@ -83,6 +85,16 @@ fn ffi_error(ptr: *const c_char) -> String {
 }
 
 #[cfg(feature = "whisper")]
+pub fn check(folder: &Path) -> Result<()> {
+    let library = open(&library_path(folder))?;
+    let abi = unsafe { library.get::<unsafe extern "C" fn() -> i32>(b"parakeet_capi_abi_version\0")? };
+    if unsafe { abi() } != ABI_VERSION {
+        bail!("speaker detection library has the wrong version. Remove it in Models and download it again.");
+    }
+    Ok(())
+}
+
+#[cfg(feature = "whisper")]
 pub fn detect(audio: &[f32], detection: &Detection, mut progress: impl FnMut(usize, usize)) -> Result<Vec<Turn>> {
     let model = detection.folder.join(MODEL_FILE);
     validate_model(&model)?;
@@ -99,7 +111,7 @@ pub fn detect(audio: &[f32], detection: &Detection, mut progress: impl FnMut(usi
         let last_error = library.get::<unsafe extern "C" fn(*mut c_void) -> *const c_char>(b"parakeet_capi_last_error\0")?;
         let free_string = library.get::<unsafe extern "C" fn(*mut c_char)>(b"parakeet_capi_free_string\0")?;
         let free = library.get::<unsafe extern "C" fn(*mut c_void)>(b"parakeet_capi_free\0")?;
-        if abi() != 10 {
+        if abi() != ABI_VERSION {
             bail!("speaker detection library has the wrong version. Remove it in Models and download it again.");
         }
         let context = load(path.as_ptr());

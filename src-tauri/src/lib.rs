@@ -440,6 +440,12 @@ pub fn run() {
             let dir = data.join("models");
             std::fs::create_dir_all(&dir)?;
             app.manage(detection::Detections::new(&dir));
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let detections = handle.state::<detection::Detections>();
+                detections.sherpa.check(&handle).await;
+                detections.nemotron.check(&handle).await;
+            });
             app.manage(Models::new(dir));
             let history = History::new(data.join("history.json"));
             if let Err(error) = history.recover() {

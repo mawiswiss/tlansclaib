@@ -112,6 +112,15 @@ enum Command {
         #[arg(long, default_value_t = sherpa::MIN_OFF)]
         min_off: f32,
     },
+    /// Load a speaker detection's library and print whether it works on this computer, as JSON
+    SpeakersCheck {
+        /// Folder with lib/ and the backend's model files
+        #[arg(long)]
+        models: PathBuf,
+        /// sherpa or nemotron
+        #[arg(long)]
+        backend: speakers::Backend,
+    },
     /// Print how a recording would be cut into lines, and why each line ends
     Split {
         audio: PathBuf,
@@ -224,6 +233,11 @@ fn main() {
             );
             Ok(())
         }),
+        Command::SpeakersCheck { models, backend } => {
+            let result = speakers::check(backend, &models);
+            println!("{}", json!({ "ok": result.is_ok(), "reason": result.as_ref().err().map(|error| format!("{error:#}")) }));
+            result
+        }
         Command::Split { audio, language, window } => audio::load_tracks(&audio).map(|source| {
             let tracks = source.tracks;
             let (min, max) = window.unwrap_or_else(|| windows::bounds_for(&language));

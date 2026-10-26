@@ -3,16 +3,20 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow};
 use engine::speakers::{Backend, nemotron, sherpa};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_shell::ShellExt;
+use tauri_plugin_shell::process::CommandEvent;
 
 use crate::guard;
 use crate::models::{DownloadProgress, fetch, free_disk};
 
 const VERSION_FILE: &str = "version.txt";
+const CHECK_LIMIT: Duration = Duration::from_secs(30);
 
 pub struct Download {
     pub name: &'static str,
@@ -98,12 +102,15 @@ pub struct Status {
     pub downloading: bool,
     pub download_bytes: u64,
     pub disk_bytes: u64,
+    /// Why an installed detection cannot start on this computer.
+    pub broken: Option<String>,
 }
 
 pub struct Detection {
     pub backend: Backend,
     pub dir: PathBuf,
     cancel: Mutex<Option<Arc<AtomicBool>>>,
+    problem: Mutex<Option<String>>,
 }
 
 /// Both speaker detections. sherpa keeps the folder name of older versions, so their installs stay valid.
@@ -138,7 +145,7 @@ pub fn id(backend: Backend) -> &'static str {
 
 impl Detection {
     fn new(models_dir: &Path, backend: Backend) -> Detection {
-        Detection { backend, dir: models_dir.join(id(backend)), cancel: Mutex::new(None) }
+        Detection { backend, dir: models_dir.join(id(backend)), cancel: Mutex::new(None), problem: Mutex::new(None) }
     }
 
     fn runtime(&self) -> Option<&'static Download> {
@@ -188,6 +195,19 @@ impl Detection {
             downloading: self.cancel.lock().unwrap().is_some(),
             download_bytes: self.download_bytes(),
             disk_bytes: if installed { folder_size(&self.dir) } else { 0 },
+            broken: if installed { self.problem.lock().unwrap().clone() } else { None },
+        }
+    }
+
+    /// Has the engine open the library, as a run would, and keeps the reason when it cannot.
+    pub async fn check(&self, app: &AppHandle) {
+        let problem = if self.installed() { open_library(app, self.backend, &self.dir).await.err() } else { None };
+        if let Some(reason) = &problem {
+            log::warn!("{} speaker detection cannot start here: {reason}", self.backend.as_str());
+        }
+        let changed = std::mem::replace(&mut *self.problem.lock().unwrap(), problem.clone()) != problem;
+        if changed {
+            let _ = app.emit("models-changed", ());
         }
     }
 
@@ -214,6 +234,7 @@ impl Detection {
                     std::fs::remove_dir_all(&self.dir)?;
                 }
                 std::fs::rename(&staging, &self.dir)?;
+                self.check(app).await;
                 let _ = app.emit("models-changed", ());
                 Ok(())
             }
@@ -267,8 +288,41 @@ impl Detection {
         if self.dir.exists() {
             std::fs::remove_dir_all(&self.dir).with_context(|| format!("cannot remove {}", self.dir.display()))?;
         }
+        *self.problem.lock().unwrap() = None;
         let _ = app.emit("models-changed", ());
         Ok(())
+    }
+}
+
+#[derive(Deserialize)]
+struct CheckAnswer {
+    ok: bool,
+    reason: Option<String>,
+}
+
+async fn open_library(app: &AppHandle, backend: Backend, dir: &Path) -> Result<(), String> {
+    let command = app.shell().sidecar(crate::cpu::engine()).map_err(|error| error.to_string())?;
+    let models = dir.to_string_lossy().into_owned();
+    let (mut events, child) = command.args(["speakers-check", "--backend", backend.as_str(), "--models", &models]).spawn().map_err(|error| error.to_string())?;
+    let read = async {
+        let mut stdout = Vec::new();
+        while let Some(event) = events.recv().await {
+            match event {
+                CommandEvent::Stdout(line) => stdout.extend(line),
+                CommandEvent::Terminated(payload) => return (stdout, payload.code),
+                _ => {}
+            }
+        }
+        (stdout, None)
+    };
+    let Ok((stdout, code)) = tokio::time::timeout(CHECK_LIMIT, read).await else {
+        let _ = child.kill();
+        return Err(format!("the check did not finish within {} s", CHECK_LIMIT.as_secs()));
+    };
+    match serde_json::from_slice::<CheckAnswer>(&stdout) {
+        Ok(CheckAnswer { ok: true, .. }) => Ok(()),
+        Ok(CheckAnswer { reason, .. }) => Err(reason.unwrap_or_else(|| "unknown reason".into())),
+        Err(_) => Err(format!("the check ended without an answer, exit code {}", code.map_or("unknown".into(), |c| c.to_string()))),
     }
 }
 

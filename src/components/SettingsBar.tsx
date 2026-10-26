@@ -6,6 +6,9 @@ import { languagesOf, menuLabel } from "./ModelsPanel";
 import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
 
+/** What the Speakers cell says and offers while no speaker detection works. */
+export type SpeakerFix = { state: string; action: string | null; tip: string };
+
 type Props = {
   models: ModelStatus[];
   modelId: string;
@@ -20,12 +23,11 @@ type Props = {
   onSpeakers: (value: string) => void;
   speakerPrecision: "standard" | "fast";
   onSpeakerPrecision: (value: "standard" | "fast") => void;
-  onSetUpSpeakers: () => void;
+  speakerFix: SpeakerFix | null;
+  onFixSpeakers: () => void;
   stats: Stats | null;
   busy: boolean;
 };
-
-const SET_UP = "set-up";
 
 export function SettingsBar(props: Props) {
   const { models, modelId, model, onModel, languages, language, onLanguage, locked, backend, stats, busy } = props;
@@ -33,6 +35,7 @@ export function SettingsBar(props: Props) {
   const fit = model?.too_heavy ? failedFit(model.too_heavy) : model && stats ? ramFit(model.ram_gb, stats.memory_total) : null;
   const pill = fit && <span className={`fit ${fit.level}`}>{model?.too_heavy ? "Failed here" : FIT_LABEL[fit.level]}</span>;
   const pinned = installed.some((m) => m.id === modelId) ? modelId : "auto";
+  const fix = props.speakerFix;
   return (
     <section className="settings" aria-label="Transcription settings">
       <label className="setting" htmlFor="language-setting" title={locked ? "This model only knows one language" : undefined}>
@@ -81,21 +84,24 @@ export function SettingsBar(props: Props) {
               ]}
             />
           )}
+          {!backend && fix?.action && (
+            <Tooltip content={fix.tip}>
+              <button type="button" className="setting-action" disabled={busy} onClick={props.onFixSpeakers}>
+                {fix.action}
+              </button>
+            </Tooltip>
+          )}
         </span>
         <Select
           id="speakers-setting"
           value={backend ? props.speakers : "off"}
-          disabled={busy}
+          disabled={busy || !backend}
           label="Speakers"
-          onChange={(value) => {
-            if (value === SET_UP) props.onSetUpSpeakers();
-            else props.onSpeakers(value);
-          }}
+          title={!backend && fix ? fix.tip : undefined}
+          onChange={props.onSpeakers}
           options={[
-            { value: "off", label: "Disabled" },
-            ...(backend
-              ? [{ value: "auto", label: "Auto" }, ...DETECTION[backend].counts.map((n) => ({ value: String(n), label: backend === "nemotron" ? `Up to ${n} people` : `${n} people` }))]
-              : [{ value: SET_UP, label: "Set up…" }]),
+            { value: "off", label: backend || !fix ? "Disabled" : fix.state },
+            ...(backend ? [{ value: "auto", label: "Auto" }, ...DETECTION[backend].counts.map((n) => ({ value: String(n), label: backend === "nemotron" ? `Up to ${n} people` : `${n} people` }))] : []),
           ]}
         />
       </label>

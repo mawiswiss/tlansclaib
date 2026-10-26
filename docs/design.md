@@ -195,6 +195,9 @@ because progress reporting and other work are outside those stages.
     its MIT licence are extracted. The model's OpenMDW 1.1 licence and origin
     notice are saved beside it. On Windows the library needs the Microsoft C++
     runtime the installer brings, see `docs/release.md`.
+  - At every start and after each download, `tlansclaib-engine speakers-check`
+    opens each installed detection's library as a run would. One that cannot
+    start reports the reason as `broken`, and the app does not use it.
 - `cpu.rs`: which CPU engine the processor can run on Windows: the main one
   with AVX2, FMA, F16C and BMI2, the AVX one, or the SSE one. Every CPU run
   and helper call goes through it.
@@ -399,12 +402,19 @@ top bar picks one.
 ### Speakers
 
 - "Speakers" in the settings row offers "Disabled", which runs no detection,
-  and with detection installed "Auto" and a number of people. The run uses the
-  setup's detection when installed, otherwise the other one. The basic one
-  offers 2 to 6 people and a small "Standard" or "Fast" choice in the label,
-  the better one a cap of 2 to 8. Without detection, "Set up…" opens the
-  models dialog at the speaker detections. Downloading switches the setting to
-  "Auto", removing the last one back to "Disabled".
+  and with a working detection "Auto" and a number of people. The run uses the
+  setup's detection when it works, otherwise the other one
+  (`wantedBackend`). The basic one offers 2 to 6 people and a small
+  "Standard" or "Fast" choice in the label, the better one a cap of 2 to 8.
+  Without a working detection the menu is greyed out and says "Not
+  installed" or "Not working", and a blue "Download" or "Repair" in its label
+  fetches the setup's detection, after removing a broken one. Downloading
+  switches the setting to "Auto", removing the last one back to "Disabled".
+  A run checks the installed models and detections again before it starts.
+- When a run fails while finding the speakers, the error card offers
+  "Transcribe without speakers", which turns the setting off and starts
+  again, and "Repair speaker detection", which downloads it again and stages
+  the recording. The engine's message follows as details.
 - With several speakers, a row above the text lists them with a colour each.
   Clicking a name renames it, and the file is saved with the new name in
   front of each of that speaker's lines, through the fingerprint check. The

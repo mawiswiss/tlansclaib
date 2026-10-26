@@ -9,7 +9,7 @@ import { RerunDialog, type RerunChoice } from "./components/RerunDialog";
 import { ResultView } from "./components/ResultView";
 import { SupportDialog } from "./components/SupportDialog";
 import { RunView } from "./components/RunView";
-import { SettingsBar } from "./components/SettingsBar";
+import { SettingsBar, type SpeakerFix } from "./components/SettingsBar";
 import { SetupProgress } from "./components/SetupProgress";
 import { SetupView } from "./components/SetupView";
 import { SystemBar } from "./components/SystemBar";
@@ -23,7 +23,7 @@ import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from
 import { parseTranscript, withTimes, type Transcript } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
 import { checkDue, topBarLabel, type UpdateState } from "./lib/update";
-import { betterDownload, DETECTION_IDS, downloadOrder, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, sizeOf, wanted, wantedBackend, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
+import { betterDownload, DETECTION_IDS, downloadOrder, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_DETECTION, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, sizeOf, wanted, wantedBackend, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
 import type { DiskSpace, DownloadProgress, FileKind, Gpu, HistoryEntry, Language, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "./lib/types";
 
 function backendOf(id: string): SpeakerBackend | undefined {
@@ -425,12 +425,15 @@ export default function App() {
       return;
     }
     let current: ModelStatus[];
+    let currentDetections: SpeakerDetection[];
     try {
-      current = await b.listModels();
+      [current, currentDetections] = await Promise.all([b.listModels(), b.speakerDetection()]);
     } catch (error) {
       reportError("Could not check installed models", error);
       return;
     }
+    setDetections(currentDetections);
+    const detector = wantedBackend(settings.setup, currentDetections);
     const requested = parseLanguage(settings.language);
     const chosen = modelFor(current, settings.setup, requested, settings.modelId, resources);
     if (!chosen) {
@@ -438,7 +441,7 @@ export default function App() {
       return;
     }
     const language = languageOf(chosen, requested);
-    const speakers = settings.speakers !== "off" && speakerBackend ? settings.speakers : null;
+    const speakers = settings.speakers !== "off" && detector ? settings.speakers : null;
     setResultError(null);
     setWaiting(null);
     await launch(
@@ -449,7 +452,7 @@ export default function App() {
         timestamps: settings.timestamps,
         speakers,
         precision: settings.speakerPrecision,
-        backend: speakerBackend,
+        backend: detector,
         outputFile: null,
         pinned: current.some((m) => m.installed && m.id === settings.modelId),
         force: false,
@@ -554,7 +557,7 @@ export default function App() {
     const original = usable.find((m) => m.id === entry.model_id) ?? usable.find((m) => m.name === entry.model);
     const precision = entry.speaker_precision === "fast" || entry.speaker_precision === "standard" ? entry.speaker_precision : settings.speakerPrecision;
     const previous = entry.speaker_backend ?? (entry.speaker_mode ? "sherpa" : null);
-    const rerunBackend = previous && detections.some((d) => d.backend === previous && d.installed) ? previous : speakerBackend;
+    const rerunBackend = previous && detections.some((d) => d.backend === previous && d.installed && !d.broken) ? previous : speakerBackend;
     setRerunTarget({
       entry,
       focus: options.focus ?? null,
@@ -762,6 +765,36 @@ export default function App() {
     : 0;
   const preparing = setup && pendingIds.length > 0 && (batch || failure) ? { percent, failure } : null;
 
+  const preferredDetection = setup ? MODE_DETECTION[setup.mode] : "nemotron";
+  const fixTarget = detections.find((d) => d.installed && d.broken) ?? detections.find((d) => d.available && d.backend === preferredDetection) ?? detections.find((d) => d.available) ?? null;
+  const speakerFix: SpeakerFix | null = (() => {
+    if (speakerBackend || !fixTarget) return null;
+    const id = DETECTION_IDS[fixTarget.backend];
+    const progress = downloads[id];
+    if (progress || fixTarget.downloading || (pendingIds.includes(id) && !failed[id])) {
+      const done = progress?.total ? Math.round((progress.bytes / progress.total) * 100) : 0;
+      return { state: `Downloading ${done}%`, action: null, tip: "Speakers can be named once speaker detection is downloaded." };
+    }
+    const size = bytes(fixTarget.download_bytes);
+    if (fixTarget.broken) return { state: "Not working", action: "Repair", tip: `Speaker detection could not start on this computer. Repair downloads it again (${size}). Details: ${fixTarget.broken}` };
+    return { state: "Not installed", action: "Download", tip: `Speaker detection tells who speaks when. Download it (${size}) to name the speakers.` };
+  })();
+
+  const fixSpeakers = async (backend: SpeakerBackend) => {
+    const id = DETECTION_IDS[backend];
+    try {
+      if (detections.some((d) => d.backend === backend && d.installed)) await requireBackend().removeSpeakerDetection(backend);
+      if (setup) {
+        setFailed(({ [id]: _, ...rest }) => rest);
+        include(id);
+      } else {
+        await fetchItem(id);
+      }
+    } catch (error) {
+      notify("error", `Could not download speaker detection: ${String(error)}`, [{ label: "Try again", run: () => void fixSpeakers(backend) }]);
+    }
+  };
+
   const leftoverIds = setup ? leftovers(models, detections, setup) : [];
   const leftoverBytes = leftoverIds.reduce((sum, id) => sum + sizeOf(id, models, detections), 0);
 
@@ -849,6 +882,28 @@ export default function App() {
         },
       ].filter((a): a is ErrorAction => Boolean(a))
     : [];
+
+  const speakerFailure = run.status === "error" && run.step === "speakers" && lastLaunch.current?.speakers ? lastLaunch.current : null;
+  const speakerActions = (l: Launch): ErrorAction[] => [
+    {
+      label: "Transcribe without speakers",
+      run: () => {
+        setSettings((s) => ({ ...s, speakers: "off" }));
+        void launch({ ...l, speakers: null, backend: null }, models);
+      },
+    },
+    ...(l.backend
+      ? [{
+          label: "Repair speaker detection",
+          run: () => {
+            void fixSpeakers(l.backend!);
+            dispatch({ type: "reset" });
+            if (!l.outputFile) setPending(l.audio);
+            notify("info", "Downloading speaker detection again. Press GO once it is ready.");
+          },
+        }]
+      : []),
+  ];
 
   const failedModel = run.status === "error" && run.tooHeavy ? models.find((m) => m.id === run.tooHeavy) : undefined;
   const stepDown = failedModel && lastLaunch.current
@@ -1104,6 +1159,17 @@ export default function App() {
             />
           );
         }
+        if (speakerFailure) {
+          return (
+            <ErrorView
+              title="Speaker detection did not work"
+              message="The recording itself is fine. Transcribe it without naming the speakers, or repair speaker detection and start again."
+              note={run.error ? `Details: ${run.error}` : undefined}
+              actions={speakerActions(speakerFailure)}
+              onRetry={() => dispatch({ type: "reset" })}
+            />
+          );
+        }
         return (
           <ErrorView
             title="Something went wrong"
@@ -1233,7 +1299,8 @@ export default function App() {
           onSpeakers={(value) => setSettings((s) => ({ ...s, speakers: value }))}
           speakerPrecision={settings.speakerPrecision}
           onSpeakerPrecision={(value) => setSettings((s) => ({ ...s, speakerPrecision: value }))}
-          onSetUpSpeakers={setUpDetection}
+          speakerFix={speakerFix}
+          onFixSpeakers={() => fixTarget && void fixSpeakers(fixTarget.backend)}
           stats={stats}
           busy={running}
         />

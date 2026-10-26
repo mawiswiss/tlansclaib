@@ -96,8 +96,10 @@ export function mockBackend(): Backend {
   ];
   const detections: SpeakerDetection[] = [
     { backend: "sherpa", available: true, installed: query.has("speakers"), downloading: false, download_bytes: 38_113_781, disk_bytes: 0 },
-    { backend: "nemotron", available: true, installed: false, downloading: false, download_bytes: 202_061_718, disk_bytes: 0 },
+    { backend: "nemotron", available: true, installed: query.has("nemotron") || query.has("broken"), downloading: false, download_bytes: 202_061_718, disk_bytes: 0 },
   ];
+  const BROKEN = "speaker detection could not start on this computer: LoadLibraryExW failed: The specified module could not be found. (os error 126)";
+  if (query.has("broken")) detections[1].broken = BROKEN;
   const detectionTimers: Partial<Record<SpeakerBackend, ReturnType<typeof setInterval>>> = {};
   const downloadTimers: Record<string, ReturnType<typeof setInterval>> = {};
   const cancels: Record<string, () => void> = {};
@@ -190,7 +192,7 @@ export function mockBackend(): Backend {
           if (bytes >= total) {
             clearInterval(detectionTimers[backend]);
             delete detectionTimers[backend];
-            Object.assign(detection, { installed: true, downloading: false, disk_bytes: backend === "sherpa" ? 61_904_384 : 203_000_000 });
+            Object.assign(detection, { installed: true, downloading: false, broken: null, disk_bytes: backend === "sherpa" ? 61_904_384 : 203_000_000 });
             emit("models", null);
             resolve();
           }
@@ -205,7 +207,7 @@ export function mockBackend(): Backend {
       emit("models", null);
     },
     removeSpeakerDetection: async (backend) => {
-      Object.assign(detections.find((d) => d.backend === backend)!, { installed: false, disk_bytes: 0 });
+      Object.assign(detections.find((d) => d.backend === backend)!, { installed: false, broken: null, disk_bytes: 0 });
       emit("models", null);
     },
     addModelFile: async (id, path) => {
@@ -277,6 +279,11 @@ export function mockBackend(): Backend {
       const lag = speakers ? 2500 : 0;
       send({ event: "step", step: "decode" });
       setTimeout(() => send({ event: "audio", seconds: total * 12.9, video: audio.endsWith(".mp4") }), 600);
+      if (speakers && query.has("speakerfail")) {
+        setTimeout(() => send({ event: "step", step: "speakers" }), 700);
+        setTimeout(() => send({ event: "error", message: BROKEN }), 1500);
+        return;
+      }
       if (speakers) {
         setTimeout(() => send({ event: "step", step: "speakers" }), 700);
         for (let i = 1; i <= 10; i++) setTimeout(() => send({ event: "speaker_progress", done: i, total: 10 }), 700 + i * 230);

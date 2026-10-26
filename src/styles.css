@@ -3134,3 +3134,21 @@ button.setup-details-toggle:hover:not(:disabled) {
     transition-duration: 0.01ms !important;
   }
 }
+
+.setting .label .setting-action {
+  height: 17px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 17px;
+  text-transform: uppercase;
+}
+
+.setting .label .setting-action:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
