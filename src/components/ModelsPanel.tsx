@@ -275,7 +275,7 @@ export function ModelDetails(props: DetailsProps) {
       <li key={m.id} className={cardClass(m.id, m.installed)}>
         <div className="model-top">
           <span className="model-title">
-            <strong>{m.title ?? m.name}</strong>
+            <strong>{m.name}</strong>
             {m.source && (
               <Tooltip
                 content={

@@ -19,9 +19,8 @@ own ONNX or GGUF files. Every model file is checked before use, see below.
 | field | meaning |
 |---|---|
 | `id` | stable key, also the saved selection |
-| `name` | the full name, in menus and the history |
-| `title` | the short name on the model's card, such as "Fast" |
-| `recommended` | the description on the card |
+| `name` | the name on the card, in menus, messages and the history: the language and a tier, Small, Compact or Best, such as "Thai Compact", or the language alone where it has one model. "Universal" stands for all languages |
+| `recommended` | the description on the card, what the model is for |
 | `setups` | the setup modes the model belongs to: `minimal`, `essential`, `precise`. A single-language model joins when its language is chosen |
 | `languages` | `["all"]` for the stock models, `["th"]` locks the language to Thai |
 | `language_name` | optional display name when the code alone misleads, such as Swiss German on `de` |
@@ -106,23 +105,23 @@ licences ask for.
 
 | entry | file | size | SHA-256 |
 |---|---|---|---|
-| Thai (fast) | `ggml-thai-fast-q8_0.bin` | 874 MB | `e0894592a0a90014a22dd7675c9a001e7f9b8fa58c7fcef547e1ea9f45207042` |
-| Thai (best quality) | `ggml-thai-best-q8_0.bin` | 1.66 GB | `a6a149bd28cfd240d3e7cb54253081f76ea360c169abf85cae3f13d179c35464` |
+| Thai Compact | `ggml-thai-fast-q8_0.bin` | 874 MB | `e0894592a0a90014a22dd7675c9a001e7f9b8fa58c7fcef547e1ea9f45207042` |
+| Thai Best | `ggml-thai-best-q8_0.bin` | 1.66 GB | `a6a149bd28cfd240d3e7cb54253081f76ea360c169abf85cae3f13d179c35464` |
 | Swiss German | `ggml-swiss-german-q8_0.bin` | 874 MB | `89ec3580295d070428ba28e9bbeb973281186e740dae3eda5cd28b7942013bbf` |
-| French (near full precision) | `ggml-french-large-v3-q8_0.bin` | 1.66 GB | `a7dd71cbc635dd84ac0f9de34294cf6f9a6937eae5690b314121852f62db5448` |
+| French Compact | `ggml-french-large-v3-q8_0.bin` | 1.66 GB | `a7dd71cbc635dd84ac0f9de34294cf6f9a6937eae5690b314121852f62db5448` |
 
-Thai (fast) is `biodatlab/distill-whisper-th-large-v3` (MIT), a fine-tune of
-large-v3-turbo. Thai (best quality) is `biodatlab/whisper-th-large-v3-combined`
+Thai Compact is `biodatlab/distill-whisper-th-large-v3` (MIT), a fine-tune of
+large-v3-turbo. Thai Best is `biodatlab/whisper-th-large-v3-combined`
 (Apache-2.0), a fine-tune of large-v3, several times slower on a CPU. Swiss
 German is `gcoli/whisper-large-v3-turbo-swiss-german-mit` (MIT, trained only on
 MIT data), a large-v3-turbo fine-tune that writes Swiss German speech as
 Standard German. Its card reports 25.9% word errors on a held-out Swiss German
 test set, against 28.5% for stock turbo and 26.3% for stock large-v3. The
 Swiss German models built on SwissDial data are CC BY-NC, for non-commercial
-use only, and left out on purpose. French (near full precision) is
+use only, and left out on purpose. French Compact is
 `bofenghuang/whisper-large-v3-french` (MIT), whose author publishes whisper.cpp
 files only as q5_0 and f16. On a four-minute synthetic French clip it peaked at
-2.2 GB on the GPU and 2.4 GB on the CPU, like Thai (best quality), and wrote
+2.2 GB on the GPU and 2.4 GB on the CPU, like Thai Best, and wrote
 the same words as the q5_0 file, with different punctuation. A recording of
 difficult audio was not compared.
 
@@ -136,11 +135,11 @@ in its language.
 | entry | file source | model | licence | published result |
 |---|---|---|---|---|
 | German | `cstr/whisper-large-v3-turbo-german-ggml` | `primeline/whisper-large-v3-turbo-german` | Apache-2.0 | 2.6% word errors against 3.3% for stock large-v3 |
-| English (fast) | `distil-whisper/distil-large-v3.5-ggml` | `distil-whisper/distil-large-v3.5` | MIT | on par with large-v3 on short clips, better on meetings, slightly worse than turbo on long recordings |
+| English | `distil-whisper/distil-large-v3.5-ggml` | `distil-whisper/distil-large-v3.5` | MIT | on par with large-v3 on short clips, better on meetings, slightly worse than turbo on long recordings |
 | French | `bofenghuang/whisper-large-v3-french` | the same | MIT | ahead of stock large-v3 on VoxPopuli and in-house sets, equal on MLS |
 
-German takes the author's f16 file, French (full precision) too. All
-languages (fast, near full precision) and All languages (small) are
+German takes the author's f16 file, French Best too. Universal Compact and
+Universal Small are
 `ggerganov/whisper.cpp`'s `ggml-large-v3-turbo-q8_0.bin` and
 `ggml-small-q8_0.bin`. They are pinned by size and SHA-256 from Hugging Face's
 records. `ggml-small-q8_0.bin` peaked at 0.57 GB on the English fixture on the
@@ -149,7 +148,7 @@ CPU, on 2026-10-25.
 Typhoon (`typhoon-ai/typhoon-whisper-turbo`, MIT) reports about half the
 character errors of biodatlab's distilled model on two Thai sets, in its
 authors' paper. On the three-minute far-field Thai meeting clip it did not beat
-Thai (fast): its text changed 41% between shifted runs against 38%, so it is
+Thai Compact: its text changed 41% between shifted runs against 38%, so it is
 not listed.
 
 A fine-tuned model keeps Whisper's language detection. On 2026-10-24 the Swiss
@@ -194,10 +193,10 @@ shifted by 10 ms, 44 ms and 125 ms, so that only the window cuts move:
 
 | model | decoding | text that changes between shifts |
 |---|---|---|
-| Thai (fast), q8_0 | greedy | 39% |
-| Thai (fast), q8_0 | beam search, 5 beams | 40% |
-| Thai (best quality), q8_0 | greedy | 50% |
-| Thai (best quality), q8_0 | beam search, 5 beams | 52% |
+| Thai Compact, q8_0 | greedy | 39% |
+| Thai Compact, q8_0 | beam search, 5 beams | 40% |
+| Thai Best, q8_0 | greedy | 50% |
+| Thai Best, q8_0 | beam search, 5 beams | 52% |
 | All languages (fast), q5_0 | greedy | 60%, and half the text missing |
 
 The transformers pipeline the project started from behaves the same: a 44 ms
@@ -213,8 +212,8 @@ On the full 1 h 47 min meeting, on an Apple M5 Max:
 
 | model | time | peak memory | swap | lines repeating a word or phrase 5 to 10 times |
 |---|---|---|---|---|
-| Thai (fast), q8_0 | 5 min | 1.5 GB | none | 8 |
-| Thai (best quality), q8_0 | 15 min | 2.5 GB | none | 0 |
+| Thai Compact, q8_0 | 5 min | 1.5 GB | none | 8 |
+| Thai Best, q8_0 | 15 min | 2.5 GB | none | 0 |
 
 Both wrote 494 lines. In two of the eight, the large model writes the same
 repetition with ๆ, so the speaker probably repeated the word. The rest look
@@ -225,7 +224,7 @@ retries, which are slower and noisier. Tune it with a Thai reader, not by
 eye.
 
 Lines now end at pauses (see `docs/design.md`), which makes them shorter and
-gives the model less context per piece. Measured with Thai (fast) on the same
+gives the model less context per piece. Measured with Thai Compact on the same
 meeting:
 
 | cutting | loop threshold | lines | average line | time | lines repeating a word or phrase 5 to 10+ times |

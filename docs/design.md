@@ -522,9 +522,10 @@ start again as "Speaker 1" and so on.
   purpose, file, size and status, and the full catalogue. Downloading from the
   catalogue adds to the setup (`added`), and removing takes out (`removed`),
   so the queue never fetches a file the user deleted.
-- A card shows a short title for the trade-off, such as "Fast" or "Best
-  quality", without the language its chip already shows (`title` in
-  `models.json`, the full name stays for menus and the history). An "In your
+- A card shows the model's name, the same short name that menus, messages
+  and the history use: the language and a tier, such as "Thai Compact",
+  "Thai Best" or "Universal Small", or the language alone where it has one
+  model. Its description says what it is for. An "In your
   setup" chip marks the setup's members. While a setup other than the saved
   one is selected above, its members carry "Downloads with Precise" (or "In
   Precise" when installed) and the ones still to download are outlined, so

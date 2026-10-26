@@ -31,9 +31,6 @@ pub struct Link {
 pub struct ModelEntry {
     pub id: String,
     pub name: String,
-    /// The card title in the models dialog, without the language its chip already shows.
-    #[serde(default)]
-    pub title: Option<String>,
     pub languages: Vec<String>,
     #[serde(default)]
     pub language_name: Option<String>,
@@ -398,7 +395,6 @@ fn linked_entry(link: &Link, registry: &[ModelEntry]) -> ModelStatus {
         entry: ModelEntry {
             id: link.id.clone(),
             name: link.name.clone(),
-            title: None,
             languages: vec![if info.as_ref().is_none_or(|i| i.multilingual) { "all" } else { "en" }.to_string()],
             language_name: None,
             setups: None,
@@ -434,7 +430,6 @@ fn custom_entry(path: &Path, registry: &[ModelEntry]) -> Option<ModelStatus> {
         entry: ModelEntry {
             id: format!("custom:{file}"),
             name: file.trim_end_matches(".bin").trim_start_matches("ggml-").to_string(),
-            title: None,
             languages: vec![if info.multilingual { "all" } else { "en" }.to_string()],
             language_name: None,
             setups: None,

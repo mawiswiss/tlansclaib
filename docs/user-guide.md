@@ -221,10 +221,10 @@ under Updates in About.
 
 ## How long it takes
 
-On a Mac with Apple silicon, a 1 h 47 min meeting took 5 minutes with the
-Thai "Fast" model and 15 minutes with "Best quality". On a Windows laptop
-without a compatible Vulkan GPU with enough free memory, expect roughly the
-length of the recording with "Fast" and several times that with "Best quality".
+On a Mac with Apple silicon, a 1 h 47 min meeting took 5 minutes with Thai
+Compact and 15 minutes with Thai Best. On a Windows laptop without a
+compatible Vulkan GPU with enough free memory, expect roughly the length of
+the recording with Thai Compact and several times that with Thai Best.
 The computer stays usable in the meantime.
 
 ## If something goes wrong

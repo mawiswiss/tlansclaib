@@ -3,7 +3,6 @@ import type { Line, Word } from "./run";
 export type ModelStatus = {
   id: string;
   name: string;
-  title?: string | null;
   languages: string[];
   language_name: string | null;
   setups?: string[] | null;

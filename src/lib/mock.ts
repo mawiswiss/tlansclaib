@@ -66,21 +66,16 @@ export function mockBackend(): Backend {
   const lowRam = query.has("lowram") ? Number(query.get("lowram") || 2) * 2 ** 30 : null;
   const midStop = query.has("midstop");
   const models: ModelStatus[] = [
-    { ...model("thai-fast", "Thai (fast)", ["th"], ["essential"], "Thai recordings on any computer", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh), too_heavy: heavy },
-    model("thai-best", "Thai (best quality)", ["th"], ["precise"], "Thai recordings when time does not matter", 1656538283, 2.4, "large-v3", "q8_0", false),
-    model("german-full", "German (fast, full precision)", ["de"], ["essential", "precise"], "German recordings, more accurate than the stock large model", 1624555275, 2.2, "large-v3-turbo", "f16", false),
+    { ...model("thai-fast", "Thai Compact", ["th"], ["essential"], "Thai recordings on any computer. Smaller than Thai Best, with a few more mistakes.", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh), too_heavy: heavy },
+    model("thai-best", "Thai Best", ["th"], ["precise"], "The most accurate for Thai, when time does not matter.", 1656538283, 2.4, "large-v3", "q8_0", false),
+    model("german-full", "German", ["de"], ["essential", "precise"], "German recordings, more accurate than the stock large model", 1624555275, 2.2, "large-v3-turbo", "f16", false),
     { ...model("swiss-german", "Swiss German", ["de"], ["essential", "precise"], "Swiss German speech, written as Standard German", 874188075, 1.3, "large-v3-turbo", "q8_0", false), language_name: "Swiss German" },
-    model("english-fast", "English (fast)", ["en"], ["precise"], "English meetings, as accurate as the large model and faster", 1519521155, 2.1, "large-v3-distil-2", "f16", false),
-    model("french-q8_0", "French (best quality, near full precision)", ["fr"], ["essential"], "French recordings, fine-tuned large model", 1656538283, 2.4, "large-v3", "q8_0", false),
-    model("large-v3-turbo-q8_0", "All languages (fast, near full precision)", ["all"], ["essential"], "Most recordings in English and other languages", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh),
-    model("large-v3", "All languages (best quality, full precision)", ["all"], ["precise"], "The largest model, for a fast computer with plenty of memory", 3095033483, 4.0, "large-v3", "f16", false),
-    model("small-q8_0", "All languages (small)", ["all"], ["minimal"], "Weak computers and clear audio, noticeably more mistakes", 264464607, 0.7, "small", "q8_0", false),
+    model("english-fast", "English", ["en"], ["precise"], "English meetings, as accurate as the large model and faster", 1519521155, 2.1, "large-v3-distil-2", "f16", false),
+    model("french-q8_0", "French Compact", ["fr"], ["essential"], "French recordings. Half the size of French Best and nearly as accurate.", 1656538283, 2.4, "large-v3", "q8_0", false),
+    model("large-v3-turbo-q8_0", "Universal Compact", ["all"], ["essential"], "Most recordings in English and other languages.", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh),
+    model("large-v3", "Universal Best", ["all"], ["precise"], "The largest and most accurate model for all languages, for a fast computer with plenty of memory.", 3095033483, 4.0, "large-v3", "f16", false),
+    model("small-q8_0", "Universal Small", ["all"], ["minimal"], "Weak computers and clear audio, noticeably more mistakes.", 264464607, 0.7, "small", "q8_0", false),
   ];
-  const titles: Record<string, string> = {
-    "thai-fast": "Fast", "thai-best": "Best quality", "german-full": "Fast, full precision", "swiss-german": "Fast", "english-fast": "Fast",
-    "french-q8_0": "Best quality, near full precision", "large-v3-turbo-q8_0": "Fast, near full precision", "large-v3": "Best quality, full precision", "small-q8_0": "Small",
-  };
-  for (const m of models) m.title = titles[m.id] ?? null;
   const ranks: Record<string, number> = {
     "thai-fast": 1, "thai-best": 2, "german-full": 2, "swiss-german": 1, "english-fast": 1, "french-q8_0": 2,
     "large-v3-turbo-q8_0": 3, "large-v3": 6, "small-q8_0": 1,
