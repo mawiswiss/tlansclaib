@@ -28,16 +28,31 @@ Minimal, and marks the one that suits the computer. The models download in the
 background. The [user guide](docs/user-guide.md) walks
 through the rest. Every version is on the
 [releases page](https://github.com/mawiswiss/tlansclaib/releases), and the app
-updates itself from there: About, "Check for updates".
+updates itself from there. It checks at every start and offers a new version
+with one click.
+
+## Requirements
+
+- Mac: macOS 13 or newer, Apple silicon or Intel. Apple silicon transcribes on
+  the graphics chip, an Intel Mac on the processor.
+- Windows: Windows 10 or 11, 64-bit. A graphics card with Vulkan support and
+  enough free memory does the work, otherwise the processor. Older and
+  low-end processors run on engines of their own, more slowly.
+- Memory: 8 GB, and 16 GB with a graphics chip for Precise. With less, the
+  memory check stops many runs before they start.
+- Disk: about 2 GB free for Minimal, 5 GB for Precise.
+
+Without a graphics chip, a recording takes about as long as it plays with
+Thai Compact, and several times that with Thai Best.
 
 ## What it does
 
 - Reads m4a, mp3, wav, flac, mp4 and most other audio and video files.
-- Plays the recording along with the text and highlights the line you hear.
-  Click a line and the recording jumps there.
+- Plays the recording along with the text and highlights the word you hear.
+  Click a word and the recording plays from there.
 - Timecodes on every line, switched on or off at any time.
 - Lines can be corrected, speakers renamed and the text searched.
-- Tells who speaks when, offline, in the Precise and Essential setups.
+- Tells who speaks when, offline, for up to eight people.
 - Keeps a history of every transcript, and transcribes a recording again with
   other settings when the first try was off.
 - Exports text, SRT or WebVTT files when you choose a destination.
@@ -53,8 +68,8 @@ tracking, nothing to pay.
 
 Whisper's general models cover about 100 languages at once. For some of them
 that shows. Thai is one. Swiss German isn't even on the list. tlansclaib
-offers models trained on exactly those languages, with a click: Thai from Mahidol University and from SCB 10X, Swiss
-German that writes Standard German, and dedicated models for German, English
+offers models trained on exactly those languages: Thai Compact and Thai Best
+from Mahidol University, Swiss German that writes Standard German, and dedicated models for German, English
 and French. Every download is checked against its checksum before the app uses
 it.
 
@@ -74,8 +89,8 @@ computer stays usable.
 
 The app goes online for the downloads of your setup, for four seconds on the
 first start or when you first open Models after a start, to measure how long a
-download would take, and once a day on start to ask GitHub for the newest
-version number, which About can turn off. That's it.
+download would take, and at every start and once a day while open to ask
+GitHub for the newest version number, which About can turn off. That's it.
 
 > Once a model is there, the app works without internet.
 
