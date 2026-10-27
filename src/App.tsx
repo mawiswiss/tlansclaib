@@ -129,6 +129,7 @@ export default function App() {
   const [aboutFocus, setAboutFocus] = useState<"update" | null>(null);
   const [memoryAsk, setMemoryAsk] = useState<MemoryAsk | null>(null);
   const [waiting, setWaiting] = useState<Launch | null>(null);
+  const [repair, setRepair] = useState<{ backend: SpeakerBackend; started: boolean; again: boolean } | null>(null);
   const lastLaunch = useRef<Launch | null>(null);
   const droppedCancels = useRef(0);
   const runStatus = useRef(run.status);
@@ -500,12 +501,13 @@ export default function App() {
     if (running) return;
     dispatch({ type: "reset" });
     setResultError(null);
+    setWaiting(null);
     setPending(audio);
   };
   stageLatest.current = stage;
 
   const go = () => {
-    if (!pending) return;
+    if (!pending || repairBlock) return;
     const audio = pending;
     setPending(null);
     void start(audio);
@@ -870,8 +872,12 @@ export default function App() {
 
   const fixSpeakers = async (backend: SpeakerBackend) => {
     const id = DETECTION_IDS[backend];
+    const target = detections.find((d) => d.backend === backend);
+    setRepair({ backend, started: false, again: Boolean(target?.installed) });
+    const size = bytes(target?.download_bytes ?? 0);
+    notify("info", target?.installed ? `Downloading ${DETECTION[backend].name} again (${size}) to repair it.` : `Downloading ${DETECTION[backend].name} (${size}).`);
     try {
-      if (detections.some((d) => d.backend === backend && d.installed)) await requireBackend().removeSpeakerDetection(backend);
+      if (target?.installed) await requireBackend().removeSpeakerDetection(backend);
       if (setup) {
         setFailed(({ [id]: _, ...rest }) => rest);
         include(id);
@@ -879,9 +885,40 @@ export default function App() {
         await fetchItem(id);
       }
     } catch (error) {
-      notify("error", `Could not download speaker detection: ${String(error)}`, [{ label: "Try again", tone: "primary", run: () => void fixSpeakers(backend) }]);
+      setRepair(null);
+      notify("error", `${target?.installed ? "Repairing" : "Downloading"} ${DETECTION[backend].name} failed: ${String(error)}`, [{ label: "Try again", tone: "primary", run: () => void fixSpeakers(backend) }]);
     }
   };
+
+  useEffect(() => {
+    if (!repair) return;
+    const id = DETECTION_IDS[repair.backend];
+    const detection = detections.find((d) => d.backend === repair.backend);
+    const busy = Boolean(downloads[id] || detection?.downloading);
+    if (!repair.started) {
+      if (busy || !detection?.installed) setRepair({ ...repair, started: true });
+      return;
+    }
+    if (failed[id]) {
+      setRepair(null);
+      return;
+    }
+    if (busy || !detection?.installed) return;
+    setRepair(null);
+    const name = DETECTION[repair.backend].name;
+    if (detection.broken) notify("error", `${name} does not start on this computer: ${detection.broken} Transcriptions run without speaker names.`);
+    else notify("info", repair.again ? `${name} works again.` : `${name} is ready.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repair, detections, downloads, failed]);
+
+  const repairBlock = (() => {
+    if (!repair) return null;
+    const progress = downloads[DETECTION_IDS[repair.backend]];
+    return { label: `${repair.again ? "Repairing" : "Downloading"} ${DETECTION[repair.backend].name}. GO is ready once it is installed.`, percent: progress?.total ? Math.round((progress.bytes / progress.total) * 100) : 0 };
+  })();
+  const waitBlock = waiting
+    ? { label: `Downloading ${waiting.model.name}. The transcription starts right after.`, percent: downloads[waiting.model.id]?.total ? Math.round((downloads[waiting.model.id].bytes / downloads[waiting.model.id].total) * 100) : 0 }
+    : null;
 
   const leftoverIds = setup ? leftovers(models, detections, setup) : [];
   const leftoverBytes = leftoverIds.reduce((sum, id) => sum + sizeOf(id, models, detections), 0);
@@ -999,7 +1036,6 @@ export default function App() {
             void fixSpeakers(l.backend!);
             dispatch({ type: "reset" });
             if (!l.outputFile) setPending(l.audio);
-            notify("info", "Downloading speaker detection again. Press GO once it is ready.");
           },
         }]
       : []),
@@ -1356,17 +1392,25 @@ export default function App() {
         }
         return (
           <DropZone
-            ready={model !== null}
+            ready={model !== null || waiting !== null}
             preparing={preparing && setup ? { percent, label: `Downloading the ${MODE_NAMES[setup.mode]} models. A transcription can start once the first model is in.` } : null}
+            blocked={waitBlock ?? repairBlock}
             dragging={dragging}
-            pending={pending}
-            summary={[
-              model?.name ?? "",
-              locked ? languageLabel(locked) : settings.language === "auto" ? "Auto-detect" : languageLabel(settings.language),
-              ...speakerChips(speakerBackend, settings.speakers, settings.speakerPrecision),
-            ]}
+            pending={pending ?? waiting?.audio ?? null}
+            summary={
+              waiting
+                ? [waiting.model.name, waiting.language.code === "auto" ? "Auto-detect" : languageLabel(languageKey(waiting.language)), ...speakerChips(waiting.speakers ? waiting.backend : null, waiting.speakers ?? "off", waiting.precision)]
+                : [
+                    model?.name ?? "",
+                    locked ? languageLabel(locked) : settings.language === "auto" ? "Auto-detect" : languageLabel(settings.language),
+                    ...speakerChips(speakerBackend, settings.speakers, settings.speakerPrecision),
+                  ]
+            }
             onGo={go}
-            onClear={() => setPending(null)}
+            onClear={() => {
+              setPending(null);
+              setWaiting(null);
+            }}
             onChoose={choose}
             onGetModel={() => setPanel("models")}
           />

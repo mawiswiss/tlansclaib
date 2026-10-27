@@ -772,6 +772,21 @@ input.toggle:checked::after {
   justify-content: center;
 }
 
+.staged-wait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 14px;
+}
+
+.dropzone button.go:disabled {
+  background: var(--sunken);
+  box-shadow: 0 0 0 8px var(--sunken);
+  color: var(--faint);
+}
+
 .dropzone button.go {
   flex: none;
   width: 132px;

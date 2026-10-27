@@ -119,6 +119,11 @@ with the other people, on another. tlansclaib transcribes every track and
 gives each line its speaker, such as
 `[00:01:23.40 --> 00:01:38.10] Speaker 2: text`.
 
+When speaker detection cannot start on this computer, "Speakers" reads "Not
+working" with a "Repair" button. Repair deletes it and downloads it again.
+A recording waiting to start keeps its "GO" off until the download is done,
+and a notice says whether detection works now.
+
 ## Transcribe
 
 1. Check the recording language in the row below the top bar. Leave it on

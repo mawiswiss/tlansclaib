@@ -347,6 +347,10 @@ top bar picks one.
   catches a wrong language or model before an hour of work. "Change file"
   picks another recording, the cross drops it, and the settings stay either
   way.
+- While a speaker detection repair or a model the recording waits for
+  downloads, the drop zone shows the recording with the download's progress
+  and "GO" stays off. A recording that waits for a model starts by itself
+  once the model is in.
 - The run view shows the steps side by side. Each icon lines up with its
   title, and the detail below never widens its step, so nothing moves while
   details change. In a narrow window the titles shorten ("Audio",
@@ -435,6 +439,9 @@ top bar picks one.
   "Transcribe without speakers", which turns the setting off and starts
   again, and "Repair speaker detection", which downloads it again and stages
   the recording. The engine's message follows as details.
+- A repair, from either place, deletes the detection and downloads the same
+  pinned files again, then `speakers-check` runs. A notice says whether it
+  works now or still does not start, with the reason.
 - With several speakers, a row above the text lists them with a colour each.
   The eight colours keep any two speakers clearly apart in light and dark
   mode, and neighbouring numbers also for colour-blind readers. A transcript

@@ -5,6 +5,8 @@ import { Close, Wave } from "./icons";
 type Props = {
   ready: boolean;
   preparing: { label: string; percent: number } | null;
+  /** A download the staged recording waits for. GO stays off until it is done. */
+  blocked: { label: string; percent: number } | null;
   dragging: boolean;
   pending: string | null;
   summary: string[];
@@ -14,16 +16,16 @@ type Props = {
   onGetModel: () => void;
 };
 
-export function DropZone({ ready, preparing, dragging, pending, summary, onGo, onClear, onChoose, onGetModel }: Props) {
+export function DropZone({ ready, preparing, blocked, dragging, pending, summary, onGo, onClear, onChoose, onGetModel }: Props) {
   useEffect(() => {
     if (!pending) return;
     const onKey = (e: KeyboardEvent) => {
       const field = (e.target as HTMLElement | null)?.closest("input, select, textarea, button");
-      if (e.key === "Enter" && !field) onGo();
+      if (e.key === "Enter" && !field && !blocked) onGo();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pending, onGo]);
+  }, [pending, blocked, onGo]);
 
   if (!ready && preparing) {
     return (
@@ -78,7 +80,15 @@ export function DropZone({ ready, preparing, dragging, pending, summary, onGo, o
             ))}
           </div>
         </div>
-        <button type="button" className="primary go" onClick={onGo}>
+        {blocked && (
+          <div className="staged-wait" role="status">
+            <p className="muted">{blocked.label}</p>
+            <span className="bar dropzone-bar" role="progressbar" aria-valuenow={blocked.percent} aria-valuemin={0} aria-valuemax={100}>
+              <span className="fill" style={{ width: `${blocked.percent}%` }} />
+            </span>
+          </div>
+        )}
+        <button type="button" className="primary go" onClick={onGo} disabled={blocked !== null} title={blocked ? "Waits for the download" : undefined}>
           GO
         </button>
       </section>
