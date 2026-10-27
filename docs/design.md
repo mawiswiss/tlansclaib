@@ -314,11 +314,12 @@ top bar picks one.
   memory. A language's own model is never traded for one for all languages.
   The choice can change while other programs come and go. If the start check
   refuses the model for memory, see "Not enough memory" under "A run". When a better catalog model would fit but is not installed, a note
-  below the row offers to download it (`betterDownload`). Automatic takes a
-  model marked too heavy, which the menu lists with "(failed here)", only
-  when no other installed model can transcribe the language, and then the
-  one with the least RAM, so a computer whose only model failed once can try
-  again. Picking a
+  below the row offers to download it (`betterDownload`). Its cross hides it
+  for that model (`dismissed` in the settings). Automatic takes a model marked
+  too heavy, which the menu lists with "(failed here)", only when no other
+  installed model can transcribe the language, and then the one with the
+  least RAM, so a computer whose only model failed once can try again.
+  Picking a
   model pins it, and a pinned single-language model fixes the language. It shows only before a transcription. Timecodes
   are not a setting there: the switch
   above a finished transcript decides and is remembered for the next.

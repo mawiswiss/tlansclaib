@@ -5,6 +5,7 @@ import { ErrorView, type ErrorAction } from "./components/ErrorView";
 import { Notices, type Notice, type NoticeAction } from "./components/Notices";
 import { HistoryDrawer } from "./components/HistoryDrawer";
 import { ModelDetails, ModelsDialog } from "./components/ModelsPanel";
+import { Note } from "./components/Note";
 import { RerunDialog, type RerunChoice } from "./components/RerunDialog";
 import { ResultView } from "./components/ResultView";
 import { SupportDialog } from "./components/SupportDialog";
@@ -501,6 +502,8 @@ export default function App() {
     setPending(null);
     void start(audio);
   };
+
+  const dismiss = (key: string) => setSettings((s) => ({ ...s, dismissed: s.dismissed.includes(key) ? s.dismissed : [...s.dismissed, key] }));
 
   const setUpDetection = () => {
     setModelsFocus("detection");
@@ -1438,13 +1441,13 @@ export default function App() {
           busy={running}
         />
         )}
-        {suggestion && !downloads[suggestion.id] && !(setup && wanted(models, setup).includes(suggestion.id)) && run.status !== "running" && run.status !== "done" && !firstRun && (
-          <p className="note">
+        {suggestion && !downloads[suggestion.id] && !(setup && wanted(models, setup).includes(suggestion.id)) && !settings.dismissed.includes(`better:${suggestion.id}`) && run.status !== "running" && run.status !== "done" && !firstRun && (
+          <Note onDismiss={() => dismiss(`better:${suggestion.id}`)}>
             {suggestion.name} would transcribe more accurately and fits this computer right now.{" "}
             <button type="button" className="inline-link" onClick={() => void download(suggestion.id)}>
               Download {bytes(suggestion.size_bytes)}
             </button>
-          </p>
+          </Note>
         )}
         {preparing && setup && run.status !== "running" && run.status !== "done" && (
           <SetupProgress

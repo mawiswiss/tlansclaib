@@ -15,6 +15,8 @@ export type Settings = {
   checkUpdates: boolean;
   setup: Setup | null;
   showDetails: boolean;
+  /** Notes below the settings row the user closed, such as `better:<model id>`. */
+  dismissed: string[];
 };
 
 const STORAGE = "tlansclaib.settings";
@@ -33,6 +35,7 @@ export const DEFAULTS: Settings = {
   checkUpdates: true,
   setup: null,
   showDetails: false,
+  dismissed: [],
 };
 
 export function loadSettings(): Settings {

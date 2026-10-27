@@ -129,7 +129,8 @@ gives each line its speaker, such as
    better model of the same kind is installed and fits the free memory right
    now, it takes that one instead, but only on a computer with a usable
    graphics chip. If a better one would fit but is not installed, a note
-   below the row offers to download it. Pick a model there to use it
+   below the row offers to download it. Its cross hides the note for that
+   model. Pick a model there to use it
    instead. A model that ran out of memory, stopped
    responding or crashed on this computer is taken by Automatic only when no
    other installed model can transcribe the language.

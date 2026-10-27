@@ -1697,6 +1697,37 @@ button.another:hover .another-glyph {
   font-size: 13px;
 }
 
+.note.dismissable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 8px;
+  flex: none;
+}
+
+.note.dismissable p {
+  flex: 1;
+  min-width: 0;
+}
+
+.note.dismissable > svg {
+  flex: none;
+}
+
+.note.dismissable .icon-button {
+  flex: none;
+  margin: -4px 0;
+}
+
+.note.warn {
+  background: var(--warn-soft);
+  color: var(--text);
+}
+
+.note.warn > svg {
+  color: var(--warn);
+}
+
 button.inline-link {
   display: inline;
   height: auto;
