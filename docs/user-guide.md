@@ -241,12 +241,16 @@ The computer stays usable in the meantime.
   use the first model anyway. With a model you picked, or when no installed
   model fits, the window offers what helps: a smaller installed model, a
   smaller model to download, which then starts the transcription by itself,
-  transcribing without speaker detection, or "Try anyway". Even then the
+  transcribing without speaker detection, or "Try anyway". When the model is
+  already the smallest one, it says so and suggests closing other programs.
+  Even then the
   app stops a running transcription when memory gets dangerously low, so the
   computer does not freeze.
 - A transcription stopped because memory ran low, or the model crashed or
   stopped responding: the window offers to transcribe again with the next
-  smaller installed model.
+  smaller installed model, or to download one. When there is none, it says
+  the model is the smallest and offers "Start again" for after you closed
+  other programs.
 - A file that is "not a model": it is not a whisper.cpp model. The message
   names what the file is instead.
 - A file that is not an audio file, or whose codec is not supported:

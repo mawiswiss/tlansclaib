@@ -123,6 +123,12 @@ export function fittingDownload(models: ModelStatus[], language: SetupLanguage, 
   return fitting(models.filter((m) => !m.installed && m.url), language, budget);
 }
 
+/** The closest model with less RAM for the language, installed or to download. None means this one is the smallest. */
+export function smallerModel(models: ModelStatus[], than: ModelStatus, language: SetupLanguage): ModelStatus | null {
+  const lighter = models.filter((m) => m.id !== than.id && !m.too_heavy && (m.installed || m.url) && m.ram_gb < than.ram_gb);
+  return largest(lighter.filter((m) => speaks(m, language))) ?? largest(lighter.filter(multilingual));
+}
+
 export function defaultModel(models: ModelStatus[], setup: Setup): ModelStatus | null {
   const ids = wanted(models, setup);
   const members = models.filter((m) => ids.includes(m.id));

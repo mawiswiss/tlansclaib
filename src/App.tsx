@@ -24,7 +24,7 @@ import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from
 import { parseTranscript, withTimes, type Transcript } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
 import { quietCheckAllowed, RECHECK_MS, releasePage, topBarLabel, type UpdateState } from "./lib/update";
-import { agreed, betterDownload, DETECTION_IDS, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_DETECTION, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, setupChanges, sizeOf, wanted, wantedBackend, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
+import { agreed, betterDownload, DETECTION_IDS, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_DETECTION, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, setupChanges, sizeOf, smallerModel, wanted, wantedBackend, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
 import type { DiskSpace, DownloadProgress, FileKind, Gpu, HistoryEntry, Language, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "./lib/types";
 
 function backendOf(id: string): SpeakerBackend | undefined {
@@ -932,6 +932,17 @@ export default function App() {
     setMemoryAsk(null);
     void launch(next, models);
   };
+  const smallest = (m: ModelStatus, language: SetupLanguage) =>
+    language.code === "auto" ? `${m.name} is already the smallest model.` : `${m.name} is already the smallest model for ${languageLabel(languageKey(language))}.`;
+  const askAdvice = !ask
+    ? ""
+    : roomWithoutSpeakers != null
+      ? "Close other programs, or transcribe without speaker detection."
+      : askSmaller || askDownload
+        ? `Close other programs, or use ${(askSmaller ?? askDownload)!.name}, which fits.`
+        : smallerModel(models, ask.launch.model, ask.launch.language)
+          ? "Close other programs, or use a shorter recording. No smaller model fits right now either."
+          : `${smallest(ask.launch.model, ask.launch.language)} Close other programs, or use a shorter recording.`;
   const memoryActions = ask
     ? [
         askSmaller && { label: `Use ${askSmaller.name}`, run: () => answer({ ...ask.launch, model: askSmaller, pinned: true }) },
@@ -984,9 +995,24 @@ export default function App() {
   ];
 
   const failedModel = run.status === "error" && run.tooHeavy ? models.find((m) => m.id === run.tooHeavy) : undefined;
-  const stepDown = failedModel && lastLaunch.current
-    ? fittingInstalled(models.filter((m) => m.id !== failedModel.id), lastLaunch.current.language, failedModel.ram_gb * GIB - 1)
+  const failedLaunch = failedModel ? lastLaunch.current : null;
+  const stepDown = failedModel && failedLaunch
+    ? fittingInstalled(models.filter((m) => m.id !== failedModel.id), failedLaunch.language, failedModel.ram_gb * GIB - 1)
     : null;
+  const lighter = failedModel && failedLaunch && !stepDown ? smallerModel(models, failedModel, failedLaunch.language) : null;
+  const heavyActions: ErrorAction[] = !failedModel || !failedLaunch
+    ? []
+    : stepDown
+      ? [{ label: `Transcribe again with ${stepDown.name}`, run: () => void launch({ ...failedLaunch, model: stepDown, pinned: true, force: false }, models) }]
+      : lighter
+        ? [{ label: `Download ${lighter.name} (${bytes(lighter.size_bytes)}) and transcribe`, run: () => { dispatch({ type: "reset" }); downloadAndStart({ ...failedLaunch, model: lighter, pinned: true, force: false }); } }]
+        : [{ label: "Start again", run: () => void launch({ ...failedLaunch, force: false }, models) }];
+  const heavyAdvice = !failedModel || !failedLaunch
+    ? ""
+    : stepDown || lighter
+      ? `Close other programs, or use ${(stepDown ?? lighter)!.name}, which needs less memory.`
+      : `${smallest(failedModel, failedLaunch.language)} Close other programs, then start again.`;
+  const automaticNow = failedModel && settings.modelId === "auto" && model && model.id !== failedModel.id ? model : null;
 
   const leaveSetup = async (id: string) => {
     setPanelError(null);
@@ -1251,7 +1277,7 @@ export default function App() {
           return (
             <ErrorView
               title={roomWithoutSpeakers != null ? "Not enough free memory for speaker detection" : `Not enough free memory for ${ask.launch.model.name}`}
-              message={ask.error.message}
+              message={`${ask.error.message} ${askAdvice}`}
               note="Try anyway starts regardless. The app still stops the transcription before the computer runs out of memory."
               actions={memoryActions}
               retryLabel="Cancel"
@@ -1277,9 +1303,10 @@ export default function App() {
         return (
           <ErrorView
             title="The transcription did not finish"
-            message={run.error ?? ""}
+            message={failedModel ? `${run.error ?? ""} ${heavyAdvice}` : (run.error ?? "")}
+            note={automaticNow ? `Automatic now picks ${automaticNow.name} instead of ${failedModel!.name}.` : undefined}
             onRetry={() => dispatch({ type: "reset" })}
-            actions={stepDown && lastLaunch.current ? [{ label: `Transcribe again with ${stepDown.name}`, run: () => void launch({ ...lastLaunch.current!, model: stepDown, pinned: true, force: false }, models) }] : undefined}
+            actions={heavyActions}
           />
         );
       case "cancelled":

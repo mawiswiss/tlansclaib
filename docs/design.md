@@ -364,10 +364,15 @@ top bar picks one.
   on the error card with the fixes that apply: a smaller installed model, a
   download that fits (`fittingDownload`), which starts the recording once it
   is installed, no speaker detection when detection alone does not fit, and
-  "Try anyway". Cancel stages the recording again.
+  "Try anyway". Cancel stages the recording again. The message names the
+  model that fits, or says that no smaller one fits right now, or that the
+  model is already the smallest for the language (`smallerModel`), so it
+  never suggests a smaller model that does not exist.
 - A run stopped for memory, a crash or a stall marks the model too heavy and
   sends `too_heavy`. The error card then offers the best installed model
-  with less RAM.
+  with less RAM, otherwise the download of a smaller one, otherwise says the
+  model is the smallest and offers "Start again". Under it, a note names the
+  model Automatic picks now.
 - Notices (`Notices.tsx`) stack at the bottom right: info, warning and
   error, each optionally with buttons. Info without a button fades after
   8 s, the others stay until dismissed with the cross. App errors arrive

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agreed, betterDownload, defaultModel, downloadOrder, fittingDownload, fittingInstalled, leftovers, missingBytes, modelFor, parseLanguage, recommend, runLanguages, setupChanges, setupLanguages, wanted, wantedBackend, type Resources, type Setup } from "./setup";
+import { agreed, betterDownload, defaultModel, downloadOrder, fittingDownload, fittingInstalled, leftovers, missingBytes, modelFor, parseLanguage, recommend, runLanguages, setupChanges, setupLanguages, smallerModel, wanted, wantedBackend, type Resources, type Setup } from "./setup";
 import type { Gpu, ModelStatus, SpeakerDetection } from "./types";
 
 const GIB = 2 ** 30;
@@ -254,5 +254,22 @@ describe("a model that fits the free memory", () => {
     expect(fittingDownload(list, thai, GIB)?.id).toBe("small");
     expect(fittingDownload(list, thai, 5 * GIB)?.id).toBe("large-v3");
     expect(fittingDownload(list, thai, GIB / 2)).toBeNull();
+  });
+});
+
+describe("smallerModel", () => {
+  const sized = models.map((m) => ({ ...m, ram_gb: { "thai-fast": 1.3, "thai-best": 4, "turbo-q8": 1.7, "large-v3": 4, tiny: 0.7, base: 0.9 }[m.id] ?? 1 }));
+
+  it("finds the language's own lighter model first, then one for all languages", () => {
+    const best = sized.find((m) => m.id === "thai-best")!;
+    expect(smallerModel(sized, best, parseLanguage("th"))?.id).toBe("thai-fast");
+    const fast = sized.find((m) => m.id === "thai-fast")!;
+    expect(smallerModel(sized, fast, parseLanguage("th"))?.id).toBe("tiny");
+  });
+
+  it("finds none for the smallest model", () => {
+    const tiny = sized.find((m) => m.id === "tiny")!;
+    expect(smallerModel(sized, tiny, parseLanguage("auto"))).toBeNull();
+    expect(smallerModel(sized.map((m) => (m.id === "tiny" || m.id === "base" ? { ...m, too_heavy: "It could not be loaded." } : m)), sized.find((m) => m.id === "thai-fast")!, parseLanguage("th"))).toBeNull();
   });
 });
