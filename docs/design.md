@@ -314,17 +314,20 @@ top bar picks one.
   memory. A language's own model is never traded for one for all languages.
   The choice can change while other programs come and go. If the start check
   refuses the model for memory, see "Not enough memory" under "A run". When a better catalog model would fit but is not installed, a note
-  below the row offers to download it (`betterDownload`). It never takes a
-  model marked too heavy, which the menu lists with "(failed here)". Picking a
+  below the row offers to download it (`betterDownload`). Automatic takes a
+  model marked too heavy, which the menu lists with "(failed here)", only
+  when no other installed model can transcribe the language, and then the
+  one with the least RAM, so a computer whose only model failed once can try
+  again. Picking a
   model pins it, and a pinned single-language model fixes the language. It shows only before a transcription. Timecodes
   are not a setting there: the switch
   above a finished transcript decides and is remembered for the next.
 - The model carries a fit label from `lib/fit.ts`: its listed RAM need
   against the computer's total RAM, green below 70%, orange below 90%, red
   above. It ignores what is in use right now, which the start check covers,
-  so the label does not change while other programs come and go. A pinned
-  model marked too heavy shows a red "Failed here" instead, with the reason in
-  its tooltip.
+  so the label does not change while other programs come and go. A model
+  marked too heavy shows a red "Failed here" instead, with the reason in its
+  tooltip.
 - Menus (`Select.tsx`) are drawn by the app and follow the ARIA combobox
   pattern, a button with a listbox. Tab reaches them, the arrows, Home, End
   and Page Up or Down move, Enter or Space picks, typing jumps to a matching

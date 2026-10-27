@@ -76,7 +76,7 @@ pub struct ModelStatus {
     pub label: Option<String>,
     pub custom: bool,
     pub linked: bool,
-    /// Why the model failed on this computer. Automatic skips it until a run with it finishes.
+    /// Why the model failed on this computer. Automatic prefers other models until a run with it finishes.
     pub too_heavy: Option<String>,
 }
 

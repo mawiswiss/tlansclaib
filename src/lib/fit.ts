@@ -28,7 +28,7 @@ export function ramFit(ramGb: number, totalMemory: number): Rating {
 }
 
 export function failedFit(reason: string): Rating {
-  return { level: "high", tip: `${reason} Automatic skips it until a transcription with it finishes.` };
+  return { level: "high", tip: `${reason} Automatic prefers other models until a transcription with it finishes.` };
 }
 
 export function diskFit(size: number, free: number, minimum: number, reserve: number): Rating {

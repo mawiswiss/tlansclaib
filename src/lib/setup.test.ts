@@ -90,12 +90,13 @@ describe("modelFor", () => {
     expect(modelFor(installed, setup("minimal"), parseLanguage("auto"))?.id).toBe("tiny");
   });
 
-  it("skips a model that failed here unless it is pinned", () => {
+  it("skips a model that failed here unless it is pinned or nothing else is installed", () => {
     const installed = with_(["thai-fast", "turbo-q8"]).map((m) => (m.id === "thai-fast" ? { ...m, too_heavy: "Memory ran low while it loaded." } : m));
     expect(modelFor(installed, setup("essential", "th"), parseLanguage("th"))?.id).toBe("turbo-q8");
     expect(modelFor(installed, setup("essential", "th"), parseLanguage("th"), "thai-fast")?.id).toBe("thai-fast");
-    const allFailed = installed.map((m) => ({ ...m, too_heavy: "It could not be loaded." }));
-    expect(modelFor(allFailed, setup("essential", "th"), parseLanguage("th"))).toBeNull();
+    const allFailed = installed.map((m) => ({ ...m, too_heavy: "It could not be loaded.", ram_gb: m.id === "thai-fast" ? 1.3 : 1.7 }));
+    expect(modelFor(allFailed, setup("essential", "th"), parseLanguage("th"))?.id).toBe("thai-fast");
+    expect(modelFor(allFailed, setup("essential", "de"), parseLanguage("de"))?.id).toBe("turbo-q8");
   });
 
   it("respects a pinned model and ignores one that is gone", () => {

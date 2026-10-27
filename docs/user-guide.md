@@ -131,7 +131,8 @@ gives each line its speaker, such as
    graphics chip. If a better one would fit but is not installed, a note
    below the row offers to download it. Pick a model there to use it
    instead. A model that ran out of memory, stopped
-   responding or crashed on this computer is no longer taken by Automatic.
+   responding or crashed on this computer is taken by Automatic only when no
+   other installed model can transcribe the language.
    The menu lists it with "(failed here)" and Models with a red "Failed on
    this computer" chip. Pick it to try again: once a transcription with it
    finishes, Automatic takes it again.

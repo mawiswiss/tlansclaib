@@ -79,7 +79,7 @@ function better(list: ModelStatus[], than: ModelStatus | null, resources: Resour
   return list.filter((m) => !m.custom && rank(m) > floor && runsWell(m, resources)).reduce<ModelStatus | null>((top, m) => (top && rank(top) >= rank(m) ? top : m), null);
 }
 
-/** The model Automatic uses for a language: its own model, otherwise one for all languages. Setup members come first, models that failed here never, and a better installed one replaces it when it runs well right now. */
+/** The model Automatic uses for a language: its own model, otherwise one for all languages. Setup members come first, models that failed here only when nothing else is installed, and a better installed one replaces it when it runs well right now. */
 export function modelFor(models: ModelStatus[], setup: Setup | null, language: SetupLanguage, pinned = "auto", resources: Resources | null = null): ModelStatus | null {
   const installed = models.filter((m) => m.installed);
   if (pinned !== "auto") {
@@ -92,7 +92,8 @@ export function modelFor(models: ModelStatus[], setup: Setup | null, language: S
     const base = list.find(member) ?? list[0] ?? null;
     return base && (better(list, base, resources) ?? base);
   };
-  return best(usable.filter((m) => speaks(m, language))) ?? best(usable.filter(multilingual));
+  const lightest = installed.filter((m) => speaks(m, language) || multilingual(m)).reduce<ModelStatus | null>((low, m) => (low && low.ram_gb <= m.ram_gb ? low : m), null);
+  return best(usable.filter((m) => speaks(m, language))) ?? best(usable.filter(multilingual)) ?? lightest;
 }
 
 /** A model to download that Automatic would take over its current choice, on this computer right now. */
