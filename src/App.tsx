@@ -415,7 +415,7 @@ export default function App() {
       }
       const smaller = refused.budget === null ? null : fittingInstalled(current.filter((m) => m.id !== l.model.id), l.language, refused.budget);
       if (!l.pinned && smaller) {
-        notify("info", `Only ${gib(refused.free)} of memory is free, too little for ${l.model.name}. ${smaller.name} transcribes this recording instead.`, [
+        notify("info", `Transcribing with ${smaller.name} instead of ${l.model.name}, because only ${gib(refused.free)} of memory is free and ${l.model.name} needs more.`, [
           { label: `Use ${l.model.name} anyway`, tone: "danger", run: () => void forceAgain(l) },
         ]);
         await launch({ ...l, model: smaller, pinned: true }, current);
@@ -439,14 +439,14 @@ export default function App() {
         return;
       }
     }
-    notify("warning", `Transcribing with ${l.model.name} anyway. The app stops it if the computer runs low on memory.`);
+    notify("warning", `Transcribing with ${l.model.name} without the memory check at the start.`);
     await launch({ ...l, pinned: true, force: true }, models);
   };
 
   const downloadAndStart = (l: Launch) => {
     setWaiting(l);
     setPending(null);
-    notify("info", `Downloading ${l.model.name}. The transcription starts when it is ready.`);
+    notify("info", `Downloading ${l.model.name} (${bytes(l.model.size_bytes)}). The transcription starts right after.`);
     if (setup) {
       setFailed(({ [l.model.id]: _, ...rest }) => rest);
       include(l.model.id);
@@ -455,7 +455,7 @@ export default function App() {
     fetchItem(l.model.id).catch((error) => {
       setWaiting(null);
       if (!l.outputFile) setPending(l.audio);
-      notify("error", `Could not download ${l.model.name}: ${String(error)}`, [{ label: "Try again", tone: "primary", run: () => downloadAndStart(l) }]);
+      notify("error", `Downloading ${l.model.name} failed: ${String(error)}`, [{ label: "Try again", tone: "primary", run: () => downloadAndStart(l) }]);
     });
   };
 
@@ -829,7 +829,7 @@ export default function App() {
     if (!setup || !freshKey || offered.current.fresh === freshKey) return;
     offered.current.fresh = freshKey;
     const ids = freshKey.split(" ");
-    notify("info", `Your ${MODE_NAMES[setup.mode]} setup has ${ids.length === 1 ? "a new model" : "new models"}: ${listOf(ids)} (${bytesOf(ids)}).`, [
+    notify("info", `This version of the app adds ${listOf(ids)} (${bytesOf(ids)}) to your ${MODE_NAMES[setup.mode]} setup.`, [
       { label: "Download", tone: "primary", run: () => acceptChanges(ids) },
       { label: "Later", run: () => {} },
     ]);
@@ -840,7 +840,7 @@ export default function App() {
     offered.current.dropped = droppedKey;
     const ids = droppedKey.split(" ");
     const one = ids.length === 1;
-    notify("info", `${listOf(ids)} ${one ? "is" : "are"} no longer part of your ${MODE_NAMES[setup.mode]} setup. Delete ${one ? "it" : "them"} to free ${bytesOf(ids)}?`, [
+    notify("info", `This version of the app takes ${listOf(ids)} out of your ${MODE_NAMES[setup.mode]} setup. Deleting ${one ? "it" : "them"} frees ${bytesOf(ids)}.`, [
       {
         label: "Delete",
         tone: "danger",
@@ -982,7 +982,7 @@ export default function App() {
     if (failure) {
       setWaiting(null);
       if (!waiting.outputFile) setPending(waiting.audio);
-      notify("error", `Could not download ${waiting.model.name}: ${failure}`, [{ label: "Try again", tone: "primary", run: () => downloadAndStart(waiting) }]);
+      notify("error", `Downloading ${waiting.model.name} failed: ${failure}`, [{ label: "Try again", tone: "primary", run: () => downloadAndStart(waiting) }]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waiting, models, failed]);
@@ -1023,7 +1023,7 @@ export default function App() {
         askWithoutSpeakers && {
           label: askWithoutSpeakers.id === ask.launch.model.id ? "Transcribe without speaker detection" : `Without speaker detection, with ${askWithoutSpeakers.name}`,
           run: () => {
-            notify("info", "Transcribing without speaker detection, which needs more free memory than there is right now.");
+            notify("info", "Transcribing without speaker names, because speaker detection needs more memory than is free.");
             answer({ ...ask.launch, model: askWithoutSpeakers, speakers: null, pinned: true });
           },
         },
@@ -1031,7 +1031,7 @@ export default function App() {
           label: "Try anyway",
           tone: "danger",
           run: () => {
-            notify("warning", `Transcribing with ${ask.launch.model.name} anyway. The app stops it if the computer runs low on memory.`);
+            notify("warning", `Transcribing with ${ask.launch.model.name} without the memory check at the start.`);
             answer({ ...ask.launch, pinned: true, force: true });
           },
         },

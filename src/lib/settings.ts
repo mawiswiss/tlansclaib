@@ -45,7 +45,7 @@ export function loadSettings(): Settings {
     if (saved.modelId === "") delete saved.modelId;
     return { ...DEFAULTS, ...saved };
   } catch (error) {
-    settingsLoadError = `Could not load saved settings. Defaults are being used: ${String(error)}`;
+    settingsLoadError = `Using the default settings, because the saved ones could not be read: ${String(error)}`;
     return DEFAULTS;
   }
 }

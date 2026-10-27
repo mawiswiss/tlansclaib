@@ -233,7 +233,8 @@ because progress reporting and other work are outside those stages.
   since the start, so a stuck run shows where it stopped.
   A model that fails while loading or transcribing, through a crash, a stall,
   the memory guard or an engine error before the language check, is marked too
-  heavy (`too_heavy`), and the error adds that Automatic skips it from now on.
+  heavy (`too_heavy`). Memory and crash errors state only what happened. The
+  window adds the advice that fits, see "A run".
   A failure on Metal or Vulkan that the CPU retry follows marks nothing, and
   neither does an engine error in the language check or a failure while
   reading the audio or finding the speakers, which depend on the recording. A run with
@@ -413,7 +414,9 @@ top bar picks one.
 - Notices (`Notices.tsx`) stack at the bottom right: info, warning and
   error, each optionally with buttons. Info without a button fades after
   8 s, the others stay until dismissed with the cross. App errors arrive
-  here too. Buttons here and on error cards carry a tone: blue for the fix
+  here too. A notice leads with what the app does or chose, with names and
+  sizes, then why. An error says what failed and the one thing to do. None
+  describes what might happen. Buttons here and on error cards carry a tone: blue for the fix
   the app recommends, red for one that deletes or skips a safety check, plain
   for the rest.
 

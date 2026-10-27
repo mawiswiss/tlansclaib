@@ -139,8 +139,6 @@ enum Failure {
     EngineError,
 }
 
-const SKIPPED: &str = "Automatic skips this model from now on. You can still pick it in the Model menu.";
-
 /// Why a failure shows the model is too much for this computer. Any other step fails for the recording or speaker detection.
 /// An engine error in the language check is about the recording too.
 fn too_heavy(failure: Failure, step: Option<Step>, probing: bool) -> Option<&'static str> {
@@ -294,7 +292,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         .create()
         .map_err(|error| {
             log::warn!("could not prevent sleep during transcription");
-            let _ = app.emit("app-error", format!("The computer may sleep during transcription: {error}"));
+            let _ = app.emit("app-error", format!("Could not keep the computer awake for this transcription: {error}"));
         })
         .ok();
     log::info!("started the engine (pid {})", child.pid());
@@ -375,18 +373,12 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                             continue;
                         }
                         speakers_failed |= matches!(&event, Event::Error { .. }) && step == Some(Step::Speakers);
-                        let event = match event {
-                            Event::Error { message } => match too_heavy(Failure::EngineError, step, probing) {
-                                Some(reason) => {
-                                    if let Some(model_id) = with_own(&app, id, |run| run.record.model_id.clone()) {
-                                        mark_too_heavy(&app, &model_id, reason);
-                                    }
-                                    Event::Error { message: format!("{message} {SKIPPED}") }
-                                }
-                                None => Event::Error { message },
-                            },
-                            event => event,
-                        };
+                        if matches!(&event, Event::Error { .. })
+                            && let Some(reason) = too_heavy(Failure::EngineError, step, probing)
+                            && let Some(model_id) = with_own(&app, id, |run| run.record.model_id.clone())
+                        {
+                            mark_too_heavy(&app, &model_id, reason);
+                        }
                         let forwarded = with_own(&app, id, |run| {
                             let event = match &event {
                                 Event::Done { lines, elapsed, timings, .. } => match finish(&app, run, *lines, *elapsed, timings) {
@@ -478,11 +470,10 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                                             return "The transcription process ended without saving a result.".into();
                                         }
                                         match payload.code {
-                                            Some(code) => format!("The transcription stopped unexpectedly (error code {code}). Try again, or choose a smaller model."),
-                                            None => "The transcription stopped unexpectedly. Try again, or choose a smaller model.".into(),
+                                            Some(code) => format!("The transcription stopped unexpectedly (error code {code})."),
+                                            None => "The transcription stopped unexpectedly.".into(),
                                         }
                                     });
-                            let message = if marked.is_some() { format!("{message} {SKIPPED}") } else { message };
                             let _ = app.emit("engine-event", Event::Error { message });
                         }
                         remember_incomplete(&app, &run.record);
@@ -632,7 +623,7 @@ fn remember_incomplete(app: &AppHandle, record: &Record) {
     }
     let elapsed = record.started.elapsed().as_secs_f64();
     if let Err(error) = remember(app, entry(record, history::Status::Incomplete, record.lines, elapsed), &record.transcript_lines) {
-        let _ = app.emit("app-error", format!("The partial transcription could not be saved: {error:#}"));
+        let _ = app.emit("app-error", format!("Could not save the lines transcribed before the stop: {error:#}"));
     } else {
         let _ = std::fs::remove_file(&record.scratch);
     }
@@ -711,7 +702,7 @@ pub fn guard_tick(app: &AppHandle, stats: &Stats) {
             None => None,
         }
     };
-    if let Some(mut message) = stop {
+    if let Some(message) = stop {
         let run = app.state::<RunState>().0.lock().unwrap().take();
         if let Some(mut run) = run {
             if let Some(child) = run.child.take() {
@@ -719,7 +710,6 @@ pub fn guard_tick(app: &AppHandle, stats: &Stats) {
             }
             if let Some(reason) = too_heavy(Failure::Memory, run.step, false) {
                 mark_too_heavy(app, &run.record.model_id, reason);
-                message = format!("{message} {SKIPPED}");
             }
             remember_incomplete(app, &run.record);
         }

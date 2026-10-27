@@ -337,7 +337,7 @@ fn run(
     let audio::Source { tracks, video, warnings } = audio::load_tracks(audio_path)?;
     timings.decode = phase.elapsed().as_secs_f64();
     if !warnings.is_empty() {
-        emit(&Event::Warning { message: format!("Some audio was skipped, so the transcript may be incomplete: {}.", warnings.join("; ")) });
+        emit(&Event::Warning { message: format!("The transcript leaves out audio that could not be read: {}.", warnings.join("; ")) });
     }
     let mut speakers = output::speakers(tracks.len());
     emit(&Event::Audio {

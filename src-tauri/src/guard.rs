@@ -73,7 +73,7 @@ pub fn can_start(free: u64, needed: u64) -> Result<(), String> {
         return Ok(());
     }
     Err(format!(
-        "This transcription needs about {} of free memory and {} is free. Close other programs, choose a smaller model, or use a shorter recording.",
+        "This transcription needs about {} of free memory, and {} is free.",
         gb(minimum),
         gb(free)
     ))
@@ -132,13 +132,13 @@ pub fn setup_download_bytes(models: &[u64], detection: Option<u64>) -> u64 {
 pub fn should_stop(free: u64, swap_used: u64, swap_at_start: u64, floor: u64) -> Option<String> {
     if free < floor {
         return Some(format!(
-            "Stopped before the computer ran out of memory: only {} was left. Close other programs or choose a smaller model.",
+            "Stopped before the computer ran out of memory: only {} was left.",
             gb(free)
         ));
     }
     if swap_used > swap_at_start + SWAP_GROWTH_LIMIT {
         return Some(format!(
-            "Stopped because the computer started swapping heavily ({} more than at the start). Close other programs or choose a smaller model.",
+            "Stopped because the computer started swapping heavily: {} more than at the start.",
             gb(swap_used - swap_at_start)
         ));
     }
@@ -179,8 +179,7 @@ mod tests {
         assert!(can_start(4 * GIB, 2 * GIB).is_ok());
         assert!(can_start(3 * GIB, 2 * GIB).is_ok());
         let refused = can_start(3 * GIB - 1, 2 * GIB).unwrap_err();
-        assert!(refused.contains("3.0 GB of free memory"), "{refused}");
-        assert!(refused.contains("smaller model"));
+        assert_eq!(refused, "This transcription needs about 3.0 GB of free memory, and 3.0 GB is free.");
     }
 
     #[test]

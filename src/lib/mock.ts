@@ -257,7 +257,7 @@ export function mockBackend(): Backend {
         if (Math.max(chosen.ram_gb * 2 ** 30, detection) + 2 ** 30 > lowRam) {
           throw {
             kind: "memory",
-            message: `This transcription needs about ${(Math.max(chosen.ram_gb, detection / 2 ** 30) + 1).toFixed(1)} GB of free memory and ${(lowRam / 2 ** 30).toFixed(1)} GB is free. Close other programs, choose a smaller model, or use a shorter recording.`,
+            message: `This transcription needs about ${(Math.max(chosen.ram_gb, detection / 2 ** 30) + 1).toFixed(1)} GB of free memory, and ${(lowRam / 2 ** 30).toFixed(1)} GB is free.`,
             free: lowRam,
             budget: budget(lowRam, detection),
             budget_without_speakers: speakers ? budget(lowRam, 0) : null,
@@ -310,7 +310,7 @@ export function mockBackend(): Backend {
             chosen.too_heavy = "Memory ran low while it transcribed.";
             emit("models", null);
             send({ event: "too_heavy", model_id: modelId });
-            send({ event: "error", message: "Stopped before the computer ran out of memory: only 0.3 GB was left. Close other programs or choose a smaller model. Automatic skips this model from now on. You can still pick it in the Model menu." });
+            send({ event: "error", message: "Stopped before the computer ran out of memory: only 0.3 GB was left." });
             return;
           }
           if (done >= total) {
