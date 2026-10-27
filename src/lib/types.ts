@@ -85,7 +85,7 @@ export type LoadPart = "device" | "language";
 
 export type SpeakerBackend = "sherpa" | "nemotron";
 
-export type SpeakerDetection = { backend: SpeakerBackend; available: boolean; installed: boolean; downloading: boolean; download_bytes: number; disk_bytes: number; broken?: string | null };
+export type SpeakerDetection = { backend: SpeakerBackend; available: boolean; installed: boolean; downloading: boolean; download_bytes: number; disk_bytes: number; broken?: string | null; damaged?: boolean };
 
 export type Gpu = { backend: "metal" | "vulkan" | null; name: string | null; free_bytes: number | null; usable: boolean; model_budget?: number | null };
 

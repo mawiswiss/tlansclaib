@@ -341,6 +341,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         let mut probing = false;
         let mut pending_gpu_error = None;
         let mut process_error = None;
+        let mut speakers_failed = false;
         while let Some(event) = events.recv().await {
             if matches!(event, CommandEvent::Stdout(_) | CommandEvent::Stderr(_)) {
                 with_own(&app, id, |run| run.watch.heard(Instant::now()));
@@ -369,6 +370,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                             pending_gpu_error = Some(message.clone());
                             continue;
                         }
+                        speakers_failed |= matches!(&event, Event::Error { .. }) && step == Some(Step::Speakers);
                         let event = match event {
                             Event::Error { message } => match too_heavy(Failure::EngineError, step, probing) {
                                 Some(reason) => {
@@ -459,6 +461,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                     }
                     if let Some(run) = take_own(&app, id) {
                         if !run.saw_error && (payload.code != Some(0) || !run.record.saved) {
+                            speakers_failed |= step == Some(Step::Speakers);
                             let failure = if stalled { Some(Failure::Stall) } else if payload.code != Some(0) { Some(Failure::Crash) } else { None };
                             let marked = failure
                                 .filter(|_| !retry_on_cpu(gpu_attempt, step, model_ready, payload.code))
@@ -501,6 +504,9 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                 let _ = app.emit("engine-event", Event::Error { message });
             }
             remember_incomplete(&app, &run.record);
+        }
+        if speakers_failed {
+            app.state::<crate::detection::Detections>().get(detector).check_after_failure(&app).await;
         }
     });
     Ok(())

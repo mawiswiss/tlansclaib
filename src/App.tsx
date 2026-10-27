@@ -856,9 +856,16 @@ export default function App() {
   const preparing = setup && pendingIds.length > 0 && (batch || failure) ? { percent, failure } : null;
 
   const preferredDetection = setup ? MODE_DETECTION[setup.mode] : "nemotron";
-  const fixTarget = detections.find((d) => d.installed && d.broken) ?? detections.find((d) => d.available && d.backend === preferredDetection) ?? detections.find((d) => d.available) ?? null;
+  const brokenDetection = detections.find((d) => d.installed && d.broken) ?? null;
+  const missingDetection = detections.find((d) => d.available && !d.installed && d.backend === preferredDetection) ?? detections.find((d) => d.available && !d.installed) ?? null;
+  const fixTarget = brokenDetection?.damaged ? brokenDetection : missingDetection;
   const speakerFix: SpeakerFix | null = (() => {
-    if (speakerBackend || !fixTarget) return null;
+    if (speakerBackend) return null;
+    const intact = brokenDetection && !brokenDetection.damaged
+      ? `${DETECTION[brokenDetection.backend].name} does not start on this computer. Its files match the download, so downloading it again would not help.`
+      : null;
+    const details = brokenDetection ? ` Details: ${brokenDetection.broken}` : "";
+    if (!fixTarget) return intact ? { state: "Not working", action: null, tip: intact + details } : null;
     const id = DETECTION_IDS[fixTarget.backend];
     const progress = downloads[id];
     if (progress || fixTarget.downloading || (pendingIds.includes(id) && !failed[id])) {
@@ -866,7 +873,9 @@ export default function App() {
       return { state: `Downloading ${done}%`, action: null, tip: "Speakers can be named once speaker detection is downloaded." };
     }
     const size = bytes(fixTarget.download_bytes);
-    if (fixTarget.broken) return { state: "Not working", action: "Repair", tip: `Speaker detection could not start on this computer. Repair downloads it again (${size}). Details: ${fixTarget.broken}` };
+    const name = DETECTION[fixTarget.backend].name;
+    if (fixTarget.broken) return { state: "Not working", action: "Repair", tip: `A file of ${name} differs from its download. Repair downloads it again (${size}). Details: ${fixTarget.broken}` };
+    if (intact) return { state: "Not working", action: "Download", tip: `${intact} ${name} may work instead: download it (${size}).${details}` };
     return { state: "Not installed", action: "Download", tip: `Speaker detection tells who speaks when. Download it (${size}) to name the speakers.` };
   })();
 
@@ -1029,7 +1038,7 @@ export default function App() {
         void launch({ ...l, speakers: null, backend: null }, models);
       },
     },
-    ...(l.backend
+    ...(l.backend && detections.some((d) => d.backend === l.backend && d.damaged)
       ? [{
           label: "Repair speaker detection",
           run: () => {
@@ -1340,7 +1349,11 @@ export default function App() {
           return (
             <ErrorView
               title="Speaker detection did not work"
-              message="The recording itself is fine. Transcribe it without naming the speakers, or repair speaker detection and start again."
+              message={
+                detections.some((d) => d.backend === speakerFailure.backend && d.damaged)
+                  ? "The recording itself is fine. A speaker detection file differs from the download. Repair it and start again, or transcribe without naming the speakers."
+                  : "The recording itself is fine. Transcribe it without naming the speakers."
+              }
               note={run.error ? `Details: ${run.error}` : undefined}
               actions={speakerActions(speakerFailure)}
               onRetry={() => dispatch({ type: "reset" })}

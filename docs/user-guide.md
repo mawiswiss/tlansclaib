@@ -120,9 +120,13 @@ gives each line its speaker, such as
 `[00:01:23.40 --> 00:01:38.10] Speaker 2: text`.
 
 When speaker detection cannot start on this computer, "Speakers" reads "Not
-working" with a "Repair" button. Repair deletes it and downloads it again.
-A recording waiting to start keeps its "GO" off until the download is done,
-and a notice says whether detection works now.
+working". The app then checks its files against the download. When one is
+missing or damaged, a "Repair" button deletes it and downloads it again. When
+the files are fine, downloading them again would not help, so there is no
+"Repair". If the other speaker detection is not installed yet, "Download"
+offers it instead. Otherwise transcriptions run without speaker names, and
+the tooltip gives the reason. A recording waiting to start keeps its "GO" off
+until a download is done, and a notice says whether detection works now.
 
 ## Transcribe
 

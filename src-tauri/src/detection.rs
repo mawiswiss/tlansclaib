@@ -104,13 +104,21 @@ pub struct Status {
     pub disk_bytes: u64,
     /// Why an installed detection cannot start on this computer.
     pub broken: Option<String>,
+    /// Whether a file differs from the download, so downloading it again can repair it.
+    pub damaged: bool,
+}
+
+#[derive(Clone, PartialEq)]
+struct Problem {
+    reason: String,
+    damaged: bool,
 }
 
 pub struct Detection {
     pub backend: Backend,
     pub dir: PathBuf,
     cancel: Mutex<Option<Arc<AtomicBool>>>,
-    problem: Mutex<Option<String>>,
+    problem: Mutex<Option<Problem>>,
 }
 
 /// Both speaker detections. sherpa keeps the folder name of older versions, so their installs stay valid.
@@ -169,6 +177,13 @@ impl Detection {
         }
     }
 
+    fn library(&self) -> PathBuf {
+        match self.backend {
+            Backend::Sherpa => sherpa::library_path(&self.dir),
+            Backend::Nemotron => nemotron::library_path(&self.dir),
+        }
+    }
+
     pub fn download_bytes(&self) -> u64 {
         self.runtime().map(|r| r.size).unwrap_or(0) + self.models().iter().map(|m| m.size).sum::<u64>()
     }
@@ -188,6 +203,7 @@ impl Detection {
 
     pub fn status(&self) -> Status {
         let installed = self.installed();
+        let problem = if installed { self.problem.lock().unwrap().clone() } else { None };
         Status {
             backend: self.backend.as_str(),
             available: self.runtime().is_some(),
@@ -195,15 +211,37 @@ impl Detection {
             downloading: self.cancel.lock().unwrap().is_some(),
             download_bytes: self.download_bytes(),
             disk_bytes: if installed { folder_size(&self.dir) } else { 0 },
-            broken: if installed { self.problem.lock().unwrap().clone() } else { None },
+            broken: problem.as_ref().map(|p| p.reason.clone()),
+            damaged: problem.is_some_and(|p| p.damaged),
         }
     }
 
     /// Has the engine open the library, as a run would, and keeps the reason when it cannot.
     pub async fn check(&self, app: &AppHandle) {
-        let problem = if self.installed() { open_library(app, self.backend, &self.dir).await.err() } else { None };
-        if let Some(reason) = &problem {
-            log::warn!("{} speaker detection cannot start here: {reason}", self.backend.as_str());
+        self.inspect(app, false).await;
+    }
+
+    /// Checks again after a run failed in it. The library check never reads the model files, so they are hashed either way.
+    pub async fn check_after_failure(&self, app: &AppHandle) {
+        self.inspect(app, true).await;
+    }
+
+    async fn inspect(&self, app: &AppHandle, hash: bool) {
+        let installed = self.installed();
+        let reason = if installed { open_library(app, self.backend, &self.dir).await.err() } else { None };
+        let damaged = if installed && (hash || reason.is_some()) {
+            let (dir, models, library) = (self.dir.clone(), self.models(), self.library());
+            tauri::async_runtime::spawn_blocking(move || damaged(&dir, models, &library)).await.unwrap_or(true)
+        } else {
+            false
+        };
+        let problem = match reason {
+            Some(reason) => Some(Problem { reason, damaged }),
+            None if damaged => Some(Problem { reason: "the last run failed while finding the speakers".into(), damaged }),
+            None => None,
+        };
+        if let Some(Problem { reason, damaged }) = &problem {
+            log::warn!("{} speaker detection does not work here, files {}: {reason}", self.backend.as_str(), if *damaged { "damaged" } else { "intact" });
         }
         let changed = std::mem::replace(&mut *self.problem.lock().unwrap(), problem.clone()) != problem;
         if changed {
@@ -324,6 +362,12 @@ async fn open_library(app: &AppHandle, backend: Backend, dir: &Path) -> Result<(
         Ok(CheckAnswer { reason, .. }) => Err(reason.unwrap_or_else(|| "unknown reason".into())),
         Err(_) => Err(format!("the check ended without an answer, exit code {}", code.map_or("unknown".into(), |c| c.to_string()))),
     }
+}
+
+/// Whether a file is missing or differs from its download. The unpacked library has no checksum of its own, so only its presence counts.
+fn damaged(dir: &Path, models: &[Download], library: &Path) -> bool {
+    !std::fs::metadata(library).is_ok_and(|m| m.len() > 0)
+        || models.iter().any(|m| !crate::validate::sha256(&dir.join(m.name)).is_ok_and(|digest| digest == m.sha256))
 }
 
 /// Copies the shared libraries out of a sherpa-onnx release archive, flat, and nothing else.
@@ -506,6 +550,27 @@ mod tests {
         assert!(into.join("LICENSE").is_file());
         assert!(!into.join("README.md").exists());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn damaged_when_a_file_is_missing_or_differs_from_its_download() {
+        let dir = scratch("detection-damaged");
+        let library = dir.join("lib").join("library");
+        std::fs::create_dir_all(library.parent().unwrap()).unwrap();
+        std::fs::write(&library, b"lib").unwrap();
+        std::fs::write(dir.join("model.onnx"), b"model").unwrap();
+        let models = [Download { name: "model.onnx", url: "", size: 5, sha256: "9372c470eeadd5ecd9c3c74c2b3cb633f8e2f2fad799250a0f70d652b6b825e4" }];
+        assert!(!damaged(&dir, &models, &library));
+
+        std::fs::write(dir.join("model.onnx"), b"modem").unwrap();
+        assert!(damaged(&dir, &models, &library));
+        std::fs::remove_file(dir.join("model.onnx")).unwrap();
+        assert!(damaged(&dir, &models, &library));
+
+        std::fs::write(dir.join("model.onnx"), b"model").unwrap();
+        std::fs::write(&library, b"").unwrap();
+        assert!(damaged(&dir, &models, &library));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

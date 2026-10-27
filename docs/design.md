@@ -198,9 +198,15 @@ because progress reporting and other work are outside those stages.
     its MIT licence are extracted. The model's OpenMDW 1.1 licence and origin
     notice are saved beside it. On Windows the library needs the Microsoft C++
     runtime the installer brings, see `docs/release.md`.
-  - At every start and after each download, `tlansclaib-engine speakers-check`
-    opens each installed detection's library as a run would. One that cannot
-    start reports the reason as `broken`, and the app does not use it.
+  - At every start, after each download and after a run that failed while
+    finding the speakers, `tlansclaib-engine speakers-check` opens each
+    installed detection's library as a run would. One that cannot start
+    reports the reason as `broken`, and the app does not use it. The check
+    never reads the model files. So when it fails, and after every run that
+    failed while finding the speakers, they are hashed against their pinned
+    checksums, and the library must be there and not empty (`damaged`). A
+    damaged detection counts as broken until it is downloaded again or the
+    app restarts. The unpacked library has no checksum of its own.
 - `cpu.rs`: which CPU engine the processor can run on Windows: the main one
   with AVX2, FMA, F16C and BMI2, the AVX one, or the SSE one. Every CPU run
   and helper call goes through it.
@@ -431,14 +437,19 @@ top bar picks one.
   (`wantedBackend`). The basic one offers 2 to 6 people and a small
   "Standard" or "Fast" choice in the label, the better one a cap of 2 to 8.
   Without a working detection the menu is greyed out and says "Not
-  installed" or "Not working", and a blue "Download" or "Repair" in its label
-  fetches the setup's detection, after removing a broken one. Downloading
-  switches the setting to "Auto", removing the last one back to "Disabled".
+  installed" or "Not working". A blue "Download" in its label fetches the
+  setup's detection, "Repair" removes a damaged one and fetches it again. A
+  detection that does not start with intact files gets no "Repair", because
+  the same files would fail the same way. "Download" then offers the other
+  detection when it is not installed, otherwise there is no button, and the
+  tooltip gives the reason. Downloading switches the setting to "Auto",
+  removing the last one back to "Disabled".
   A run checks the installed models and detections again before it starts.
 - When a run fails while finding the speakers, the error card offers
   "Transcribe without speakers", which turns the setting off and starts
-  again, and "Repair speaker detection", which downloads it again and stages
-  the recording. The engine's message follows as details.
+  again. Once the check after the failure finds a damaged file, it also
+  offers "Repair speaker detection", which downloads it again and stages the
+  recording. The engine's message follows as details.
 - A repair, from either place, deletes the detection and downloads the same
   pinned files again, then `speakers-check` runs. A notice says whether it
   works now or still does not start, with the reason.
