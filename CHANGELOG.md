@@ -4,6 +4,22 @@ All notable changes to tlansclaib. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-10-27
+
+### Fixed
+
+- Repair appears only when a speaker detection file differs from its download, and a detection whose intact files do not start offers the other detection instead (speakers, 3be6bbd)
+- GO stays off while speaker detection or a model the recording waits for downloads, with the download's progress (speakers, 3c08d0f)
+- A step that takes longer than usual gets a note with the usual and the actual time and a Start over button, from the step timings runs now record (transcription, 9ca2b00)
+- The Models dialog rates the computer from 0 to 100%, measured from recent transcriptions once there are some, and a warning below the settings appears only when transcriptions run very slowly (models, e6810dc)
+- Memory and crash errors suggest a smaller model only when one exists, otherwise they say the model is the smallest and offer to start again (transcription, 3120e8b)
+- Automatic uses a model that failed on this computer when it is the only one installed, so it can be tried again (models, ffa9fdd)
+- The Models dialog scrolls with its header, so its title stays reachable in a short window, and the first-start title is no longer cut (models, 958ab62)
+- The line under a transcript's title wraps instead of being cut and names the speaker detection (transcription, 1efff8e)
+- The chips before GO name the model and the speaker detection that will run (transcription, 669b896)
+- The notes below the settings row can be closed (settings, 6b22fbf)
+- Notices and errors say what the app does or chose and why, or what failed (notices, 2585148)
+
 ## [0.3.1] - 2026-10-26
 
 ### Fixed
@@ -95,6 +111,7 @@ All notable changes to tlansclaib. The format follows
 - Play, search and correct transcripts in a redesigned window (ui, be70525)
 - App icon (app, 0c9a0c4)
 
+[0.3.2]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/mawiswiss/tlansclaib/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mawiswiss/tlansclaib/compare/v0.1.0...v0.2.0
