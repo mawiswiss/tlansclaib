@@ -428,11 +428,14 @@ top bar picks one.
 - The title starts as the recording's name. The pencil or a double-click
   changes the title in the private record. The recording keeps its name.
   Legacy text files still rename with the title.
-- One line of metadata: when, the length, the format ("MP4 video, 2
-  tracks"), "3 people" after speaker detection, the model and the language.
-  "2 tracks" counts the audio tracks of the file, "3 people" the voices
-  detection found. The file name, the number of lines and the processing
-  time sit in a tooltip.
+- One line of metadata under the title and the tools, over the full width
+  and wrapping when needed: when, the length, the format ("MP4 video, 2
+  tracks"), the language, the model, and after speaker detection which one
+  found how many people ("Better speaker detection: 3 people"). "2 tracks"
+  counts the audio tracks of the file, "3 people" the voices detection
+  found. The file name, the number of lines and the processing time sit in
+  a tooltip. A legacy text file adds its file name and folder below. An app
+  record does not say where it lives.
 - The player takes a full row above the text, at 1×, 1.5× and 2×. The row
   below holds the speakers on the left, and the search field (⌘F or Ctrl+F,
   Enter for the next match) and the timecodes switch on the right. The

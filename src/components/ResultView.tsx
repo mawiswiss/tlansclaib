@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/format";
+import { DETECTION } from "../lib/detection";
 import { differs } from "../lib/language";
 import type { RunState, Word } from "../lib/run";
 import { addSpeaker, assignSpeaker, EXPORT_NAMES, MAX_SPEAKERS, findMatches, joinLine, placeWords, playingAt, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
@@ -466,30 +467,6 @@ export function ResultView(props: Props) {
                 </button>
               </h2>
             )}
-            <p className="meta-line">
-              <span className="meta-text">
-                {[
-                  run.finishedAt !== null ? when(run.finishedAt) : null,
-                  run.audioSeconds !== null ? clock(run.audioSeconds) : null,
-                  sourceLabel(run.audio, run.video, run.detected ? 1 : run.tracks),
-                  run.detected ? (run.speakers.length > 1 ? `${run.speakers.length} people` : "1 person") : null,
-                  run.modelName || null,
-                  run.language ? languageName(run.language) : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-              <Tooltip
-                content={`${fileName(run.audio)}, ${result.lines} lines, transcribed in ${duration(result.elapsed)}${run.audioSeconds !== null ? `, ${speed(run.audioSeconds, result.elapsed)}` : ""}.${run.timings ? ` Read ${run.timings.decode.toFixed(1)}s, speakers ${run.timings.speakers.toFixed(1)}s, model ${run.timings.load.toFixed(1)}s, transcription ${run.timings.transcribe.toFixed(1)}s, saving ${run.timings.write.toFixed(1)}s.` : ""}`}
-              >
-                <span className="meta-info" tabIndex={0} aria-label="Recording and transcription time">
-                  <Info size={14} />
-                </span>
-              </Tooltip>
-            </p>
-            <p className="path" title={internal ? undefined : result.file}>
-              {internal ? "Stored in app history" : `${fileName(result.file)} · ${folderOf(result.file)}`}
-            </p>
           </div>
           <div className="card-tools">
             <div className="split-button">
@@ -534,6 +511,32 @@ export function ResultView(props: Props) {
               </button>
             </Tooltip>
           </div>
+          <p className="meta-line">
+            <span className="meta-text">
+              {[
+                run.finishedAt !== null ? when(run.finishedAt) : null,
+                run.audioSeconds !== null ? clock(run.audioSeconds) : null,
+                sourceLabel(run.audio, run.video, run.detected ? 1 : run.tracks),
+                run.language ? languageName(run.language) : null,
+                run.modelName || null,
+                run.detected ? `${run.speakerBackend ? `${DETECTION[run.speakerBackend].name}: ` : ""}${run.speakers.length > 1 ? `${run.speakers.length} people` : "1 person"}` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+            <Tooltip
+              content={`${fileName(run.audio)}, ${result.lines} lines, transcribed in ${duration(result.elapsed)}${run.audioSeconds !== null ? `, ${speed(run.audioSeconds, result.elapsed)}` : ""}.${run.timings ? ` Read ${run.timings.decode.toFixed(1)}s, speakers ${run.timings.speakers.toFixed(1)}s, model ${run.timings.load.toFixed(1)}s, transcription ${run.timings.transcribe.toFixed(1)}s, saving ${run.timings.write.toFixed(1)}s.` : ""}`}
+            >
+              <span className="meta-info" tabIndex={0} aria-label="Recording and transcription time">
+                <Info size={14} />
+              </span>
+            </Tooltip>
+          </p>
+          {!internal && (
+            <p className="path" title={result.file}>
+              {fileName(result.file)} · {folderOf(result.file)}
+            </p>
+          )}
         </div>
         <Tooltip content="Transcribe another" oneLine className="another-anchor">
           <button type="button" className="another" onClick={onAnother} aria-label="Transcribe another">

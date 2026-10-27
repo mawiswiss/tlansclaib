@@ -180,7 +180,9 @@ Cancel keeps completed lines in the app's history.
 ## The transcript
 
 The transcript stays in the app's history, with its line timing and recording
-reference. Nothing appears beside the recording. Click Download .txt to save
+reference. Nothing appears beside the recording. The line below the title
+names when, how long, the file type, the recording language, the model and,
+after speaker detection, which detection and how many people. Click Download .txt to save
 it as a text file. The arrow next to it picks another format: `.srt` and `.vtt`
 subtitles, for a transcript with line times. The icons next to it copy the text, transcribe the recording again
 and close the result. The plus to the right starts the next recording.

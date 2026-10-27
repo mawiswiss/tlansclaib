@@ -1371,14 +1371,10 @@ button.speed {
   gap: 6px;
   min-width: 0;
   color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
 }
 
 .meta-text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .meta-line > .tip-anchor {
@@ -1455,10 +1451,35 @@ button.speed {
 .result-card {
   flex: 1;
   min-width: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "glyph title tools"
+    "glyph meta meta"
+    "glyph path path";
   align-items: center;
-  gap: 16px;
+  gap: 3px 16px;
   padding: 18px 22px;
+}
+
+.result-card > .glyph {
+  grid-area: glyph;
+}
+
+.result-card > .titles {
+  grid-area: title;
+}
+
+.result-card > .card-tools {
+  grid-area: tools;
+}
+
+.result-card > .meta-line {
+  grid-area: meta;
+}
+
+.result-card > .path {
+  grid-area: path;
 }
 
 .card-tools {
