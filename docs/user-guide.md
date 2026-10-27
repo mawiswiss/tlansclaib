@@ -139,7 +139,8 @@ gives each line its speaker, such as
    finishes, Automatic takes it again.
 2. Drop the recording on the window, or click "Choose a file…". m4a, mp3,
    wav, mp4, flac and most other formats work. The recording waits with the
-   settings it will use. Check them, change them in the row above if needed,
+   settings it will use: the model, the recording language and the speaker
+   detection. Check them, change them in the row above if needed,
    then click "GO".
 3. Watch the steps. The bar shows how far it is, the time elapsed and an
    estimate of the time left, which settles after the first minute. Lines

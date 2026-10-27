@@ -32,6 +32,14 @@ function backendOf(id: string): SpeakerBackend | undefined {
   return (Object.keys(DETECTION_IDS) as SpeakerBackend[]).find((b) => DETECTION_IDS[b] === id);
 }
 
+function speakerChips(backend: SpeakerBackend | null, speakers: string, precision: "standard" | "fast"): string[] {
+  if (!backend || speakers === "off") return ["Speakers not named"];
+  return [
+    `${DETECTION[backend].name}${backend === "sherpa" && precision === "fast" ? ", fast" : ""}`,
+    speakers === "auto" ? "Any number of people" : backend === "nemotron" ? `Up to ${speakers} people` : `${speakers} people`,
+  ];
+}
+
 function accept(accepted: string[] | undefined, ids: string[]): string[] | undefined {
   return accepted && [...accepted, ...ids.filter((id) => !accepted.includes(id))];
 }
@@ -1355,10 +1363,7 @@ export default function App() {
             summary={[
               model?.name ?? "",
               locked ? languageLabel(locked) : settings.language === "auto" ? "Auto-detect" : languageLabel(settings.language),
-              !speakerBackend || settings.speakers === "off"
-                ? "Speakers not named"
-                : `${settings.speakers === "auto" ? "Speakers detected" : speakerBackend === "nemotron" ? `Up to ${settings.speakers} people` : `${settings.speakers} people`}${speakerBackend === "sherpa" && settings.speakerPrecision === "fast" ? ", fast" : ""}`,
-              "Saved in app history",
+              ...speakerChips(speakerBackend, settings.speakers, settings.speakerPrecision),
             ]}
             onGo={go}
             onClear={() => setPending(null)}

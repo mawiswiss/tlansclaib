@@ -341,7 +341,9 @@ top bar picks one.
 
 - A dropped or chosen recording does not start at once. The drop zone shows
   its name with the settings it will use as chips, which follow any change
-  in the row above, and a large round "GO" button, also on Enter. That
+  in the row above: the model Automatic resolved to, the language, and the
+  speaker detection with the number of people. A large round "GO" button
+  starts it, also on Enter. That
   catches a wrong language or model before an hour of work. "Change file"
   picks another recording, the cross drops it, and the settings stay either
   way.
