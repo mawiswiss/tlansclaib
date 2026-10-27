@@ -31,7 +31,15 @@ export function failedFit(reason: string): Rating {
   return { level: "high", tip: `${reason} Automatic prefers other models until a transcription with it finishes.` };
 }
 
-export type Score = { percent: number; level: Level; speed: number | null; basis: string };
+export type Score = { percent: number; level: Level; word: string; bars: number; speed: number | null; basis: string };
+
+function tier(percent: number): { word: string; bars: number } {
+  if (percent >= 80) return { word: "Very fast", bars: 5 };
+  if (percent >= 65) return { word: "Fast", bars: 4 };
+  if (percent >= 50) return { word: "Fast", bars: 3 };
+  if (percent >= 20) return { word: "Steady", bars: 2 };
+  return { word: "Slow", bars: 1 };
+}
 
 function chip(gpu: Gpu): { points: number; name: string } {
   if (gpu.usable && gpu.backend === "metal") return { points: 60, name: "Metal" };
@@ -48,7 +56,7 @@ export function score(gpu: Gpu, memoryTotal: number, speed: number | null): Scor
   const basis = speed !== null
     ? `Measured: recent transcriptions ran at ${speed >= 10 ? Math.round(speed) : speed.toFixed(1)} times the speed of the recording.`
     : `Estimated from ${name} and the memory. A transcription of a minute or more replaces the estimate with a measurement.`;
-  return { percent, level: percent >= 50 ? "ok" : percent >= 20 ? "warn" : "high", speed, basis };
+  return { percent, level: percent >= 50 ? "ok" : percent >= 20 ? "warn" : "high", ...tier(percent), speed, basis };
 }
 
 export function diskFit(size: number, free: number, minimum: number, reserve: number): Rating {

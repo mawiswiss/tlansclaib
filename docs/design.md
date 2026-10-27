@@ -551,8 +551,13 @@ start again as "Speaker 1" and so on.
   that are for all languages or for the chosen language and variant, so
   German never brings the Swiss German model, plus its speaker detection
   (`wanted` in `lib/setup.ts`). The tables are in `docs/models.md`.
-- The box about this computer rates it from 0 to 100% with a coloured bar
-  (`score` in `lib/fit.ts`). Before a finished transcription of a minute or
+- The box about this computer rates its speed from 0 to 100% (`score` in
+  `lib/fit.ts`) and shows it as a word with one to five bars: Slow with one,
+  Steady from 20 with two, Fast from 50 with three and from 65 with four,
+  Very fast from 80 with five. Wide, it is a
+  fifth value in the row. Narrow, it is a strip under the other four. An
+  estimate shows "≈" and paler bars, and the tooltip on the word says what
+  the rating rests on. Before a finished transcription of a minute or
   more, it estimates: 60 points for Metal, 55 for a usable Vulkan chip, 35 for
   one too small for Precise, otherwise 15, plus up to 40 for memory from 4 GB
   to 16 GB. After such runs it rates their median speed against the

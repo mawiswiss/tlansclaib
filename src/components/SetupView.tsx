@@ -5,7 +5,7 @@ import { defaultModel, languageKey, missingBytes, MODE_DETECTION, MODE_NAMES, MO
 import type { DiskSpace, Gpu, Language, ModelStatus, SpeakerDetection, Stats } from "../lib/types";
 import { ChevronDown } from "./icons";
 import { Select } from "./Select";
-import { Meter } from "./SystemBar";
+import { Tooltip } from "./Tooltip";
 
 type Props = {
   variant: "page" | "dialog";
@@ -102,6 +102,8 @@ export function SetupView(props: Props) {
     { label: "Free disk", value: props.disk ? wholeGb(props.disk.free) : "Checking…" },
     { label: "Connection", value: connection(speed) },
   ];
+  const score = props.score;
+  const estimate = score?.speed === null;
 
   return (
     <section className={`setup ${props.variant}`} aria-label="Set up transcription">
@@ -122,13 +124,29 @@ export function SetupView(props: Props) {
             <dd title={c.value}>{c.value}</dd>
           </div>
         ))}
-        {props.score && (
-          <div className="setup-score">
-            <dt>Rating</dt>
+        {score && (
+          <div className={`setup-score ${score.level}`}>
+            <dt>Speed</dt>
             <dd>
-              <Meter value={props.score.percent / 100} state={props.score.level} />
-              <strong className="tabular">{props.score.percent}%</strong>
-              <span className="muted">{props.score.basis}</span>
+              <span
+                className={`speed-bars${estimate ? " estimate" : ""}`}
+                role="meter"
+                aria-label="Speed"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={score.percent}
+                aria-valuetext={`${score.word}, ${estimate ? "estimated" : "measured"}`}
+              >
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <span key={n} className={n <= score.bars ? "on" : undefined} style={{ ["--n" as string]: n }} />
+                ))}
+              </span>
+              <Tooltip content={score.basis}>
+                <strong className="speed-word" tabIndex={0}>
+                  {estimate ? "≈ " : ""}
+                  {score.word}
+                </strong>
+              </Tooltip>
             </dd>
           </div>
         )}

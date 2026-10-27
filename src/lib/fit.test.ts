@@ -78,4 +78,12 @@ describe("score", () => {
     expect(score(chip("metal"), 32 * GIB, 1)).toMatchObject({ percent: 20, level: "warn" });
     expect(score(chip("metal"), 32 * GIB, 0.6).level).toBe("high");
   });
+
+  it("names the speed in a word and fills one to five bars", () => {
+    expect(score(chip("metal"), 32 * GIB, 16)).toMatchObject({ word: "Very fast", bars: 5 });
+    expect(score(chip("metal"), 8 * GIB, null)).toMatchObject({ word: "Fast", bars: 4 });
+    expect(score(chip("vulkan"), 4 * GIB, null)).toMatchObject({ percent: 55, word: "Fast", bars: 3 });
+    expect(score(chip(null, false), 8 * GIB, null)).toMatchObject({ word: "Steady", bars: 2 });
+    expect(score(chip("metal"), 32 * GIB, 0.1)).toMatchObject({ percent: 0, word: "Slow", bars: 1 });
+  });
 });

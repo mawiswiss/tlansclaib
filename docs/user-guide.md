@@ -50,10 +50,11 @@ On the first start it asks two things:
     detection, for when the others do not run. About 300 MB.
 
 The app measures the connection, checks for a graphics chip and marks one
-setup "Recommended for this computer". A bar rates the computer from 0 to
-100%: green runs well, orange is slow, red very slow. Until the first
-transcription of a minute or more it is an estimate from the graphics chip
-and the memory, then it uses how fast transcriptions really ran. If the Precise model failed on this
+setup "Recommended for this computer". "Speed" rates the computer with
+one to five bars and a word: green Fast or Very fast, orange Steady, red
+Slow. Until the first transcription of a minute or more it is an estimate
+from the graphics chip and the memory, marked "≈". Then it uses how fast
+transcriptions really ran. Point at the word to see what it rests on. If the Precise model failed on this
 computer before, Essential is recommended instead. A download of 10 minutes or
 more shows a "Longer download" chip on the setup. Precise stays recommended up to 30
 minutes, because the models download once. Any setup can be chosen. "Download and
