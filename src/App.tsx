@@ -131,6 +131,7 @@ export default function App() {
   const [waiting, setWaiting] = useState<Launch | null>(null);
   const [repair, setRepair] = useState<{ backend: SpeakerBackend; started: boolean; again: boolean } | null>(null);
   const lastLaunch = useRef<Launch | null>(null);
+  const engineLanguage = useRef("auto");
   const droppedCancels = useRef(0);
   const runStatus = useRef(run.status);
   runStatus.current = run.status;
@@ -389,11 +390,14 @@ export default function App() {
     lastLaunch.current = l;
     setMemoryAsk(null);
     const language = l.model.languages.includes("all") ? l.language.code : l.model.languages[0];
+    engineLanguage.current = language;
     dispatch({
       type: "start",
       audio: l.audio,
       folder: "app history",
       modelName: l.model.name,
+      modelId: l.model.id,
+      speakerBackend: l.speakers ? l.backend : null,
       timestamps: l.timestamps,
       autoLanguage: language === "auto",
       detecting: l.speakers !== null,
@@ -513,6 +517,7 @@ export default function App() {
     void start(audio);
   };
 
+  const runModel = models.find((m) => m.id === run.modelId);
   const dismiss = (key: string) => setSettings((s) => ({ ...s, dismissed: s.dismissed.includes(key) ? s.dismissed : [...s.dismissed, key] }));
 
   const setUpDetection = () => {
@@ -1270,14 +1275,17 @@ export default function App() {
         return (
           <RunView
             run={run}
+            history={history}
+            smaller={Boolean(runModel && lastLaunch.current && smallerModel(models, runModel, lastLaunch.current.language))}
             showTimes={settings.timestamps}
             languageName={languageName}
             onCancel={() => {
               void Promise.resolve().then(() => requireBackend().cancelRun()).catch((error) => reportError("Could not stop transcription", error));
             }}
             onRestart={(language) => {
+              engineLanguage.current = language ?? engineLanguage.current;
               void Promise.resolve()
-                .then(() => requireBackend().restartRun(language))
+                .then(() => requireBackend().restartRun(engineLanguage.current))
                 .catch((error) => dispatch({ type: "fail", message: startError(error).message }));
             }}
           />

@@ -65,6 +65,7 @@ export function mockBackend(): Backend {
   const heavy = query.has("heavy") ? "Memory ran low while it transcribed." : null;
   const lowRam = query.has("lowram") ? Number(query.get("lowram") || 2) * 2 ** 30 : null;
   const midStop = query.has("midstop");
+  const slowStep = query.has("slowstep") ? 15_000 : 0;
   const models: ModelStatus[] = [
     { ...model("thai-fast", "Thai Compact", ["th"], ["essential"], "Thai recordings on any computer. Smaller than Thai Best, with a few more mistakes.", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh), too_heavy: heavy },
     model("thai-best", "Thai Best", ["th"], ["precise"], "The most accurate for Thai, when time does not matter.", 1656538283, 2.4, "large-v3", "q8_0", false),
@@ -320,14 +321,15 @@ export function mockBackend(): Backend {
                 language: language === "auto" ? "th" : language, audio_seconds: total * 12.9, lines: total - 8, elapsed: 9.4,
                 finished_at: Math.floor(Date.now() / 1000), status: "done", timestamps, speakers: voices, detected: voices.length > 0, edited: false,
                 model_id: modelId, speaker_mode: speakers, speaker_precision: speakers ? speakerPrecision : null, speaker_backend: speakers ? speakerBackend : null, heard, exists: true, audio_exists: true,
+                device: "metal", timings: { decode: 0.5, speakers: speakers ? 2.5 : 0, load: 1.5, transcribe: 16, write: 0.1 },
               },
               ...history.filter((h) => h.file !== outputFile),
             ];
             emit("history", null);
-            send({ event: "done", lines: total - 8, elapsed: 9.4, file });
+            send({ event: "done", lines: total - 8, elapsed: 9.4, file, timings: { decode: 0.5, speakers: speakers ? 2.5 : 0, load: 1.5, transcribe: 16, write: 0.1 } });
           }
         }, 400);
-      }, 2200 + lag);
+      }, 2200 + lag + slowStep);
     },
     cancelRun: async () => {
       if (timer) clearInterval(timer);

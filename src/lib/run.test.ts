@@ -136,6 +136,18 @@ describe("run reducer", () => {
     expect(restarted.startedAt).toBe(3);
   });
 
+  it("keeps the model and speaker detection through a restart and times each step", () => {
+    const running = play([
+      { type: "start", audio: "/rec/call.m4a", folder: "/", modelName: "Thai Best", modelId: "thai-best", speakerBackend: "nemotron", timestamps: true, autoLanguage: false, detecting: true, now: 0 },
+      { type: "engine", event: { event: "step", step: "speakers" }, now: 5 },
+    ]);
+    expect(running.stepStartedAt).toBe(5);
+    const restarted = reduce(running, { type: "engine", event: { event: "restart", language: "en" }, now: 9 });
+    expect(restarted.modelId).toBe("thai-best");
+    expect(restarted.speakerBackend).toBe("nemotron");
+    expect(restarted.stepStartedAt).toBeNull();
+  });
+
   it("opens a saved transcript as a finished result", () => {
     const entry = {
       id: 1,
@@ -166,6 +178,9 @@ describe("run reducer", () => {
     expect(opened.hash).toBe("h1");
     expect(opened.tracks).toBe(1);
     expect(reduce(idle, { type: "open", entry: { ...entry, speakers: ["A", "B", "C"], tracks: 2 }, lines, timestamps: true, check, hash: "h1" }).tracks).toBe(2);
+    expect(opened.speakerBackend).toBeNull();
+    expect(reduce(idle, { type: "open", entry: { ...entry, speaker_mode: "auto" }, lines, timestamps: true, check, hash: "h1" }).speakerBackend).toBe("sherpa");
+    expect(reduce(idle, { type: "open", entry: { ...entry, speaker_mode: "auto", speaker_backend: "nemotron", model_id: "thai-fast" }, lines, timestamps: true, check, hash: "h1" })).toMatchObject({ speakerBackend: "nemotron", modelId: "thai-fast" });
     const edited = reduce(opened, { type: "edit", lines: [lines[0], { ...lines[1], text: "b, corrected" }], speakers: [], hash: "h2" });
     expect(edited.lines[1].text).toBe("b, corrected");
     expect(edited.hash).toBe("h2");

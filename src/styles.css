@@ -999,12 +999,12 @@ input.toggle:checked::after {
 
 .stats {
   display: flex;
-  gap: 20px;
+  flex-wrap: wrap;
+  gap: 2px 20px;
   color: var(--muted);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  overflow: hidden;
 }
 
 .stats strong {

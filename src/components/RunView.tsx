@@ -1,16 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { clock, duration, fileName, remaining, speed } from "../lib/format";
 import { differs } from "../lib/language";
+import { overdue, usual } from "../lib/pace";
 import { estimate, type RunState } from "../lib/run";
-import type { Step } from "../lib/types";
+import type { HistoryEntry, Step } from "../lib/types";
 import { Check } from "./icons";
 
 type Props = {
   run: RunState;
+  history: HistoryEntry[];
+  smaller: boolean;
   showTimes: boolean;
   languageName: (code: string) => string;
   onCancel: () => void;
-  onRestart: (language: string) => void;
+  onRestart: (language: string | null) => void;
 };
 
 const STEPS: { step: Step; title: string; short: string }[] = [
@@ -21,13 +24,30 @@ const STEPS: { step: Step; title: string; short: string }[] = [
   { step: "write", title: "Saving", short: "Saving" },
 ];
 
+function advice(step: Step, smaller: boolean): string | null {
+  switch (step) {
+    case "decode":
+      return "If it seems stuck, start it over.";
+    case "speakers":
+      return "If it seems stuck, start it over, or cancel and transcribe without naming the speakers.";
+    case "load":
+      return smaller ? "If it seems stuck, start it over, or cancel and choose a smaller model." : "If it seems stuck, start it over.";
+    case "transcribe":
+      return smaller
+        ? "If it stays this slow, close other programs, start it over from the beginning, or cancel and choose a smaller model."
+        : "If it stays this slow, close other programs or start it over from the beginning.";
+    case "write":
+      return null;
+  }
+}
+
 const LOAD_PARTS = { file: "Reading the file", device: "Starting up", language: "Language check" };
 
 function deviceName(device: string | null): string {
   return device === "metal" ? "Metal" : device === "vulkan" ? "Vulkan" : "CPU";
 }
 
-export function RunView({ run, showTimes, languageName, onCancel, onRestart }: Props) {
+export function RunView({ run, history, smaller, showTimes, languageName, onCancel, onRestart }: Props) {
   const [now, setNow] = useState(Date.now());
   const log = useRef<HTMLDivElement>(null);
   const following = useRef(false);
@@ -53,6 +73,11 @@ export function RunView({ run, showTimes, languageName, onCancel, onRestart }: P
   const elapsed = (now - run.startedAt) / 1000;
   const percent = run.total > 0 ? Math.round((run.done / run.total) * 100) : 0;
   const spoken = differs(run.language, run.heard);
+  const current = STEPS.find((s) => s.step === run.step) ?? null;
+  const expected = run.step ? usual(run.step, { audioSeconds: run.audioSeconds, modelId: run.modelId, speakerBackend: run.speakerBackend, device: run.device }, history) : null;
+  const stepSeconds = run.stepStartedAt !== null ? (now - run.stepStartedAt) / 1000 : null;
+  const heading = transcribing && est && stepSeconds !== null && run.done >= run.total * 0.1 ? stepSeconds + est.remainingSeconds : null;
+  const late = expected && stepSeconds !== null && (overdue(stepSeconds, expected) || (heading !== null && overdue(heading, expected)));
 
   const detail = (step: Step): string => {
     switch (step) {
@@ -116,8 +141,25 @@ export function RunView({ run, showTimes, languageName, onCancel, onRestart }: P
             <span>{duration(elapsed)} elapsed</span>
             {transcribing && <span>{est ? `${remaining(est.remainingSeconds)} left` : "estimating time left"}</span>}
             {transcribing && est && <span>{speed(run.position, (now - (run.transcribeStartedAt ?? now)) / 1000)}</span>}
+            {!late && current && expected?.measured && <span>{current.title} usually takes about {duration(expected.seconds)}</span>}
           </div>
         </div>
+        {late && current && expected && stepSeconds !== null && (
+          <p role="status" className="note warn">
+            {current.title} is taking longer than {expected.measured ? "usual" : "expected"}:{" "}
+            {overdue(stepSeconds, expected) ? `${duration(stepSeconds)} so far` : `heading for about ${duration(heading!)}`},{" "}
+            {expected.measured ? `earlier runs took about ${duration(expected.seconds)}` : `it usually takes under ${duration(expected.seconds)}`}. It may still finish.
+            {advice(current.step, smaller) && (
+              <>
+                {" "}
+                {advice(current.step, smaller)}{" "}
+                <button type="button" className="inline-link" onClick={() => onRestart(null)}>
+                  Start over
+                </button>
+              </>
+            )}
+          </p>
+        )}
         {run.retryReason && <p role="status" className="muted">{run.retryReason}</p>}
         {spoken && run.language && (
           <p role="status" className="note">

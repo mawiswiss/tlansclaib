@@ -152,8 +152,14 @@ until a download is done, and a notice says whether detection works now.
    detection. Check them, change them in the row above if needed,
    then click "GO".
 3. Watch the steps. The bar shows how far it is, the time elapsed and an
-   estimate of the time left, which settles after the first minute. Lines
-   appear below as they are recognised.
+   estimate of the time left, which settles after the first minute. Next to
+   it, the app says how long the step usually takes on this computer. When a
+   step runs well past that, or past what the recording's length suggests, a
+   note under the bar names both times. The transcription carries on and may
+   still finish. If it seems stuck, "Start over" runs it again from the
+   beginning with the same settings. The note also says what else helps for
+   that step, such as a smaller model when there is one. Lines appear below
+   as they are recognised.
 
 When the model hears another language than the one chosen, a note says so
 and offers to restart in that language. A wrong recording language makes the

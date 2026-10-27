@@ -59,6 +59,10 @@ pub struct Entry {
     pub edited: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracks: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timings: Option<engine::protocol::Timings>,
 }
 
 impl Entry {
@@ -334,6 +338,8 @@ mod tests {
             heard: Vec::new(),
             edited: Some(false),
             tracks: None,
+            device: None,
+            timings: None,
         }
     }
 

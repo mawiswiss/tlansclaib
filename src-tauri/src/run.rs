@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, anyhow};
-use engine::protocol::{Event, Heard, LoadPart, Step};
+use engine::protocol::{Event, Heard, LoadPart, Step, Timings};
 use engine::speakers::Backend;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -45,6 +45,8 @@ struct Record {
     force: bool,
     language: Option<String>,
     heard: Vec<Heard>,
+    device: Option<String>,
+    timings: Option<Timings>,
     audio_seconds: Option<f64>,
     speakers: Vec<String>,
     detected: bool,
@@ -329,6 +331,8 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
             transcript_lines: Vec::new(),
             started: Instant::now(),
             saved: false,
+            device: None,
+            timings: None,
         },
         _awake: awake,
     });
@@ -385,7 +389,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                         };
                         let forwarded = with_own(&app, id, |run| {
                             let event = match &event {
-                                Event::Done { lines, elapsed, timings, .. } => match finish(&app, run, *lines, *elapsed) {
+                                Event::Done { lines, elapsed, timings, .. } => match finish(&app, run, *lines, *elapsed, timings) {
                                     Ok(file) => Event::Done { lines: *lines, elapsed: *elapsed, file, timings: timings.clone() },
                                     Err(error) => Event::Error { message: format!("Could not save the transcription: {error:#}") },
                                 },
@@ -540,6 +544,7 @@ fn track(run: &mut ActiveRun, event: &Event) {
             log::info!("model loaded on {device} with {threads} threads, language {language}, {windows} windows");
             record.language = Some(language.clone());
             record.heard = heard.clone();
+            record.device = Some(device.clone());
         }
         Event::Line { start, end, text, speaker, words } => {
             if !text.is_empty() {
@@ -555,8 +560,9 @@ fn track(run: &mut ActiveRun, event: &Event) {
     }
 }
 
-fn finish(app: &AppHandle, run: &mut ActiveRun, lines: usize, elapsed: f64) -> Result<PathBuf> {
+fn finish(app: &AppHandle, run: &mut ActiveRun, lines: usize, elapsed: f64, timings: &Timings) -> Result<PathBuf> {
     let record = &mut run.record;
+    record.timings = Some(timings.clone());
     let entry = entry(record, history::Status::Done, lines, elapsed);
     remember(app, entry, &record.transcript_lines)?;
     record.saved = true;
@@ -602,6 +608,8 @@ fn entry(record: &Record, status: history::Status, lines: usize, elapsed: f64) -
         heard: record.heard.clone(),
         edited: Some(false),
         tracks: None,
+        device: record.device.clone(),
+        timings: record.timings.clone(),
     }
 }
 
@@ -651,7 +659,7 @@ pub async fn restart(app: &AppHandle, language: &str) -> Result<()> {
         let _ = child.kill();
     }
     let _ = std::fs::remove_file(&run.record.scratch);
-    log::info!("restarting the engine in another language");
+    log::info!("restarting the engine");
     let _ = app.emit("engine-event", AppEvent::Restart { language: language.to_string() });
     let ActiveRun { pid, record, .. } = run;
     let monitor = app.state::<Arc<Monitor>>().inner().clone();

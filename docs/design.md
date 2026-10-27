@@ -250,6 +250,8 @@ because progress reporting and other work are outside those stages.
   Removing an app record deletes its JSON file. Older text transcripts remain
   readable at their existing paths, with their separate `times/<id>.json` files.
   JSON keeps each result portable and lets the index be rebuilt on startup.
+  A finished entry also keeps the device and the seconds of each step, which
+  the run view compares a running step with.
   At the 500-entry limit there is no query workload that calls for SQLite.
 - `transcript.rs`: saves corrections, title changes and the timecodes display
   preference in private records. Exports text, SRT and WebVTT to a path chosen
@@ -365,6 +367,21 @@ top bar picks one.
   starting up, the language check. Below, a progress bar with elapsed and
   remaining time and speed, and the transcript growing without moving the
   scroll position unless it is scrolled to the end.
+- The times show how long the current step usually takes (`usual` in
+  `lib/pace.ts`). Usual is the median of the last ten finished runs on this
+  computer: per second of audio for finding the speakers with the same
+  detection and for transcribing with the same model on the same device, per
+  run for loading the same model and for saving. Without such runs, and
+  always for reading the audio, whose length is unknown until it is read, a
+  generous guess from the audio length and the device stands in, as an upper
+  bound that is not shown.
+- A step past 1.5 times its usual time plus 10 s, or past a guess, gets a
+  warning note under the bar (`overdue`). It names the time so far and the
+  usual one. While transcribing, from 10% on, the projected time counts too,
+  so a slow run shows early. The note says the run may still finish and
+  what to change for that step. It suggests a smaller model only when one
+  exists (`smallerModel`). Except while saving, it offers "Start over", which
+  restarts the engine with the same settings from the beginning.
 - When the model hears another language than the chosen recording language,
   a note under the progress bar says so and offers "Restart in English". The
   heard language needs 60% or more and the chosen one under 10%

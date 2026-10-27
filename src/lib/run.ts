@@ -1,4 +1,4 @@
-import type { EngineEvent, Heard, HistoryEntry, LoadPart, Match, Step, Timings } from "./types";
+import type { EngineEvent, Heard, HistoryEntry, LoadPart, Match, SpeakerBackend, Step, Timings } from "./types";
 import { titleOf } from "./format";
 
 export type Word = { start: number; end: number; text: string };
@@ -20,9 +20,12 @@ export type RunState = {
   title: string;
   folder: string;
   modelName: string;
+  modelId: string | null;
+  speakerBackend: SpeakerBackend | null;
   timestamps: boolean;
   autoLanguage: boolean;
   step: Step | null;
+  stepStartedAt: number | null;
   loadPart: LoadPart | null;
   audioSeconds: number | null;
   speakers: string[];
@@ -62,9 +65,12 @@ export const idle: RunState = {
   title: "",
   folder: "",
   modelName: "",
+  modelId: null,
+  speakerBackend: null,
   timestamps: true,
   autoLanguage: false,
   step: null,
+  stepStartedAt: null,
   loadPart: null,
   audioSeconds: null,
   speakers: [],
@@ -99,7 +105,7 @@ export const idle: RunState = {
 };
 
 export type RunAction =
-  | { type: "start"; audio: string; folder: string; modelName: string; timestamps: boolean; autoLanguage: boolean; detecting?: boolean; now: number }
+  | { type: "start"; audio: string; folder: string; modelName: string; modelId?: string; speakerBackend?: SpeakerBackend | null; timestamps: boolean; autoLanguage: boolean; detecting?: boolean; now: number }
   | { type: "timestamps"; on: boolean }
   | {
       type: "open";
@@ -128,6 +134,8 @@ export function reduce(state: RunState, action: RunAction): RunState {
         title: action.audio.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, "") ?? "Recording",
         folder: action.folder,
         modelName: action.modelName,
+        modelId: action.modelId ?? null,
+        speakerBackend: action.speakerBackend ?? null,
         timestamps: action.timestamps,
         autoLanguage: action.autoLanguage,
         detecting: action.detecting ?? false,
@@ -145,6 +153,8 @@ export function reduce(state: RunState, action: RunAction): RunState {
         title: e.title ?? titleOf(e.file),
         folder: i > 0 ? e.file.slice(0, i) : e.file,
         modelName: e.model,
+        modelId: e.model_id ?? null,
+        speakerBackend: e.speaker_backend ?? (e.speaker_mode ? "sherpa" : null),
         language: e.language,
         heard: e.heard ?? [],
         audioSeconds: e.audio_seconds,
@@ -194,6 +204,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
           return {
             ...state,
             step: e.step,
+            stepStartedAt: action.now,
             loadPart: null,
             transcribeStartedAt: e.step === "transcribe" ? action.now : state.transcribeStartedAt,
           };
@@ -238,6 +249,8 @@ export function reduce(state: RunState, action: RunAction): RunState {
             title: state.title,
             folder: state.folder,
             modelName: state.modelName,
+            modelId: state.modelId,
+            speakerBackend: state.speakerBackend,
             timestamps: state.timestamps,
             detecting: state.detecting,
             startedAt: action.now,

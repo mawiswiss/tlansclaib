@@ -52,6 +52,8 @@ export type HistoryEntry = {
   heard?: Heard[];
   speaker_backend?: SpeakerBackend | null;
   edited?: boolean | null;
+  device?: string | null;
+  timings?: Timings | null;
   exists: boolean;
   audio_exists: boolean;
 };
