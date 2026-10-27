@@ -15,11 +15,13 @@ import { SetupProgress } from "./components/SetupProgress";
 import { SetupView } from "./components/SetupView";
 import { SystemBar } from "./components/SystemBar";
 import { TopBar } from "./components/TopBar";
-import { bytes, capitalize, gib, titleOf, transcriptText } from "./lib/format";
+import { bytes, capitalize, gib, titleOf, transcriptText, wholeGb } from "./lib/format";
 import { getBackend, type Backend } from "./lib/ipc";
 import { idle, reduce, startError, type StartError } from "./lib/run";
 import { DONATE } from "./lib/about";
 import { DETECTION } from "./lib/detection";
+import { score } from "./lib/fit";
+import { measuredSpeed } from "./lib/pace";
 import { loadSettings, saveSettings, settingsLoadError } from "./lib/settings";
 import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from "./lib/support";
 import { parseTranscript, withTimes, type Transcript } from "./lib/transcript";
@@ -518,6 +520,8 @@ export default function App() {
   };
 
   const runModel = models.find((m) => m.id === run.modelId);
+  const scoreGpu = gpu ?? runGpu;
+  const computerScore = scoreGpu && stats ? score(scoreGpu, stats.memory_total, measuredSpeed(history)) : null;
   const dismiss = (key: string) => setSettings((s) => ({ ...s, dismissed: s.dismissed.includes(key) ? s.dismissed : [...s.dismissed, key] }));
 
   const setUpDetection = () => {
@@ -1397,6 +1401,7 @@ export default function App() {
               speed={speed}
               gpu={gpu}
               stats={stats}
+              score={computerScore}
               disk={disk}
               busy={running}
               error={setupError ?? panelError}
@@ -1511,6 +1516,23 @@ export default function App() {
           busy={running}
         />
         )}
+        {computerScore?.level === "high" && stats && !settings.dismissed.includes("slow") && run.status !== "running" && run.status !== "done" && !firstRun && (
+          <Note warn onDismiss={() => dismiss("slow")}>
+            {computerScore.speed !== null
+              ? `Transcriptions run very slowly on this computer: recent ones took about ${(1 / computerScore.speed).toFixed(1)} times as long as the recording. `
+              : `This computer has no graphics chip the app can use and ${wholeGb(stats.memory_total)} of memory, so transcriptions may run very slowly or not finish. `}
+            {setup && setup.mode !== "minimal" ? (
+              <>
+                <button type="button" className="inline-link" onClick={() => setPanel("models")}>
+                  A smaller setup
+                </button>{" "}
+                runs faster.
+              </>
+            ) : (
+              "Close other programs while a transcription runs."
+            )}
+          </Note>
+        )}
         {suggestion && !downloads[suggestion.id] && !(setup && wanted(models, setup).includes(suggestion.id)) && !settings.dismissed.includes(`better:${suggestion.id}`) && run.status !== "running" && run.status !== "done" && !firstRun && (
           <Note onDismiss={() => dismiss(`better:${suggestion.id}`)}>
             {suggestion.name} would transcribe more accurately and fits this computer right now.{" "}
@@ -1562,6 +1584,7 @@ export default function App() {
             speed={speed}
             gpu={gpu}
             stats={stats}
+            score={computerScore}
             disk={disk}
             busy={running}
             error={setupError}

@@ -50,6 +50,12 @@ function measured(step: Step, pace: Pace, history: HistoryEntry[]): number | nul
   }
 }
 
+/** Seconds of audio per second of transcribing, the median of recent runs of a minute or more. */
+export function measuredSpeed(history: HistoryEntry[]): number | null {
+  const done = history.filter((e) => e.status === "done" && e.timings && e.timings.transcribe > 0 && (e.audio_seconds ?? 0) >= 60);
+  return median(done.slice(0, RECENT).map((e) => e.audio_seconds! / e.timings!.transcribe));
+}
+
 export function usual(step: Step, pace: Pace, history: HistoryEntry[]): Usual | null {
   const known = measured(step, pace, history);
   if (known !== null) return { seconds: known, measured: true };

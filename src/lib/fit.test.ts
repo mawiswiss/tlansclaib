@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { diskFit, downloadFit, downloadSeconds, level, memoryLevel, ramFit } from "./fit";
-import type { Stats } from "./types";
+import { diskFit, downloadFit, downloadSeconds, level, memoryLevel, ramFit, score } from "./fit";
+import type { Gpu, Stats } from "./types";
 
 const GIB = 2 ** 30;
 
@@ -59,5 +59,23 @@ describe("fit", () => {
     expect(ramFit(7, 8 * GIB).tip).not.toContain("7");
     expect(diskFit(1.7 * GIB, 5 * GIB, GIB, 10 * GIB).tip).not.toContain("1.7");
     expect(downloadFit(4000).tip).not.toMatch(/\d/);
+  });
+});
+
+describe("score", () => {
+  const chip = (backend: Gpu["backend"], usable = true): Gpu => ({ backend, name: null, free_bytes: null, usable });
+
+  it("estimates from the graphics chip and memory before any run", () => {
+    expect(score(chip("metal"), 8 * GIB, null)).toMatchObject({ percent: 73, level: "ok" });
+    expect(score(chip("vulkan"), 16 * GIB, null)).toMatchObject({ percent: 95, level: "ok" });
+    expect(score(chip(null, false), 8 * GIB, null)).toMatchObject({ percent: 28, level: "warn" });
+    expect(score(chip(null, false), 4 * GIB, null)).toMatchObject({ percent: 15, level: "high" });
+    expect(score(chip("metal", false), 8 * GIB, null).percent).toBe(28);
+  });
+
+  it("rates by measured speed once there is one", () => {
+    expect(score(chip(null, false), 4 * GIB, 16).percent).toBe(100);
+    expect(score(chip("metal"), 32 * GIB, 1)).toMatchObject({ percent: 20, level: "warn" });
+    expect(score(chip("metal"), 32 * GIB, 0.6).level).toBe("high");
   });
 });

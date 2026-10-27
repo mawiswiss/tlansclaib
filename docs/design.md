@@ -327,7 +327,11 @@ top bar picks one.
   too heavy, which the menu lists with "(failed here)", only when no other
   installed model can transcribe the language, and then the one with the
   least RAM, so a computer whose only model failed once can try again.
-  Picking a
+  When the computer rates red (see "Setup"), a warning in the same place says
+  transcriptions run very slowly here: by the measured factor, or before any
+  run by the missing graphics chip and the memory. Below Minimal it links to
+  a smaller setup in Models, on Minimal it says to close other programs. Its
+  cross hides it for good. Picking a
   model pins it, and a pinned single-language model fixes the language. It shows only before a transcription. Timecodes
   are not a setting there: the switch
   above a finished transcript decides and is remembered for the next.
@@ -540,6 +544,13 @@ start again as "Speaker 1" and so on.
   that are for all languages or for the chosen language and variant, so
   German never brings the Swiss German model, plus its speaker detection
   (`wanted` in `lib/setup.ts`). The tables are in `docs/models.md`.
+- The box about this computer rates it from 0 to 100% with a coloured bar
+  (`score` in `lib/fit.ts`). Before a finished transcription of a minute or
+  more, it estimates: 60 points for Metal, 55 for a usable Vulkan chip, 35 for
+  one too small for Precise, otherwise 15, plus up to 40 for memory from 4 GB
+  to 16 GB. After such runs it rates their median speed against the
+  recording (`measuredSpeed` in `lib/pace.ts`): 20 points at real time and 20
+  more for each doubling. Green from 50, orange from 20, red below.
 - Each setup shows what it still has to download and how long that takes at
   the measured speed. "Recommended for this computer" marks Precise when the
   graphics chip can run its model, the computer reports 14 GB RAM or more (a

@@ -50,7 +50,10 @@ On the first start it asks two things:
     detection, for when the others do not run. About 300 MB.
 
 The app measures the connection, checks for a graphics chip and marks one
-setup "Recommended for this computer". If the Precise model failed on this
+setup "Recommended for this computer". A bar rates the computer from 0 to
+100%: green runs well, orange is slow, red very slow. Until the first
+transcription of a minute or more it is an estimate from the graphics chip
+and the memory, then it uses how fast transcriptions really ran. If the Precise model failed on this
 computer before, Essential is recommended instead. A download of 10 minutes or
 more shows a "Longer download" chip on the setup. Precise stays recommended up to 30
 minutes, because the models download once. Any setup can be chosen. "Download and
@@ -145,7 +148,11 @@ until a download is done, and a notice says whether detection works now.
    other installed model can transcribe the language.
    The menu lists it with "(failed here)" and Models with a red "Failed on
    this computer" chip. Pick it to try again: once a transcription with it
-   finishes, Automatic takes it again.
+   finishes, Automatic takes it again. When transcriptions take longer than
+   the recording itself, or before the first one the computer has no usable
+   graphics chip and very little memory, a warning below the row says they
+   run very slowly here. It links to a smaller setup, or on Minimal suggests
+   closing other programs. Its cross hides it for good.
 2. Drop the recording on the window, or click "Choose a file…". m4a, mp3,
    wav, mp4, flac and most other formats work. The recording waits with the
    settings it will use: the model, the recording language and the speaker

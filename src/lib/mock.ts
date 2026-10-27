@@ -65,6 +65,7 @@ export function mockBackend(): Backend {
   const heavy = query.has("heavy") ? "Memory ran low while it transcribed." : null;
   const lowRam = query.has("lowram") ? Number(query.get("lowram") || 2) * 2 ** 30 : null;
   const midStop = query.has("midstop");
+  const totalRam = Number(query.get("totalram") || 16);
   const slowStep = query.has("slowstep") ? 15_000 : 0;
   const models: ModelStatus[] = [
     { ...model("thai-fast", "Thai Compact", ["th"], ["essential"], "Thai recordings on any computer. Smaller than Thai Best, with a few more mistakes.", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh), too_heavy: heavy },
@@ -125,6 +126,7 @@ export function mockBackend(): Backend {
         id: 10 + i, audio: `/Users/someone/Recordings/${name}.m4a`, file: `/Users/someone/Recordings/${name}_transcript.txt`,
         model: i % 3 ? "Thai (fast)" : "All languages (fast)", language: i % 3 ? "th" : "en", audio_seconds: 900 + i * 410,
         lines: 40 + i * 9, elapsed: 60 + i * 20, finished_at: 1760000000 - i * 86400 * 3, status: "done", timestamps: name !== "budget review", exists: true, audio_exists: true,
+        ...(query.has("slowpc") ? { device: "cpu", timings: { decode: 4, speakers: 0, load: 30, transcribe: (900 + i * 410) * 1.7, write: 0.2 } } : {}),
       }),
     ),
   ];
@@ -134,10 +136,10 @@ export function mockBackend(): Backend {
     const used = stress ? 13.6 : 9.7;
     const stats: Stats = {
       cpu: timer ? 86 + Math.random() * 10 : 12 + Math.random() * 30,
-      memory_total: 16 * 2 ** 30,
-      memory_used: used * 2 ** 30,
-      memory_free: (16 - used) * 2 ** 30,
-      model_budget: (15 - used) * 2 ** 30,
+      memory_total: totalRam * 2 ** 30,
+      memory_used: Math.min(used, totalRam - 0.5) * 2 ** 30,
+      memory_free: Math.max(0.5, totalRam - used) * 2 ** 30,
+      model_budget: Math.max(0, totalRam - 1 - used) * 2 ** 30,
       swap_total: 2 ** 30,
       swap_used: 0.1 * 2 ** 20,
       app_memory: 180 * 2 ** 20,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { overdue, usual, type Pace } from "./pace";
+import { measuredSpeed, overdue, usual, type Pace } from "./pace";
 import type { HistoryEntry } from "./types";
 
 function entry(extra: Partial<HistoryEntry>): HistoryEntry {
@@ -40,5 +40,13 @@ describe("overdue", () => {
     expect(overdue(146, { seconds: 90, measured: true })).toBe(true);
     expect(overdue(60, { seconds: 60, measured: false })).toBe(false);
     expect(overdue(61, { seconds: 60, measured: false })).toBe(true);
+  });
+});
+
+describe("measuredSpeed", () => {
+  it("takes the median speed of recent runs of a minute or more", () => {
+    const history = [entry({}), entry({ id: 2, timings: { decode: 2, speakers: 30, load: 8, transcribe: 60, write: 0.2 } }), entry({ id: 3, audio_seconds: 30 })];
+    expect(measuredSpeed(history)).toBe(12.5);
+    expect(measuredSpeed([entry({ timings: null })])).toBeNull();
   });
 });

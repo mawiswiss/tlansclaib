@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from "react";
-import { downloadFit, downloadSeconds } from "../lib/fit";
+import { downloadFit, downloadSeconds, type Score } from "../lib/fit";
 import { bytes, wholeGb } from "../lib/format";
 import { defaultModel, languageKey, missingBytes, MODE_DETECTION, MODE_NAMES, MODES, parseLanguage, recommend, SEVERAL, setupLanguages, wanted, type Mode, type Setup, type SetupLanguage } from "../lib/setup";
 import type { DiskSpace, Gpu, Language, ModelStatus, SpeakerDetection, Stats } from "../lib/types";
 import { ChevronDown } from "./icons";
 import { Select } from "./Select";
+import { Meter } from "./SystemBar";
 
 type Props = {
   variant: "page" | "dialog";
@@ -15,6 +16,7 @@ type Props = {
   speed: number | "measuring" | "offline";
   gpu: Gpu | null;
   stats: Stats | null;
+  score: Score | null;
   disk: DiskSpace | null;
   busy: boolean;
   error: string | null;
@@ -120,6 +122,16 @@ export function SetupView(props: Props) {
             <dd title={c.value}>{c.value}</dd>
           </div>
         ))}
+        {props.score && (
+          <div className="setup-score">
+            <dt>Rating</dt>
+            <dd>
+              <Meter value={props.score.percent / 100} state={props.score.level} />
+              <strong className="tabular">{props.score.percent}%</strong>
+              <span className="muted">{props.score.basis}</span>
+            </dd>
+          </div>
+        )}
       </dl>
       <div className="setup-modes" role="radiogroup" aria-label="Setup">
         {MODES.map((mode) => {

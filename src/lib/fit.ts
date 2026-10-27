@@ -1,4 +1,4 @@
-import type { Stats } from "./types";
+import type { Gpu, Stats } from "./types";
 
 export type Level = "ok" | "warn" | "high";
 
@@ -29,6 +29,26 @@ export function ramFit(ramGb: number, totalMemory: number): Rating {
 
 export function failedFit(reason: string): Rating {
   return { level: "high", tip: `${reason} Automatic prefers other models until a transcription with it finishes.` };
+}
+
+export type Score = { percent: number; level: Level; speed: number | null; basis: string };
+
+function chip(gpu: Gpu): { points: number; name: string } {
+  if (gpu.usable && gpu.backend === "metal") return { points: 60, name: "Metal" };
+  if (gpu.usable && gpu.backend === "vulkan") return { points: 55, name: "Vulkan" };
+  if (gpu.backend === "vulkan") return { points: 35, name: "a small Vulkan graphics chip" };
+  return { points: 15, name: "the processor alone" };
+}
+
+/** Rates this computer for transcription from 0 to 100: by the speed of recent runs, or before any by its graphics chip and memory. */
+export function score(gpu: Gpu, memoryTotal: number, speed: number | null): Score {
+  const { points, name } = chip(gpu);
+  const raw = speed !== null ? 20 * (Math.log2(speed) + 1) : points + 40 * Math.min(1, Math.max(0, (memoryTotal / GIB - 4) / 12));
+  const percent = Math.round(Math.min(100, Math.max(0, raw)));
+  const basis = speed !== null
+    ? `Measured: recent transcriptions ran at ${speed >= 10 ? Math.round(speed) : speed.toFixed(1)} times the speed of the recording.`
+    : `Estimated from ${name} and the memory. A transcription of a minute or more replaces the estimate with a measurement.`;
+  return { percent, level: percent >= 50 ? "ok" : percent >= 20 ? "warn" : "high", speed, basis };
 }
 
 export function diskFit(size: number, free: number, minimum: number, reserve: number): Rating {

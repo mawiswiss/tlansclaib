@@ -8,7 +8,7 @@ import { Tooltip } from "./Tooltip";
 
 type Props = { stats: Stats | null; running: boolean; onCredit: () => void };
 
-function Meter({ value, state }: { value: number; state: Level }) {
+export function Meter({ value, state }: { value: number; state: Level }) {
   const clamped = Math.min(1, Math.max(0, value));
   return (
     <span className={`meter ${state}`} aria-hidden="true">

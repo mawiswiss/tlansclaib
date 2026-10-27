@@ -2883,6 +2883,28 @@ button.entry-retry:hover:not(:disabled) {
   font-size: 13px;
 }
 
+.setup-computer > .setup-score {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  border-left: none;
+}
+
+.setup-score dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  white-space: normal;
+}
+
+.setup-score .meter {
+  flex: none;
+  width: 72px;
+}
+
 .setup-modes {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
