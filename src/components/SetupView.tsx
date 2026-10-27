@@ -106,7 +106,7 @@ export function SetupView(props: Props) {
   return (
     <section className={`setup ${props.variant}`} aria-label="Set up transcription">
       {props.variant === "page" && (
-        <header className="setup-head">
+        <header className="setup-intro">
           <h2>Set up transcription</h2>
           <p className="muted">Choose once. Models download in the background and work offline from then on.</p>
         </header>

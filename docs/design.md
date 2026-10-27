@@ -537,7 +537,8 @@ start again as "Speaker 1" and so on.
 
 - `SetupView` asks for the language the user mostly transcribes and one of
   three setups. It is the first-start screen and the content of the Models
-  dialog, which dims the window behind it.
+  dialog, which dims the window behind it. The whole dialog scrolls, its
+  header too, so a short window never hides its top.
   - Precise: the most accurate results, the biggest models and the better
     speaker detection.
   - Essential: mid-sized models and the better speaker detection.
