@@ -3,10 +3,10 @@ import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/
 import { DETECTION } from "../lib/detection";
 import { differs } from "../lib/language";
 import type { RunState, Word } from "../lib/run";
-import { addSpeaker, assignSpeaker, EXPORT_NAMES, MAX_SPEAKERS, findMatches, joinLine, placeWords, playingAt, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
+import { addSpeaker, assignSpeaker, EXPORT_NAMES, MAX_SPEAKERS, findMatches, joinLine, placeWords, playingAt, removeUnusedSpeakers, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
 import type { ExportFormat } from "../lib/types";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
-import { Check, ChevronDown, Close, Copy, Download, Info, Pencil, Plus, Retry, Search } from "./icons";
+import { Check, ChevronDown, Close, Download, Folder, Info, Pencil, Plus, Retry, Search } from "./icons";
 import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
 
@@ -19,9 +19,9 @@ type Props = {
   languageName: (code: string) => string;
   audioUrl: (path: string) => Promise<string>;
   onLocateAudio: () => void;
+  onRevealAudio: () => void;
   onSave: (change: (current: Transcript) => Transcript | null) => Promise<Transcript | null>;
   onLog: (level: "info" | "warn", message: string) => void;
-  onCopy: () => Promise<boolean>;
   onExport: (format: ExportFormat) => Promise<string | null>;
   onRename: (title: string) => Promise<boolean>;
   onRenameSpeaker: (track: number, name: string) => Promise<boolean>;
@@ -131,9 +131,9 @@ export function ResultView(props: Props) {
     languageName,
     audioUrl,
     onLocateAudio,
+    onRevealAudio,
     onSave,
     onLog,
-    onCopy,
     onExport,
     onRename,
     onRenameSpeaker,
@@ -150,7 +150,6 @@ export function ResultView(props: Props) {
   const editingNow = useRef<number | null>(null);
   const caret = useRef<number | null>(null);
   const editor = useRef<HTMLTextAreaElement>(null);
-  const [copied, setCopied] = useState(false);
   const [exported, setExported] = useState<string | null>(null);
   const [chosenFormat, setFormat] = useState<ExportFormat>("txt");
   const [src, setSrc] = useState<string | null>(null);
@@ -177,23 +176,18 @@ export function ResultView(props: Props) {
 
   const result = run.result!;
   const title = run.title;
-  const internal = result.file.endsWith(".json");
   const spoken = differs(run.language, run.heard);
   const lines = useMemo(() => run.lines.flatMap((l, index) => (l.text ? [{ ...l, index }] : [])), [run.lines]);
   const audioMissing = run.check?.audio === "missing";
+  const audioChanged = run.check?.audio === "different";
   const needle = query.trim().toLowerCase();
   const hits = useMemo(() => findMatches(lines, needle), [lines, needle]);
   const syncable = run.timed && src !== null && !unplayable;
   const format = run.timed ? chosenFormat : "txt";
+  const transcriptionSpeed = run.audioSeconds !== null ? speed(run.audioSeconds, result.elapsed) : "";
   const download = (to: ExportFormat) => { void onExport(to).then(setExported); };
 
   useEffect(() => setExported(null), [result.file]);
-
-  useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(t);
-  }, [copied]);
 
   useEffect(() => {
     setSrc(null);
@@ -342,7 +336,7 @@ export function ResultView(props: Props) {
       startEdit(null);
       return;
     }
-    if (await saveEdit(index, (t) => ({ ...t, lines: t.lines.map((l, i) => (i === index ? { ...l, text } : l)) }))) startEdit(null);
+    if (await saveEdit(index, (t) => removeUnusedSpeakers({ ...t, lines: t.lines.map((l, i) => (i === index ? { ...l, text } : l)) }))) startEdit(null);
   };
 
   const split = async (index: number, at: number) => {
@@ -355,7 +349,7 @@ export function ResultView(props: Props) {
 
   const join = async (index: number) => {
     const joined = joinLine(run.lines, index, flat(draft));
-    if (!joined || !(await saveEdit(index, (t) => ({ ...t, lines: joinLine(t.lines, index, flat(draft))?.lines ?? t.lines })))) return;
+    if (!joined || !(await saveEdit(index, (t) => removeUnusedSpeakers({ ...t, lines: joinLine(t.lines, index, flat(draft))?.lines ?? t.lines })))) return;
     caret.current = joined.at;
     startEdit(joined.index, joined.lines[joined.index].text);
   };
@@ -368,15 +362,17 @@ export function ResultView(props: Props) {
 
   const reassign = async (index: number, value: string) => {
     if (value !== NEW_SPEAKER) {
-      await save((t) => ({ ...t, lines: assignSpeaker(t.lines, index, Number(value)) }));
+      await save((t) => removeUnusedSpeakers({ ...t, lines: assignSpeaker(t.lines, index, Number(value)) }));
       return;
     }
-    renameNewest(
-      await save((t) => {
-        const added = addSpeaker(t.speakers, t.lines);
-        return { ...added, lines: assignSpeaker(added.lines, index, added.speakers.length - 1) };
-      }),
-    );
+    let newest: [number, string] = [-1, ""];
+    const saved = await save((t) => {
+      const added = addSpeaker(t.speakers, t.lines);
+      const next = removeUnusedSpeakers({ ...added, lines: assignSpeaker(added.lines, index, added.speakers.length - 1) });
+      newest = [next.speakers.length - 1, next.speakers[next.speakers.length - 1]];
+      return next;
+    });
+    if (saved && newest[0] >= 0) startSpeakerRename(newest[0], newest[1]);
   };
 
   const addOne = async () => renameNewest(await save((t) => addSpeaker(t.speakers, t.lines)));
@@ -430,7 +426,7 @@ export function ResultView(props: Props) {
       <div className="result-head">
         <div className="card result-card">
           <span className="glyph ok-glyph">
-            <Check size={22} strokeWidth={2.4} />
+            <Check size={20} strokeWidth={2.4} />
           </span>
           <div className="titles">
             {renaming ? (
@@ -488,55 +484,55 @@ export function ResultView(props: Props) {
                 trigger={() => null}
               />
             </div>
-            <span className="tools-divider" />
-            <Tooltip content={copied ? "Copied" : "Copy text"} oneLine>
-              <button
-                type="button"
-                className={`icon-button${copied ? " copied" : ""}`}
-                onClick={() => { void onCopy().then(setCopied).catch(() => setCopied(false)); }}
-                aria-label={copied ? "Copied" : "Copy text"}
-              >
-                {copied ? <Check strokeWidth={2.2} /> : <Copy />}
+            <Tooltip content={audioMissing ? "The recording is missing, so it cannot be transcribed again" : "Transcribe again with the same settings"} oneLine>
+              <button type="button" className="icon-button" onClick={() => onRerun()} disabled={audioMissing} aria-label="Transcribe again">
+                <Retry />
               </button>
             </Tooltip>
-            <Tooltip content={audioMissing ? "The recording is missing, so it cannot be transcribed again" : "Transcribe again with the same settings"} oneLine>
-            <button type="button" className="icon-button" onClick={() => onRerun()} disabled={audioMissing} aria-label="Transcribe again">
-              <Retry />
-            </button>
-          </Tooltip>
-          <span className="tools-divider" />
             <Tooltip content="Close" oneLine>
               <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
                 <Close size={17} />
               </button>
             </Tooltip>
           </div>
-          <p className="meta-line">
-            <span className="meta-text">
-              {[
-                run.finishedAt !== null ? when(run.finishedAt) : null,
-                run.audioSeconds !== null ? clock(run.audioSeconds) : null,
-                sourceLabel(run.audio, run.video, run.detected ? 1 : run.tracks),
-                run.language ? languageName(run.language) : null,
-                run.modelName || null,
-                run.detected ? `${run.speakerBackend ? `${DETECTION[run.speakerBackend].name}: ` : ""}${run.speakers.length > 1 ? `${run.speakers.length} people` : "1 person"}` : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
-            <Tooltip
-              content={`${fileName(run.audio)}, ${result.lines} lines, transcribed in ${duration(result.elapsed)}${run.audioSeconds !== null ? `, ${speed(run.audioSeconds, result.elapsed)}` : ""}.${run.timings ? ` Read ${run.timings.decode.toFixed(1)}s, speakers ${run.timings.speakers.toFixed(1)}s, model ${run.timings.load.toFixed(1)}s, transcription ${run.timings.transcribe.toFixed(1)}s, saving ${run.timings.write.toFixed(1)}s.` : ""}`}
-            >
-              <span className="meta-info" tabIndex={0} aria-label="Recording and transcription time">
-                <Info size={14} />
+          <div className="result-details">
+            <p className="meta-line">
+              <span className="meta-text">
+                {[
+                  run.finishedAt !== null ? when(run.finishedAt) : null,
+                  run.audioSeconds !== null ? clock(run.audioSeconds) : null,
+                  sourceLabel(run.audio, run.video, run.detected ? 1 : run.tracks),
+                  run.language ? languageName(run.language) : null,
+                  run.modelName || null,
+                  run.detected ? `${run.speakerBackend ? `${DETECTION[run.speakerBackend].name}: ` : ""}${run.speakers.length > 1 ? `${run.speakers.length} people` : "1 person"}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </span>
-            </Tooltip>
-          </p>
-          {!internal && (
-            <p className="path" title={result.file}>
-              {fileName(result.file)} · {folderOf(result.file)}
+              <Tooltip
+                content={`Transcribed in ${duration(result.elapsed)}.${transcriptionSpeed ? ` Speed: ${transcriptionSpeed}.` : ""}`}
+                oneLine
+              >
+                <span className="meta-info" tabIndex={0} aria-label="Transcription speed">
+                  <Info size={14} />
+                </span>
+              </Tooltip>
             </p>
-          )}
+            <div className="original-file">
+              {audioMissing || audioChanged ? (
+                <span className="original-file-reference">
+                  <span className="original-file-path" title={run.audio}>{run.audio}</span>
+                  <span className="chip warn">{audioMissing ? "File missing" : "Different file"}</span>
+                  <button type="button" className="inline-link" onClick={onLocateAudio}>Locate…</button>
+                </span>
+              ) : (
+                <button type="button" className="original-file-link" onClick={onRevealAudio} title={`Show ${fileName(run.audio)} in its folder`}>
+                  <Folder size={14} />
+                  <span>{run.audio}</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
         <Tooltip content="Transcribe another" oneLine className="another-anchor">
           <button type="button" className="another" onClick={onAnother} aria-label="Transcribe another">

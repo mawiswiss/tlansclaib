@@ -184,13 +184,6 @@ export const Pause = (p: Props) => (
   </Icon>
 );
 
-export const Copy = (p: Props) => (
-  <Icon {...p}>
-    <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.2" />
-    <path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5" />
-  </Icon>
-);
-
 export const Plus = (p: Props) => (
   <Icon {...p}>
     <path d="M12 5v14M5 12h14" />

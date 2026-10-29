@@ -30,12 +30,12 @@ export function transcriptText(
 export function duration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "";
   const total = Math.round(seconds);
-  if (total < 60) return `${total} s`;
+  if (total < 60) return `${total}s`;
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  if (h > 0) return m > 0 ? `${h} h ${m} min` : `${h} h`;
-  return s > 0 && m < 10 ? `${m} min ${s} s` : `${m} min`;
+  if (h > 0) return m > 0 ? `${h}h ${m}min` : `${h}h`;
+  return s > 0 && m < 10 ? `${m}min ${s}s` : `${m}min`;
 }
 
 export function remaining(seconds: number): string {

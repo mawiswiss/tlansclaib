@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { downloadFit, downloadSeconds, type Score } from "../lib/fit";
 import { bytes, wholeGb } from "../lib/format";
-import { defaultModel, languageKey, missingBytes, MODE_DETECTION, MODE_NAMES, MODES, parseLanguage, recommend, SEVERAL, setupLanguages, wanted, type Mode, type Setup, type SetupLanguage } from "../lib/setup";
+import { defaultModel, languageKey, missingBytes, MODE_DETECTION, MODE_NAMES, MODES, parseLanguage, recommend, SEVERAL, setupLanguages, wanted, withSelectedLanguage, type Mode, type Setup, type SetupLanguage } from "../lib/setup";
 import type { DiskSpace, Gpu, Language, ModelStatus, SpeakerDetection, Stats } from "../lib/types";
 import { ChevronDown } from "./icons";
 import { Select } from "./Select";
@@ -115,7 +115,7 @@ export function SetupView(props: Props) {
       )}
       <label className="setup-language" htmlFor="setup-language">
         <span className="label">Language you mostly transcribe</span>
-        <Select id="setup-language" className="field-select" value={languageValue} onChange={setLanguageValue} label="Language you mostly transcribe" options={setupLanguages(models, languages)} disabled={props.busy} />
+        <Select id="setup-language" className="field-select" value={languageValue} onChange={setLanguageValue} label="Language you mostly transcribe" options={withSelectedLanguage(setupLanguages(models, languages), languageValue, languages)} disabled={props.busy} />
       </label>
       <dl className="setup-computer" aria-label="This computer">
         {computer.map((c) => (

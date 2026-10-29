@@ -9,11 +9,11 @@ describe("format", () => {
   });
 
   it("prints durations for people", () => {
-    expect(duration(42)).toBe("42 s");
-    expect(duration(125)).toBe("2 min 5 s");
-    expect(duration(1500)).toBe("25 min");
-    expect(duration(3600)).toBe("1 h");
-    expect(duration(3725)).toBe("1 h 2 min");
+    expect(duration(42)).toBe("42s");
+    expect(duration(125)).toBe("2min 5s");
+    expect(duration(1500)).toBe("25min");
+    expect(duration(3600)).toBe("1h");
+    expect(duration(3725)).toBe("1h 2min");
   });
 
   it("rounds the remaining time up and admits when it does not know", () => {

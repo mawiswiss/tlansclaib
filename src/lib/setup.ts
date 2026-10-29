@@ -218,15 +218,15 @@ function variants(models: ModelStatus[], languages: Language[], only: (m: ModelS
 
 export function setupLanguages(models: ModelStatus[], languages: Language[]): LanguageOption[] {
   const own = variants(models, languages, (m) => (m.setups ?? []).length > 0);
-  const others = languages
-    .filter((l) => !own.some((o) => o.value === l.code))
-    .map((l) => ({ value: l.code, label: nameOf(l.code, languages) }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-  return [{ value: SEVERAL.code, label: "Several languages" }, ...own, ...others];
+  return [{ value: SEVERAL.code, label: "Several languages" }, ...own];
 }
 
 export function runLanguages(models: ModelStatus[], languages: Language[]): LanguageOption[] {
-  const extra = variants(models, languages, (m) => m.installed && m.language_name !== null);
-  const all = [...languages.map((l) => ({ value: l.code, label: nameOf(l.code, languages) })), ...extra].sort((a, b) => a.label.localeCompare(b.label));
-  return [{ value: "auto", label: "Auto-detect" }, ...all];
+  return [{ value: "auto", label: "Auto-detect" }, ...variants(models, languages, () => true)];
+}
+
+export function withSelectedLanguage(options: LanguageOption[], key: string, languages: Language[]): LanguageOption[] {
+  if (options.some((o) => o.value === key)) return options;
+  const { code, variant } = parseLanguage(key);
+  return [...options, { value: key, label: variant ?? nameOf(code, languages) }];
 }

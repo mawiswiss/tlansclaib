@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agreed, betterDownload, defaultModel, downloadOrder, fittingDownload, fittingInstalled, leftovers, missingBytes, modelFor, parseLanguage, recommend, runLanguages, setupChanges, setupLanguages, smallerModel, wanted, wantedBackend, type Resources, type Setup } from "./setup";
+import { agreed, betterDownload, defaultModel, downloadOrder, fittingDownload, fittingInstalled, leftovers, missingBytes, modelFor, parseLanguage, recommend, runLanguages, setupChanges, setupLanguages, smallerModel, wanted, wantedBackend, withSelectedLanguage, type Resources, type Setup } from "./setup";
 import type { Gpu, ModelStatus, SpeakerDetection } from "./types";
 
 const GIB = 2 ** 30;
@@ -83,9 +83,10 @@ describe("modelFor", () => {
     expect(modelFor(installed, setup("precise", "de|Swiss German"), parseLanguage("de"))?.id).toBe("german-fast");
   });
 
-  it("falls back to the all-language model for an uninstalled language model and for Auto", () => {
+  it("falls back to the all-language model for an uninstalled or unlisted language and for Auto", () => {
     const installed = with_(["large-v3", "tiny"]);
     expect(modelFor(installed, setup("precise", "th"), parseLanguage("th"))?.id).toBe("large-v3");
+    expect(modelFor(installed, setup("precise"), parseLanguage("it"))?.id).toBe("large-v3");
     expect(modelFor(installed, setup("precise", "th"), parseLanguage("auto"))?.id).toBe("large-v3");
     expect(modelFor(installed, setup("minimal"), parseLanguage("auto"))?.id).toBe("tiny");
   });
@@ -219,13 +220,18 @@ describe("recommend", () => {
 describe("languages", () => {
   const whisper = [{ code: "en", name: "english" }, { code: "de", name: "german" }, { code: "th", name: "thai" }, { code: "it", name: "italian" }];
 
-  it("lists several languages, then those with their own model, then the rest", () => {
-    expect(setupLanguages(models, whisper).map((o) => o.label)).toEqual(["Several languages", "German", "Swiss German", "Thai", "English", "Italian"]);
+  it("offers several languages or a language with its own setup model", () => {
+    expect(setupLanguages(models, whisper).map((o) => o.label)).toEqual(["Several languages", "German", "Swiss German", "Thai"]);
   });
 
-  it("offers Swiss German in the settings row once its model is installed", () => {
-    expect(runLanguages(models, whisper).map((o) => o.value)).not.toContain("de|Swiss German");
-    expect(runLanguages(with_(["swiss-german"]), whisper).map((o) => o.value)).toEqual(["auto", "en", "de", "it", "de|Swiss German", "th"]);
+  it("offers Auto-detect and dedicated model languages without listing every engine language", () => {
+    expect(runLanguages(models, whisper).map((o) => o.value)).toEqual(["auto", "de", "de|Swiss German", "th"]);
+    expect(runLanguages(with_(["swiss-german"]), whisper).map((o) => o.value)).not.toContain("it");
+  });
+
+  it("keeps an unlisted saved language visible", () => {
+    expect(withSelectedLanguage(runLanguages(models, whisper), "it", whisper).find((o) => o.value === "it")).toEqual({ value: "it", label: "Italian" });
+    expect(withSelectedLanguage(setupLanguages(models, whisper), "de|Swiss German", whisper)).toEqual(setupLanguages(models, whisper));
   });
 });
 

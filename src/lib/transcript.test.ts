@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { transcriptText } from "./format";
-import { addSpeaker, assignSpeaker, findMatches, joinLine, lineAt, nextSpeaker, parseTranscript, placeWords, playingAt, splitLine, withTimes, wordAt } from "./transcript";
+import { addSpeaker, assignSpeaker, findMatches, joinLine, lineAt, nextSpeaker, parseTranscript, placeWords, playingAt, removeUnusedSpeakers, splitLine, withTimes, wordAt } from "./transcript";
 
 describe("parseTranscript", () => {
   it("reads a file with timecodes back into lines", () => {
@@ -156,6 +156,15 @@ describe("speaker corrections", () => {
 
   it("assigns a speaker to one line", () => {
     expect(assignSpeaker(lines, 2, 0).map((l) => l.speaker)).toEqual([0, 1, 0]);
+  });
+
+  it("removes a speaker with no spoken lines and updates the remaining indexes", () => {
+    const reassigned = assignSpeaker(lines, 0, 1);
+    expect(removeUnusedSpeakers({ speakers: ["Host", "Guest"], lines: reassigned })).toEqual({
+      speakers: ["Guest"],
+      lines: reassigned.map((line) => ({ ...line, speaker: 0 })),
+    });
+    expect(removeUnusedSpeakers({ speakers: ["Host", "Guest"], lines })).toEqual({ speakers: ["Host", "Guest"], lines });
   });
 
   it("adds a speaker under a free name, and gives every line a speaker when there was none", () => {

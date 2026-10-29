@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { fileName } from "../lib/format";
 import { Close, Wave } from "./icons";
+import { Tooltip } from "./Tooltip";
 
 type Props = {
   ready: boolean;
@@ -9,7 +10,7 @@ type Props = {
   blocked: { label: string; percent: number } | null;
   dragging: boolean;
   pending: string | null;
-  summary: string[];
+  summary: { label: string; value: string }[];
   onGo: () => void;
   onClear: () => void;
   onChoose: () => void;
@@ -58,14 +59,14 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
   if (pending) {
     return (
       <section className={`dropzone staged${dragging ? " over" : ""}`}>
+        <button type="button" className="icon-button small staged-remove" onClick={onClear} aria-label="Remove this recording" title="Remove this recording">
+          <Close size={16} />
+        </button>
         <span className="glyph">
           <Wave size={30} />
         </span>
         <h2 className="staged-name">
           <span title={pending}>{fileName(pending)}</span>
-          <button type="button" className="icon-button small" onClick={onClear} aria-label="Remove this recording" title="Remove this recording">
-            <Close size={16} />
-          </button>
         </h2>
         <button type="button" className="inline-link change-file" onClick={onChoose}>
           Change file
@@ -73,10 +74,12 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
         <div className="staged-settings">
           <p className="hint">Transcribed with the settings above</p>
           <div className="chips">
-            {summary.filter(Boolean).map((item) => (
-              <span key={item} className="chip">
-                {item}
-              </span>
+            {summary.filter((item) => item.value).map((item) => (
+              <Tooltip key={item.label} content={item.label} oneLine>
+                <span className="chip" tabIndex={0} aria-label={`${item.label}: ${item.value}`}>
+                  {item.value}
+                </span>
+              </Tooltip>
             ))}
           </div>
         </div>

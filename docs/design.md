@@ -310,12 +310,12 @@ top bar picks one.
   image or a translocated copy, which the update cannot replace, and too
   little free disk (`guard::can_update`). `docs/release.md` covers signing and
   `latest.json`.
-- The settings row holds recording language ("Auto-detect" or a
-  language), model and speakers
-  in aligned cells. The language menu also lists a variant such as Swiss
-  German once its model is installed, which runs the engine with `de`. The
-  model starts at "Automatic", which names the chosen model's language in
-  small text: the setup's model for the language when installed, otherwise
+- The settings row holds recording language, model and speakers in aligned
+  cells. Its language menu offers Auto-detect, which uses a multilingual model,
+  plus the languages with a dedicated catalog model. A previously selected
+  language stays visible. A variant such as Swiss German runs the engine with
+  `de`. The model starts at "Automatic", which names the chosen model's
+  language in small text: the setup's model for the language when installed, otherwise
   one for all languages (`modelFor` in `lib/setup.ts`). It steps up to an
   installed catalog model of the same kind with a higher `quality` when that
   model fits the free RAM right now (`guard::model_budget`, sent with the
@@ -541,7 +541,10 @@ start again as "Speaker 1" and so on.
 - `SetupView` asks for the language the user mostly transcribes and one of
   three setups. It is the first-start screen and the content of the Models
   dialog, which dims the window behind it. The whole dialog scrolls, its
-  header too, so a short window never hides its top.
+  header too, so a short window never hides its top. The language menu offers
+  Several languages and languages with dedicated setup models. Several
+  languages downloads a multilingual model and detects the recording language
+  during a run.
   - Precise: the most accurate results, the biggest models and the better
     speaker detection.
   - Essential: mid-sized models and the better speaker detection.

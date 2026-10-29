@@ -15,7 +15,7 @@ import { SetupProgress } from "./components/SetupProgress";
 import { SetupView } from "./components/SetupView";
 import { SystemBar } from "./components/SystemBar";
 import { TopBar } from "./components/TopBar";
-import { bytes, capitalize, gib, titleOf, transcriptText, wholeGb } from "./lib/format";
+import { bytes, capitalize, gib, titleOf, wholeGb } from "./lib/format";
 import { getBackend, type Backend } from "./lib/ipc";
 import { idle, reduce, startError, type StartError } from "./lib/run";
 import { DONATE } from "./lib/about";
@@ -27,18 +27,18 @@ import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from
 import { parseTranscript, withTimes, type Transcript } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
 import { quietCheckAllowed, RECHECK_MS, releasePage, topBarLabel, type UpdateState } from "./lib/update";
-import { agreed, betterDownload, DETECTION_IDS, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_DETECTION, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, setupChanges, sizeOf, smallerModel, wanted, wantedBackend, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
+import { agreed, betterDownload, DETECTION_IDS, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_DETECTION, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, setupChanges, sizeOf, smallerModel, wanted, wantedBackend, withSelectedLanguage, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
 import type { DiskSpace, DownloadProgress, FileKind, Gpu, HistoryEntry, Language, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "./lib/types";
 
 function backendOf(id: string): SpeakerBackend | undefined {
   return (Object.keys(DETECTION_IDS) as SpeakerBackend[]).find((b) => DETECTION_IDS[b] === id);
 }
 
-function speakerChips(backend: SpeakerBackend | null, speakers: string, precision: "standard" | "fast"): string[] {
-  if (!backend || speakers === "off") return ["Speakers not named"];
+function speakerChips(backend: SpeakerBackend | null, speakers: string, precision: "standard" | "fast"): { label: string; value: string }[] {
+  if (!backend || speakers === "off") return [{ label: "Speaker detection", value: "Off" }];
   return [
-    `${DETECTION[backend].name}${backend === "sherpa" && precision === "fast" ? ", fast" : ""}`,
-    speakers === "auto" ? "Any number of people" : backend === "nemotron" ? `Up to ${speakers} people` : `${speakers} people`,
+    { label: "Speaker detection", value: `${DETECTION[backend].name}${backend === "sherpa" && precision === "fast" ? ", fast" : ""}` },
+    { label: "Speakers", value: speakers === "auto" ? "Any number of people" : backend === "nemotron" ? `Up to ${speakers} people` : `${speakers} people` },
   ];
 }
 
@@ -68,22 +68,6 @@ type Launch = {
 };
 
 type MemoryAsk = { launch: Launch; error: Extract<StartError, { kind: "memory" }> };
-
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const area = document.createElement("textarea");
-    area.value = text;
-    document.body.appendChild(area);
-    try {
-      area.select();
-      if (!document.execCommand("copy")) throw new Error("Clipboard access was denied.");
-    } finally {
-      area.remove();
-    }
-  }
-}
 
 export default function App() {
   const backend = useRef<Backend | null>(null);
@@ -1305,17 +1289,9 @@ export default function App() {
             languageName={languageName}
             audioUrl={(path) => backend.current?.audioUrl(path) ?? Promise.reject(new Error("not ready"))}
             onLocateAudio={locateAudio}
+            onRevealAudio={() => { void showInFolder(run.audio); }}
             onSave={editTranscript}
             onLog={(level, message) => backend.current?.log(level, message)}
-            onCopy={async () => {
-              try {
-                await copyText(transcriptText(run.lines, run.timestamps, run.speakers));
-                return true;
-              } catch (error) {
-                setResultError(`Could not copy the transcript: ${String(error)}`);
-                return false;
-              }
-            }}
             onExport={async (format) => {
               const b = backend.current;
               if (!b || !run.result) return null;
@@ -1425,10 +1401,14 @@ export default function App() {
             pending={pending ?? waiting?.audio ?? null}
             summary={
               waiting
-                ? [waiting.model.name, waiting.language.code === "auto" ? "Auto-detect" : languageLabel(languageKey(waiting.language)), ...speakerChips(waiting.speakers ? waiting.backend : null, waiting.speakers ?? "off", waiting.precision)]
+                ? [
+                    { label: "Language model", value: waiting.model.name },
+                    { label: "Recording language", value: waiting.language.code === "auto" ? "Auto-detect" : languageLabel(languageKey(waiting.language)) },
+                    ...speakerChips(waiting.speakers ? waiting.backend : null, waiting.speakers ?? "off", waiting.precision),
+                  ]
                 : [
-                    model?.name ?? "",
-                    locked ? languageLabel(locked) : settings.language === "auto" ? "Auto-detect" : languageLabel(settings.language),
+                    { label: "Language model", value: model?.name ?? "" },
+                    { label: "Recording language", value: locked ? languageLabel(locked) : settings.language === "auto" ? "Auto-detect" : languageLabel(settings.language) },
                     ...speakerChips(speakerBackend, settings.speakers, settings.speakerPrecision),
                   ]
             }
@@ -1501,7 +1481,7 @@ export default function App() {
           modelId={settings.modelId}
           model={model}
           onModel={(id) => setSettings((s) => ({ ...s, modelId: id }))}
-          languages={languageOptions.some((o) => o.value === settings.language) ? languageOptions : [...languageOptions, { value: settings.language, label: languageLabel(settings.language) }]}
+          languages={withSelectedLanguage(languageOptions, settings.language, languages)}
           language={settings.language}
           onLanguage={(key) => setSettings((s) => ({ ...s, language: key }))}
           locked={locked}
@@ -1603,7 +1583,7 @@ export default function App() {
           edited={rerunTarget.entry.edited === true}
           tracks={!rerunTarget.entry.detected ? (rerunTarget.entry.speakers?.length ?? 0) : 0}
           models={models}
-          languages={languageOptions}
+          languages={withSelectedLanguage(languageOptions, rerunTarget.initial.language, languages)}
           initial={rerunTarget.initial}
           focus={rerunTarget.focus}
           missingModel={rerunTarget.missingModel}

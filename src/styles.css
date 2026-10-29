@@ -586,6 +586,7 @@ main {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-block-size: 17px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -721,6 +722,7 @@ input.toggle:checked::after {
 }
 
 .dropzone.staged {
+  position: relative;
   justify-content: safe center;
   overflow-y: auto;
   cursor: default;
@@ -745,8 +747,11 @@ input.toggle:checked::after {
   max-width: 100%;
 }
 
-.dropzone .staged-name button {
-  margin-top: 0;
+.dropzone .staged-remove {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  margin: 0;
 }
 
 .staged-name span {
@@ -827,9 +832,9 @@ input.toggle:checked::after {
 }
 
 .ok-glyph {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   background: var(--ok-soft);
   color: var(--ok);
 }
@@ -1367,7 +1372,7 @@ button.speed {
 
 .meta-line {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   min-width: 0;
   color: var(--muted);
@@ -1379,6 +1384,7 @@ button.speed {
 
 .meta-line > .tip-anchor {
   flex: none;
+  margin-top: 2px;
 }
 
 .meta-info {
@@ -1392,6 +1398,7 @@ button.speed {
   align-items: center;
   gap: 8px;
   flex: none;
+  min-height: 32px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -1455,10 +1462,9 @@ button.speed {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
     "glyph title tools"
-    "glyph meta meta"
-    "glyph path path";
-  align-items: center;
-  gap: 3px 16px;
+    "details details details";
+  align-items: start;
+  gap: 12px 16px;
   padding: 18px 22px;
 }
 
@@ -1468,31 +1474,36 @@ button.speed {
 
 .result-card > .titles {
   grid-area: title;
+  align-self: center;
 }
 
 .result-card > .card-tools {
   grid-area: tools;
+  align-self: center;
 }
 
-.result-card > .meta-line {
-  grid-area: meta;
-}
-
-.result-card > .path {
-  grid-area: path;
+.result-card > .result-details {
+  grid-area: details;
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
 }
 
 .card-tools {
-  align-self: flex-start;
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin: -9px -13px 0 0;
+  gap: 8px;
   flex: none;
 }
 
 .split-button {
   display: flex;
+}
+
+.card-tools > .split-button {
+  margin-inline-end: 8px;
 }
 
 .split-button > button:first-child {
@@ -1509,18 +1520,6 @@ button.speed {
 
 .split-button > .select-trigger .select-chevron {
   color: inherit;
-}
-
-.tools-divider {
-  width: 1px;
-  height: 18px;
-  margin: 0 6px;
-  background: var(--line);
-}
-
-button.icon-button.copied,
-button.icon-button.copied:hover:not(:disabled) {
-  color: var(--ok);
 }
 
 .another-anchor {
@@ -1597,13 +1596,54 @@ button.another:hover .another-glyph {
 }
 
 
-.path {
-  color: var(--faint);
+.original-file {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   font-size: 12.5px;
+}
+
+.original-file-link,
+.original-file-reference {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+button.original-file-link {
+  justify-content: flex-start;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: inherit;
+  font-weight: 500;
+}
+
+button.original-file-link:hover:not(:disabled) {
+  border: 0;
+  background: transparent;
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.original-file-link svg,
+.original-file-reference .chip,
+.original-file-reference button {
+  flex: none;
+}
+
+.original-file-link span,
+.original-file-path {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  user-select: text;
+}
+
+.original-file-path {
+  color: var(--faint);
 }
 
 .actions {
@@ -3188,7 +3228,7 @@ button.setup-details-toggle:hover:not(:disabled) {
 }
 
 .setup-list h3 {
-  margin-bottom: 4px;
+  margin-bottom: 10px;
   font-size: 13px;
 }
 

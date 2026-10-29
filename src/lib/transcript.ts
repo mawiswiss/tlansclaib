@@ -144,6 +144,17 @@ export function assignSpeaker(lines: Line[], index: number, speaker: number): Li
   return lines.map((line, i) => (i === index ? { ...line, speaker } : line));
 }
 
+export function removeUnusedSpeakers(transcript: Transcript): Transcript {
+  const used = new Set(transcript.lines.filter((line) => line.text.trim()).map((line) => line.speaker));
+  const kept = transcript.speakers.flatMap((name, index) => (used.has(index) ? [{ name, index }] : []));
+  if (kept.length === transcript.speakers.length) return transcript;
+  const positions = new Map(kept.map(({ index }, position) => [index, position]));
+  return {
+    speakers: kept.map(({ name }) => name),
+    lines: transcript.lines.map((line) => ({ ...line, speaker: line.speaker === undefined ? undefined : positions.get(line.speaker) })),
+  };
+}
+
 /** Speakers have eight colours, so a transcript names at most eight. */
 export const MAX_SPEAKERS = 8;
 
