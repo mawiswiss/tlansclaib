@@ -4,6 +4,13 @@ All notable changes to tlansclaib. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-10-29
+
+### Fixed
+
+- The Models dialog shows the computer's speed as bars and a word, with what the rating rests on in a tooltip (models, a64567d)
+- Speakers without lines disappear after edits, the chips before GO name each setting in a tooltip, the language menus list only languages with a dedicated model, and the transcript controls align (ui, ce28a5e)
+
 ## [0.3.2] - 2026-10-27
 
 ### Fixed
@@ -111,6 +118,7 @@ All notable changes to tlansclaib. The format follows
 - Play, search and correct transcripts in a redesigned window (ui, be70525)
 - App icon (app, 0c9a0c4)
 
+[0.3.3]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/mawiswiss/tlansclaib/compare/v0.2.0...v0.3.0
