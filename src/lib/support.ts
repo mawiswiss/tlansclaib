@@ -1,7 +1,7 @@
 import type { Settings } from "./settings";
 import type { HistoryEntry } from "./types";
 
-export const SUPPORT_FIRST = 10;
+export const SUPPORT_FIRST = import.meta.env.MODE === "web" ? 3 : 10;
 export const SUPPORT_EVERY = 25;
 
 export function shouldAskForSupport(settings: Settings): boolean {

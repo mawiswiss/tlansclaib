@@ -28,6 +28,8 @@ export type RunState = {
   stepStartedAt: number | null;
   loadPart: LoadPart | null;
   audioSeconds: number | null;
+  /** The recording's whole length, which the browser version may cut at its limit. */
+  fullSeconds: number | null;
   speakers: string[];
   tracks: number;
   detecting: boolean;
@@ -73,6 +75,7 @@ export const idle: RunState = {
   stepStartedAt: null,
   loadPart: null,
   audioSeconds: null,
+  fullSeconds: null,
   speakers: [],
   tracks: 1,
   detecting: false,
@@ -211,7 +214,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
         case "loading":
           return { ...state, loadPart: e.part };
         case "audio":
-          return { ...state, audioSeconds: e.seconds, speakers: e.speakers ?? [], tracks: Math.max(1, e.speakers?.length ?? 0), video: e.video ?? false };
+          return { ...state, audioSeconds: e.seconds, fullSeconds: e.full ?? null, speakers: e.speakers ?? [], tracks: Math.max(1, e.speakers?.length ?? 0), video: e.video ?? false };
         case "model":
           return { ...state, device: e.device, deviceName: e.device_name ?? null, retryReason: state.retryReason && e.device === "cpu" ? state.retryReason.replace("Retrying on CPU.", "This run is using the CPU.") : state.retryReason, threads: e.threads, language: e.language, heard: e.heard ?? [], windows: e.windows, total: e.windows };
         case "retry":

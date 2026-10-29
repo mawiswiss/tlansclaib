@@ -1,0 +1,15 @@
+[package]
+name = "tlansclaib-engine-wasm"
+description = "The engine's line cutting for the browser version"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+engine = { package = "tlansclaib-engine", path = "../../engine", default-features = false }

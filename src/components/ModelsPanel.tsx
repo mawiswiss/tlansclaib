@@ -457,14 +457,14 @@ export function ModelDetails(props: DetailsProps) {
   );
 }
 
-export function ModelsDialog({ error, onClose, children, footer }: { error: string | null; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+export function ModelsDialog({ error, subtitle, narrow = false, onClose, children, footer }: { error: string | null; subtitle?: string; narrow?: boolean; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
   return (
     <div className="overlay" onClick={onClose}>
-      <section className="modal" role="dialog" aria-modal="true" aria-labelledby="models-title" onClick={(e) => e.stopPropagation()}>
+      <section className={`modal${narrow ? " narrow" : ""}`} role="dialog" aria-modal="true" aria-labelledby="models-title" onClick={(e) => e.stopPropagation()}>
         <header className="modal-head">
           <div>
             <h2 id="models-title">Models</h2>
-            <p className="muted">Choose a setup once. Models download in the background and work offline from then on.</p>
+            <p className="muted">{subtitle ?? "Choose a setup once. Models download in the background and work offline from then on."}</p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
             <Close />

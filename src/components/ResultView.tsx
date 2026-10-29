@@ -5,6 +5,7 @@ import { differs } from "../lib/language";
 import type { RunState, Word } from "../lib/run";
 import { addSpeaker, assignSpeaker, EXPORT_NAMES, MAX_SPEAKERS, findMatches, joinLine, placeWords, playingAt, removeUnusedSpeakers, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
 import type { ExportFormat } from "../lib/types";
+import { FEATURES } from "../lib/ipc";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
 import { Check, ChevronDown, Close, Download, Folder, Info, Pencil, Plus, Retry, Search } from "./icons";
 import { Select } from "./Select";
@@ -30,6 +31,7 @@ type Props = {
   onSetUpDetection: () => void;
   onClose: () => void;
   onAnother: () => void;
+  children?: ReactNode;
 };
 
 function when(ms: number): string {
@@ -142,6 +144,7 @@ export function ResultView(props: Props) {
     onSetUpDetection,
     onClose,
     onAnother,
+    children,
   } = props;
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
@@ -521,15 +524,19 @@ export function ResultView(props: Props) {
             <div className="original-file">
               {audioMissing || audioChanged ? (
                 <span className="original-file-reference">
-                  <span className="original-file-path" title={run.audio}>{run.audio}</span>
+                  <span className="original-file-path" title={run.audio}>{FEATURES.revealFiles ? run.audio : fileName(run.audio)}</span>
                   <span className="chip warn">{audioMissing ? "File missing" : "Different file"}</span>
                   <button type="button" className="inline-link" onClick={onLocateAudio}>Locate…</button>
                 </span>
-              ) : (
+              ) : FEATURES.revealFiles ? (
                 <button type="button" className="original-file-link" onClick={onRevealAudio} title={`Show ${fileName(run.audio)} in its folder`}>
                   <Folder size={14} />
                   <span>{run.audio}</span>
                 </button>
+              ) : (
+                <span className="original-file-reference">
+                  <span className="original-file-path">{fileName(run.audio)}</span>
+                </span>
               )}
             </div>
           </div>
@@ -571,11 +578,18 @@ export function ResultView(props: Props) {
           </button>
         </p>
       )}
+      {children}
       <div className="card transcript-card">
         <div className="transcript-tools">
           {audioMissing ? (
             <p className="player-note">
-              <span className="problem-text">Recording not found</span> at {folderOf(run.audio)}.{" "}
+              {FEATURES.revealFiles ? (
+                <>
+                  <span className="problem-text">Recording not found</span> at {folderOf(run.audio)}.{" "}
+                </>
+              ) : (
+                <>The browser forgets recordings when the page reloads. </>
+              )}
               <button type="button" className="inline-link" onClick={onLocateAudio}>
                 Locate…
               </button>
@@ -670,7 +684,7 @@ export function ResultView(props: Props) {
                   Add a speaker
                 </button>
               )}
-              {!audioMissing &&
+              {!audioMissing && FEATURES.speakers &&
                 (!detectionInstalled ? (
                   <button type="button" className="inline-link" onClick={onSetUpDetection}>
                     Set up speaker detection

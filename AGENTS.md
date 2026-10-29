@@ -13,12 +13,16 @@ topic, no date prefixes, no generated trees.
   supervision, memory guard, system statistics.
 - `src/`: the React and TypeScript frontend, built with Vite.
 - `scripts/`: tooling that is not shipped, such as the model conversion script.
+- `web/engine-wasm/`: the engine's line cutting compiled to wasm for the
+  browser version, which lives in `src/lib/web/`. See `docs/browser.md`.
 
 ## Commands
 
 - `pnpm install`, then `pnpm tauri dev` for the app with live reload.
 - `cargo test --workspace`, `cargo clippy --workspace --all-targets`.
 - `pnpm typecheck`, `pnpm test`.
+- `pnpm dev:web` and `pnpm build:web` for the browser version. They need the
+  `wasm32-unknown-unknown` Rust target.
 - `pnpm tauri build` for installers. Release builds come from GitHub Actions on
   a `v*` tag, see `docs/release.md`. Release with the `release` skill in
   `.claude/skills/release/`.

@@ -7,12 +7,17 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "wasm": "node scripts/engine-wasm.mjs",
+    "dev:web": "pnpm wasm && vite --mode web",
+    "build:web": "pnpm wasm && tsc && vite build --mode web",
+    "preview:web": "vite preview --mode web",
     "tauri": "tauri",
     "sidecar": "node scripts/sidecar.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "@huggingface/transformers": "4.3.1",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.8.2",
     "@tauri-apps/plugin-log": "^2.10.1",
@@ -20,6 +25,7 @@
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-shell": "^2.5.0",
     "@tauri-apps/plugin-updater": "^2.14.0",
+    "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

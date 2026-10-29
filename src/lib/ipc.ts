@@ -1,9 +1,30 @@
 import type { Update } from "@tauri-apps/plugin-updater";
 import type { Line } from "./run";
 import { EXPORT_NAMES } from "./transcript";
+import { LARGEST_FILE_BYTES, LIMIT_SECONDS } from "./web/model";
 import type { DiskSpace, DownloadProgress, EngineEvent, ExportFormat, FileKind, Gpu, HistoryEntry, Language, Match, ModelStatus, Opened, SpeakerBackend, SpeakerDetection, Stats } from "./types";
 
 export type Unlisten = () => void;
+
+/** What this build offers. `vite --mode web` builds the browser version, which leaves out what only the desktop app has. */
+export type Features = {
+  lite: boolean;
+  speakers: boolean;
+  updates: boolean;
+  modelCatalog: boolean;
+  systemStats: boolean;
+  revealFiles: boolean;
+  /** Only this many seconds of a recording are transcribed, or all of it. */
+  limitSeconds: number | null;
+  /** Larger files are refused, or none. */
+  largestFileBytes: number | null;
+};
+
+const FULL: Features = { lite: false, speakers: true, updates: true, modelCatalog: true, systemStats: true, revealFiles: true, limitSeconds: null, largestFileBytes: null };
+
+const LITE: Features = { lite: true, speakers: false, updates: false, modelCatalog: false, systemStats: false, revealFiles: false, limitSeconds: LIMIT_SECONDS, largestFileBytes: LARGEST_FILE_BYTES };
+
+export const FEATURES = import.meta.env.MODE === "web" ? LITE : FULL;
 
 export type Backend = {
   listModels(): Promise<ModelStatus[]>;
@@ -16,6 +37,7 @@ export type Backend = {
   renameModel(id: string, name: string): Promise<void>;
   reveal(path: string): Promise<void>;
   listLanguages(): Promise<Language[]>;
+  audioSeconds(path: string): Promise<number | null>;
   startRun(
     audio: string,
     modelId: string,
@@ -90,6 +112,7 @@ async function tauriBackend(): Promise<Backend> {
     renameModel: (id, name) => invoke("rename_model", { id, name }),
     reveal: (path) => invoke("reveal", { path }),
     listLanguages: () => invoke("list_languages"),
+    audioSeconds: async () => null,
     startRun: (audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile, force) =>
       invoke("start_run", { audio, modelId, language, timestamps, speakers, speakerPrecision, speakerBackend, outputFile: outputFile ?? null, force: force ?? false }),
     speakerDetection: () => invoke("speaker_detection"),
@@ -183,7 +206,9 @@ let backend: Promise<Backend> | null = null;
 
 export function getBackend(): Promise<Backend> {
   if (!backend) {
-    backend = isTauri ? tauriBackend() : import("./mock").then((m) => m.mockBackend());
+    backend = import.meta.env.MODE === "web"
+      ? import("./web/backend").then((m) => m.webBackend())
+      : isTauri ? tauriBackend() : import("./mock").then((m) => m.mockBackend());
   }
   return backend;
 }

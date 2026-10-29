@@ -1,4 +1,93 @@
-# Whisper in the browser
+# Browser version
+
+tlansclaib Lite runs the app in a desktop browser, with nothing to install and
+nothing uploaded. It transcribes the first 10 minutes of a recording with one
+model, Whisper large-v3 turbo in q4f16 through transformers.js on WebGPU, and
+points to the desktop app for the rest. A browser without WebGPU or
+`shader-f16`, and any phone, gets a page that says so (`unsupported` in
+`src/lib/web/backend.ts`).
+
+## Commands
+
+```sh
+pnpm dev:web      # http://localhost:1432, with the COOP and COEP headers
+pnpm build:web    # dist-web/, what Cloudflare Pages serves
+pnpm wasm         # src/lib/web/engine.wasm alone, needs the wasm32-unknown-unknown target
+```
+
+`dist-web/` is a static site, deployed by hand to Cloudflare Pages at
+https://tlansclaib.marcwieland.name. `public-web/_headers` makes the page
+cross-origin isolated there, as the dev server does, so it runs as tested.
+Cloudflare Pages refuses files over 25 MiB.
+
+The title, description, canonical URL, social tags and JSON-LD come from the
+`webHead` plugin in `vite.config.ts`, so the desktop build carries none of
+them. `public-web/` holds `robots.txt` and the icons.
+
+## How it fits together
+
+- `vite --mode web` sets `FEATURES` in `src/lib/ipc.ts` to the lite set and
+  picks `webBackend()`. The desktop build leaves every web file out. Keep
+  web-only imports behind `import.meta.env.MODE === "web"` itself, because a
+  check on `FEATURES` does not let the bundler drop them.
+- `web/engine-wasm` compiles the engine's `windows.rs` to a 32 KB wasm file
+  with plain C exports, so lines are cut exactly as on the desktop.
+- `src/lib/web/worker.ts` mirrors the run loop in `engine/src/main.rs`: the
+  language check over the first three lines of 17 to 23 s, then one greedy
+  pass per line. Fit-encoder, the temperature fallback, word timings,
+  speakers and multi-track recordings are left out.
+- The browser decodes the audio (`decodeAudioData` at 16 kHz), so the formats
+  are the browser's. It mixes all tracks into one.
+- History lives in IndexedDB, the model in OPFS. The browser forgets a
+  recording when the page reloads, so a reopened transcript asks for it again.
+- `src/lib/web/export.ts` ports the text, SRT and WebVTT export from Rust.
+  Keep the two in step.
+
+## Traps
+
+- **Every file is pinned.** `src/lib/web/model.ts` holds the Hugging Face
+  revision and the size and SHA-256 of each model file and of ONNX Runtime's
+  wasm. A file is kept only when both match. Bumping
+  `@huggingface/transformers` or `onnxruntime-web` means new pins.
+- **ONNX Runtime's wasm comes from jsDelivr.** At 26.9 MB it is over Cloudflare
+  Pages' 25 MiB file limit. It is checked like a model file.
+- **Cache Storage refused the 370 MB encoder** in Chrome 152, the Claude
+  desktop app's browser pane, with "Unexpected internal error". The files live
+  in OPFS.
+- **transformers.js 4.3.1 dropped `revision` when `AutoTokenizer` probed
+  `tokenizer_config.json`** and asked for `resolve/main/`. The store answers by
+  file path, and `env.fetch` returns 404 for everything else, so the page never
+  fetches a model file it did not verify.
+- **ONNX Runtime runs on one thread.** With its default thread pool, session
+  creation inside the worker sometimes never finished, with no error, in the
+  pane's Chrome 152. WebGPU does the heavy work, so one thread costs little.
+- **The browser reads the whole file into memory** before it decodes, so files
+  over 1 GB are refused with a pointer to the desktop app.
+- **A file in Google Drive, iCloud Drive or Dropbox** that is not stored on the
+  computer fails to read with `NotReadableError`. The run ends with a message
+  that says so.
+- **`navigator.deviceMemory` may exceed 8.** The pane's Chrome 152 reported 32. The
+  memory check in `src/lib/web/guard.ts` refuses below the measured peak plus
+  1 GB, and only warns where the value is missing.
+
+## Measured, 2026-10-29
+
+Chrome 152 (the Claude desktop app's browser pane) on an Apple M5 Max, with
+`shader-f16`:
+
+| Clip | Total | Load and language check | Transcribe |
+|---|---|---|---|
+| German, 61.1 s, Auto-detect | 10.6 s | 5.2 s | 5.3 s |
+| German repeated, first 600 s of 733 s, model already loaded | 25.8 s | 1.0 s | 24.6 s |
+
+The language check heard German at 99.9%. The transcript matched the spike's.
+The download is 593 MB.
+
+Not measured yet: a mid-range Windows laptop, Safari, Firefox, and a GPU
+without `shader-f16`. The 10-minute cap stays only if that laptop transcribes
+10 minutes in about 5.
+
+## The spike, 2026-10-25
 
 A browser version is only practical on WebGPU. On the CPU both browser
 runtimes are about 6 to 12 times slower than the native engine, too slow for the
@@ -11,7 +100,7 @@ cannot be fetched from a web page at all.
 
 The spike is in `scripts/browser-spike/`, measured on 2026-10-25.
 
-## Results
+### Results
 
 Both clips are synthesized speech: `engine/tests/fixtures/english.wav` (5.4 s,
 one line) and a German text read by macOS `say -v Anna` (61.1 s, four lines
@@ -66,7 +155,7 @@ q8), 1.61 GB (ONNX fp16 / q4) or 563 MB (ONNX q4f16) once.
   Hugging Face `resolve/main` URL works: both hops send
   `Access-Control-Allow-Origin`, and a range request returns 206.
 
-## What this does not show
+### What this does not show
 
 - **Modest hardware is untested.** Everything ran on an Apple M5 Max, with
   other work on the machine (load average 6 to 12 of 18 cores). The earlier
@@ -88,7 +177,7 @@ q8), 1.61 GB (ONNX fp16 / q4) or 563 MB (ONNX q4f16) once.
 - Storing a 0.5 to 1.6 GB model in the browser (Cache API, OPFS) and its quota
   were not tried, and neither were Firefox and Safari.
 
-## Running it
+### Running it
 
 Needs macOS (the memory sampling calls `footprint`), Chrome, Node, and [emsdk](https://github.com/emscripten-core/emsdk) for
 the wasm build. Models, the build and audio stay outside the repository.

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { fileName } from "../lib/format";
-import { Close, Wave } from "./icons";
+import { FEATURES } from "../lib/ipc";
+import { Check, Clock, Close, Folder, Wave } from "./icons";
 import { Tooltip } from "./Tooltip";
 
 type Props = {
@@ -15,9 +16,10 @@ type Props = {
   onClear: () => void;
   onChoose: () => void;
   onGetModel: () => void;
+  onCompare: () => void;
 };
 
-export function DropZone({ ready, preparing, blocked, dragging, pending, summary, onGo, onClear, onChoose, onGetModel }: Props) {
+export function DropZone({ ready, preparing, blocked, dragging, pending, summary, onGo, onClear, onChoose, onGetModel, onCompare }: Props) {
   useEffect(() => {
     if (!pending) return;
     const onKey = (e: KeyboardEvent) => {
@@ -114,6 +116,39 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
       >
         Choose a file…
       </button>
+      {FEATURES.lite && (
+        <div className="lite-notes" onClick={(e) => e.stopPropagation()}>
+          <p className="lite-local">
+            <Check size={16} strokeWidth={2.2} />
+            <span>
+              <strong>Nothing goes to a cloud.</strong> The app runs in this browser, not on a server. The recording and the transcript stay on this computer.
+            </span>
+          </p>
+          <h3 className="web-model-heading">Technical limits in Lite</h3>
+          <ul className="feature-list lite-limits">
+            {FEATURES.limitSeconds !== null && (
+              <li>
+                <Clock size={16} />
+                <span>Only the first {Math.round(FEATURES.limitSeconds / 60)} minutes of each recording are transcribed.</span>
+              </li>
+            )}
+            {FEATURES.largestFileBytes !== null && (
+              <li>
+                <Folder size={16} />
+                <span>
+                  Files up to {Math.round(FEATURES.largestFileBytes / 2 ** 30)} GB, saved on this computer. A file that is only in iCloud Drive, Google Drive, OneDrive or Dropbox needs to be made available offline first.
+                </span>
+              </li>
+            )}
+          </ul>
+          <p className="lite-teaser">
+            Longer recordings or speaker detection?{" "}
+            <button type="button" className="inline-link" onClick={onCompare}>
+              Compare with the desktop app
+            </button>
+          </p>
+        </div>
+      )}
     </section>
   );
 }

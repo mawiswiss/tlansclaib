@@ -1,3 +1,4 @@
+import { FEATURES } from "../lib/ipc";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { DETECTION } from "../lib/detection";
 import { parseLanguage, type LanguageOption } from "../lib/setup";
@@ -96,6 +97,7 @@ export function RerunDialog(props: Props) {
               options={locked && !languages.some((l) => l.value === locked) ? [...languages, { value: locked, label: model?.language_name ?? locked }] : languages}
             />
           </label>
+          {FEATURES.speakers && (
           <div className={`field wide${focus === "speakers" ? " focused" : ""}`}>
             <span className="label">Speakers</span>
             {props.tracks > 1 ? (
@@ -136,6 +138,7 @@ export function RerunDialog(props: Props) {
               </span>
             )}
           </div>
+          )}
         </div>
         <footer className="modal-foot">
           <span className="rerun-actions">

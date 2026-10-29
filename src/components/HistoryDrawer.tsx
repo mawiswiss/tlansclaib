@@ -1,3 +1,4 @@
+import { FEATURES } from "../lib/ipc";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clock, folderOf, titleOf } from "../lib/format";
 import type { HistoryEntry } from "../lib/types";
@@ -86,7 +87,7 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
                     {e.audio_seconds !== null ? clock(e.audio_seconds) : `${e.lines} lines`} · {e.model}
                     {e.language && <> · {languageName(e.language)}</>}
                   </span>
-                  <span className="entry-path">{e.file.endsWith(".json") ? "App history" : folderOf(e.file)}</span>
+                  <span className="entry-path">{e.file.endsWith(".json") ? (FEATURES.lite ? "This browser" : "App history") : folderOf(e.file)}</span>
                 </button>
               ) : (
                 <div className="entry-main" title={e.file}>

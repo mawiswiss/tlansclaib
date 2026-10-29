@@ -1,3 +1,4 @@
+import { FEATURES } from "../lib/ipc";
 import type { Theme } from "../lib/settings";
 import { Clock, Cube, Download, Info, Lock, Logo, Monitor, Moon, Sun } from "./icons";
 
@@ -10,6 +11,7 @@ type Props = {
   onAbout: () => void;
   update: string | null;
   onUpdate: () => void;
+  onDesktop?: () => void;
   busy: boolean;
 };
 
@@ -19,18 +21,30 @@ const THEMES: { theme: Theme; title: string; icon: typeof Sun }[] = [
   { theme: "dark", title: "Dark", icon: Moon },
 ];
 
-export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbout, update, onUpdate, busy }: Props) {
+export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbout, update, onUpdate, onDesktop, busy }: Props) {
   return (
-    <header className={`topbar${update ? " has-update" : ""}`}>
+    <header className={`topbar${update || FEATURES.lite ? " has-update" : ""}`}>
       <div className="brand">
         <Logo size={26} />
         <span>tlansclaib</span>
+        {FEATURES.lite && (
+          <span className="lite-badge" title="The web version of tlansclaib, with fewer features than the desktop app">
+            Lite
+          </span>
+        )}
         <span className="tagline" title="Recordings and transcripts never leave this computer">
           <Lock size={13} />
-          Offline processing<span className="tagline-more"> · nothing leaves this computer</span>
+          {FEATURES.lite ? "Web version" : "Offline processing"}
+          <span className="tagline-more"> · nothing leaves this computer</span>
         </span>
       </div>
       <span className="spacer" />
+      {FEATURES.lite && onDesktop && (
+        <button type="button" className="tool update-tool" onClick={onDesktop}>
+          <Monitor />
+          Desktop app
+        </button>
+      )}
       {update && (
         <button type="button" className="tool update-tool" onClick={onUpdate}>
           <Download />

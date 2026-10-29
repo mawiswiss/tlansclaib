@@ -40,6 +40,11 @@ that counts as a failure and the CPU retry follows. Anywhere else the run
 ends with an error that names the step. After a gap of over 5 s in the
 once-a-second check, such as a sleeping computer, the 45 s start again.
 
+A browser version, tlansclaib Lite, builds the same window with
+`vite --mode web`. It runs one model on WebGPU, transcribes the first 10
+minutes, and leaves out speakers, updates and system statistics. See
+`docs/browser.md`.
+
 ## The engine
 
 - `audio.rs` decodes any supported file with symphonia (AAC-LC in MP4 or

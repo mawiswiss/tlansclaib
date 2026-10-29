@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AboutDialog } from "./components/AboutDialog";
+import { CompareDialog } from "./components/CompareDialog";
 import { DropZone } from "./components/DropZone";
 import { ErrorView, type ErrorAction } from "./components/ErrorView";
 import { Notices, type Notice, type NoticeAction } from "./components/Notices";
@@ -15,10 +16,12 @@ import { SetupProgress } from "./components/SetupProgress";
 import { SetupView } from "./components/SetupView";
 import { SystemBar } from "./components/SystemBar";
 import { TopBar } from "./components/TopBar";
-import { bytes, capitalize, gib, titleOf, wholeGb } from "./lib/format";
-import { getBackend, type Backend } from "./lib/ipc";
+import { DesktopPromo } from "./components/DesktopPromo";
+import { WebSetup } from "./components/WebSetup";
+import { bytes, capitalize, duration, gib, titleOf, wholeGb } from "./lib/format";
+import { FEATURES, getBackend, type Backend } from "./lib/ipc";
 import { idle, reduce, startError, type StartError } from "./lib/run";
-import { DONATE } from "./lib/about";
+import { DESKTOP, DONATE } from "./lib/about";
 import { DETECTION } from "./lib/detection";
 import { score } from "./lib/fit";
 import { measuredSpeed } from "./lib/pace";
@@ -80,7 +83,7 @@ export default function App() {
   const settingsAtStart = useRef(settings);
   const [notices, setNotices] = useState<Notice[]>(settingsLoadError ? [{ id: 0, kind: "error", text: settingsLoadError }] : []);
   const noticeId = useRef(1);
-  const [panel, setPanel] = useState<"models" | "about" | "support" | null>(null);
+  const [panel, setPanel] = useState<"models" | "about" | "support" | "compare" | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [disk, setDisk] = useState<DiskSpace | null>(null);
@@ -101,6 +104,8 @@ export default function App() {
   const startUpdateLatest = useRef<(version: string) => void>(() => {});
   const announced = useRef<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [pendingSeconds, setPendingSeconds] = useState<number | null>(null);
   const [run, dispatch] = useReducer(reduce, idle);
   const latest = useRef<Transcript>({ lines: run.lines, speakers: run.speakers });
   latest.current = { lines: run.lines, speakers: run.speakers };
@@ -142,7 +147,10 @@ export default function App() {
   const locked = pinned && model && !model.languages.includes("all") ? languageKey({ code: model.languages[0], variant: model.language_name ?? null }) : null;
   const speakerBackend = wantedBackend(setup, detections);
   const firstRun = modelsLoaded && !setup && installed.length === 0;
-  const languageOptions = useMemo(() => runLanguages(models, languages), [models, languages]);
+  const languageOptions = useMemo(
+    () => (FEATURES.lite ? [{ value: "auto", label: "Auto-detect" }, ...languages.map((l) => ({ value: l.code, label: capitalize(l.name) })).sort((a, b) => a.label.localeCompare(b.label))] : runLanguages(models, languages)),
+    [models, languages],
+  );
   const running = run.status === "running";
   const updateWait = running
     ? "Updating waits until the transcription has finished."
@@ -269,7 +277,7 @@ export default function App() {
   }, [notify]);
 
   useEffect(() => {
-    if (!settings.checkUpdates) return;
+    if (!settings.checkUpdates || !FEATURES.updates) return;
     const timer = setInterval(() => void checkUpdate(true), RECHECK_MS);
     return () => clearInterval(timer);
   }, [settings.checkUpdates, checkUpdate]);
@@ -354,7 +362,8 @@ export default function App() {
         setHistory(entries);
         setSettings((s) => countFromHistory(s, entries));
       }).catch((error) => reportError("Could not load history", error));
-      if (settingsAtStart.current.checkUpdates) void checkUpdate(true);
+      if (settingsAtStart.current.checkUpdates && FEATURES.updates) void checkUpdate(true);
+      if (import.meta.env.MODE === "web") void import("./lib/web/backend").then((m) => m.unsupported()).then((p) => active && setProblem(p));
       void b.autorun().then((audio) => {
         if (active && audio) startLatest.current(audio);
       }).catch((error) => reportError("Could not start the requested recording", error));
@@ -494,6 +503,20 @@ export default function App() {
     setWaiting(null);
     setPending(audio);
   };
+
+  useEffect(() => {
+    setPendingSeconds(null);
+    const limit = FEATURES.limitSeconds;
+    if (!pending || limit === null) return;
+    let current = true;
+    void backend.current?.audioSeconds(pending).then((seconds) => current && setPendingSeconds(seconds)).catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [pending]);
+  const limitChip = FEATURES.limitSeconds !== null && pendingSeconds !== null && pendingSeconds > FEATURES.limitSeconds
+    ? [{ label: "Length", value: `First ${duration(FEATURES.limitSeconds)} of ${duration(pendingSeconds)}` }]
+    : [];
   stageLatest.current = stage;
 
   const go = () => {
@@ -853,6 +876,7 @@ export default function App() {
   const missingDetection = detections.find((d) => d.available && !d.installed && d.backend === preferredDetection) ?? detections.find((d) => d.available && !d.installed) ?? null;
   const fixTarget = brokenDetection?.damaged ? brokenDetection : missingDetection;
   const speakerFix: SpeakerFix | null = (() => {
+    if (!FEATURES.speakers) return { state: "Not in Lite", action: "Desktop app", tip: "Speaker detection names who speaks when. It runs in the desktop app for Mac and Windows." };
     if (speakerBackend) return null;
     const intact = brokenDetection && !brokenDetection.damaged
       ? `${DETECTION[brokenDetection.backend].name} does not start on this computer. Its files match the download, so downloading it again would not help.`
@@ -1314,7 +1338,9 @@ export default function App() {
             onSetUpDetection={setUpDetection}
             onClose={() => dispatch({ type: "reset" })}
             onAnother={() => dispatch({ type: "reset" })}
-          />
+          >
+            {FEATURES.lite && !run.opened && <DesktopPromo transcribed={run.audioSeconds} full={run.fullSeconds} onOpenUrl={openUrl} />}
+          </ResultView>
         );
       case "error":
         if (ask) {
@@ -1366,6 +1392,7 @@ export default function App() {
           />
         );
       default:
+        if (FEATURES.lite && (firstRun || problem)) return webSetup("page");
         if (firstRun) {
           return (
             <SetupView
@@ -1404,12 +1431,12 @@ export default function App() {
                 ? [
                     { label: "Language model", value: waiting.model.name },
                     { label: "Recording language", value: waiting.language.code === "auto" ? "Auto-detect" : languageLabel(languageKey(waiting.language)) },
-                    ...speakerChips(waiting.speakers ? waiting.backend : null, waiting.speakers ?? "off", waiting.precision),
+                    ...(FEATURES.speakers ? speakerChips(waiting.speakers ? waiting.backend : null, waiting.speakers ?? "off", waiting.precision) : limitChip),
                   ]
                 : [
                     { label: "Language model", value: model?.name ?? "" },
                     { label: "Recording language", value: locked ? languageLabel(locked) : settings.language === "auto" ? "Auto-detect" : languageLabel(settings.language) },
-                    ...speakerChips(speakerBackend, settings.speakers, settings.speakerPrecision),
+                    ...(FEATURES.speakers ? speakerChips(speakerBackend, settings.speakers, settings.speakerPrecision) : limitChip),
                   ]
             }
             onGo={go}
@@ -1419,10 +1446,35 @@ export default function App() {
             }}
             onChoose={choose}
             onGetModel={() => setPanel("models")}
+            onCompare={() => setPanel("compare")}
           />
         );
     }
   };
+
+  const webModel = models[0] ?? null;
+  const webSetup = (variant: "page" | "dialog") => (
+    <WebSetup
+      variant={variant}
+      model={webModel}
+      progress={webModel ? (downloads[webModel.id] ?? null) : null}
+      error={panelError}
+      problem={problem}
+      busy={running}
+      onDownload={() => webModel && void download(webModel.id)}
+      onCancel={() => webModel && void cancelDownload(webModel.id)}
+      onDelete={() => {
+        if (!webModel) return;
+        void requireBackend()
+          .confirm(`Delete the model from this browser? This frees ${bytes(webModel.size_bytes)}. Transcripts in the history stay.`, "Delete")
+          .then((yes) => {
+            if (yes) void remove(webModel.id);
+          });
+      }}
+      onOpenUrl={openUrl}
+      onCompare={() => setPanel("compare")}
+    />
+  );
 
   const details = (selected: Setup | null) => (
     <ModelDetails
@@ -1468,6 +1520,7 @@ export default function App() {
           setPanel("about");
         }}
         update={topBarLabel(update)}
+        onDesktop={() => openUrl(DESKTOP)}
         onUpdate={() => {
           setAboutFocus("update");
           setPanel("about");
@@ -1475,7 +1528,7 @@ export default function App() {
         busy={running}
       />
       <main>
-        {run.status !== "running" && run.status !== "done" && !firstRun && (
+        {run.status !== "running" && run.status !== "done" && !firstRun && !problem && (
         <SettingsBar
           models={models}
           modelId={settings.modelId}
@@ -1491,7 +1544,7 @@ export default function App() {
           speakerPrecision={settings.speakerPrecision}
           onSpeakerPrecision={(value) => setSettings((s) => ({ ...s, speakerPrecision: value }))}
           speakerFix={speakerFix}
-          onFixSpeakers={() => fixTarget && void fixSpeakers(fixTarget.backend)}
+          onFixSpeakers={() => (FEATURES.speakers ? fixTarget && void fixSpeakers(fixTarget.backend) : openUrl(DESKTOP))}
           stats={stats}
           busy={running}
         />
@@ -1537,7 +1590,12 @@ export default function App() {
         <div className="stage">{main()}</div>
       </main>
       <SystemBar stats={stats} running={running} onCredit={() => setPanel("support")} />
-      {panel === "models" && (
+      {panel === "models" && FEATURES.lite && (
+        <ModelsDialog error={null} narrow subtitle="The model runs in this browser. Recordings are never uploaded." onClose={closePanel}>
+          {webSetup("dialog")}
+        </ModelsDialog>
+      )}
+      {panel === "models" && !FEATURES.lite && (
         <ModelsDialog
           error={panelError}
           onClose={closePanel}
@@ -1611,6 +1669,7 @@ export default function App() {
           onClose={closePanel}
         />
       )}
+      {panel === "compare" && <CompareDialog onOpenUrl={openUrl} onClose={closePanel} />}
       {panel === "support" && (
         <SupportDialog
           onSupport={() => {

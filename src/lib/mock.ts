@@ -242,6 +242,7 @@ export function mockBackend(): Backend {
       emit("models", null);
     },
     reveal: async () => {},
+    audioSeconds: async () => null,
     listLanguages: async () => [
       { code: "en", name: "english" },
       { code: "th", name: "thai" },

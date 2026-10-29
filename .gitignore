@@ -39,3 +39,7 @@ src-tauri/binaries
 # Editor and agent settings, except the project skills
 .claude/*
 !.claude/skills/
+
+# The browser version
+dist-web
+src/lib/web/engine.wasm

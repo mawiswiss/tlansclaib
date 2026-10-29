@@ -44,7 +44,7 @@ function advice(step: Step, smaller: boolean): string | null {
 const LOAD_PARTS = { file: "Reading the file", device: "Starting up", language: "Language check" };
 
 function deviceName(device: string | null): string {
-  return device === "metal" ? "Metal" : device === "vulkan" ? "Vulkan" : "CPU";
+  return device === "metal" ? "Metal" : device === "vulkan" ? "Vulkan" : device === "webgpu" ? "WebGPU" : "CPU";
 }
 
 export function RunView({ run, history, smaller, showTimes, languageName, onCancel, onRestart }: Props) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { AUTHOR, GITHUB, WEBSITE, YEAR } from "../lib/about";
+import { AUTHOR, DESKTOP, GITHUB, WEBSITE, YEAR } from "../lib/about";
+import { FEATURES } from "../lib/ipc";
 import type { UpdateState } from "../lib/update";
 import { Check, Close, Code, Globe, Heart, Lock, Logo, Monitor, User } from "./icons";
 import { UpdateSection } from "./UpdateSection";
@@ -19,7 +20,16 @@ type Props = {
   onClose: () => void;
 };
 
-const FEATURES = [
+const LIST = FEATURES.lite
+  ? [
+      "Runs the model on the graphics chip, in this browser",
+      "About 100 languages",
+      "The first 10 minutes of each recording",
+      "Timecodes on or off, export text or subtitles when you want",
+      "A history of every transcript, kept in this browser",
+      "Free, with no ads, no tracking and no subscription",
+    ]
+  : [
   "Runs on the Apple GPU or the processor",
   "About 100 languages, with special models for Thai, Swiss German, German, English and French",
   "Timecodes on or off, export text or subtitles when you want",
@@ -41,8 +51,8 @@ export function AboutDialog(props: Props) {
         <header className="modal-head about-head">
           <Logo size={44} />
           <div>
-            <h2 id="about-title">tlansclaib</h2>
-            <p className="muted">Offline transcription for Mac and Windows</p>
+            <h2 id="about-title">{FEATURES.lite ? "tlansclaib Lite" : "tlansclaib"}</h2>
+            <p className="muted">{FEATURES.lite ? "The web version of the transcription app for Mac and Windows" : "Offline transcription for Mac and Windows"}</p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
             <Close />
@@ -57,11 +67,15 @@ export function AboutDialog(props: Props) {
               </span>
               <div>
                 <strong>Your recordings never leave this computer</strong>
-                <p>No uploads, no analytics, no account. Once a model is installed, no internet is needed.</p>
+                <p>
+                  {FEATURES.lite
+                    ? "No uploads, no analytics, no account. The model downloads once and runs in this browser."
+                    : "No uploads, no analytics, no account. Once a model is installed, no internet is needed."}
+                </p>
               </div>
             </div>
             <ul className="feature-list">
-              {FEATURES.map((f) => (
+              {LIST.map((f) => (
                 <li key={f}>
                   <Check size={15} strokeWidth={2.2} />
                   <span>{f}</span>
@@ -104,6 +118,13 @@ export function AboutDialog(props: Props) {
               <div>
                 <strong>For macOS and Windows</strong>
                 <p>macOS 13 or newer on Apple silicon or Intel, Windows 10 and 11.</p>
+                {FEATURES.lite && (
+                  <div className="actions">
+                    <button type="button" className="primary small" onClick={() => onOpenUrl(DESKTOP)}>
+                      <Monitor size={15} /> Get the desktop app
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             <div className="fact">
@@ -121,6 +142,7 @@ export function AboutDialog(props: Props) {
               </div>
             </div>
           </section>
+          {FEATURES.updates && (
           <UpdateSection
             state={props.update}
             current={v}
@@ -133,6 +155,7 @@ export function AboutDialog(props: Props) {
             onInstall={props.onInstallUpdate}
             onOpenUrl={onOpenUrl}
           />
+          )}
         </div>
         <footer className="modal-foot about-foot">
           <span className="muted">

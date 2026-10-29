@@ -96,7 +96,7 @@ export type Timings = { decode: number; speakers: number; load: number; transcri
 export type EngineEvent =
   | { event: "step"; step: Step }
   | { event: "loading"; part: LoadPart }
-  | { event: "audio"; seconds: number; speakers?: string[]; video?: boolean }
+  | { event: "audio"; seconds: number; full?: number; speakers?: string[]; video?: boolean }
   | { event: "model"; device: string; device_name?: string; threads: number; language: string; windows: number; heard?: Heard[] }
   | { event: "line"; start: number; end: number; text: string; speaker?: number; words?: Word[] }
   | { event: "speakers"; speakers: string[] }

@@ -5296,6 +5296,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "tlansclaib-engine-wasm"
+version = "0.3.3"
+dependencies = [
+ "tlansclaib-engine",
+]
+
+[[package]]
 name = "tokio"
 version = "1.53.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

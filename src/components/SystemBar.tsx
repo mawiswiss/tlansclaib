@@ -1,3 +1,4 @@
+import { FEATURES } from "../lib/ipc";
 import type { ReactNode } from "react";
 import { AUTHOR, YEAR } from "../lib/about";
 import { level, memoryLevel, type Level } from "../lib/fit";
@@ -50,6 +51,9 @@ export function SystemBar({ stats, running, onCredit }: Props) {
       {AUTHOR}
     </button>
   );
+  if (!FEATURES.systemStats) {
+    return <footer className="system">{credit}</footer>;
+  }
   if (!stats) {
     return (
       <footer className="system">
