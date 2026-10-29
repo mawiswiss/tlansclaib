@@ -657,6 +657,6 @@ at any time, for testing.
 
 The CoreML encoder on macOS, a Windows signing
 certificate, converting a Hugging Face model inside the app, a remote model
-list, SRT export, translation into any language with a local language model,
-and speaker detection within each
-track, for calls where one track holds several people.
+list, and speaker detection within each track, for calls where one track holds
+several people. Features for Pro are listed in `docs/editions.md` and are not
+built here.

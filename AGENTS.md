@@ -32,6 +32,9 @@ topic, no date prefixes, no generated trees.
   before adding a feature that uses more memory.
 - No model file is accepted without validation, see `validate.rs` and
   `docs/models.md`.
+- Pro features are not built in this repository. `docs/editions.md` draws the
+  line between Free and Pro. Ask before building anything on the Pro side,
+  listed or not.
 - Nothing personal in the repository, in logs or in fixtures: no home paths, no
   device identifiers, no real recordings or transcripts.
 - Commit with `TZ=UTC` in the environment, so commit and tag dates carry no
