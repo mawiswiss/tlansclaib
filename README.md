@@ -67,11 +67,9 @@ tracking, nothing to pay.
 > The recording never leaves your computer.
 
 Whisper's general models cover about 100 languages at once. For some of them
-that shows. Thai is one. Swiss German isn't even on the list. tlansclaib
-offers models trained on exactly those languages: Thai Compact and Thai Best
-from Mahidol University, Swiss German that writes Standard German, a dedicated model for German, and a
-faster one for English. Every download is checked against its checksum before the app uses
-it.
+that shows, so tlansclaib adds dedicated models, each trained on one language,
+where they clearly do better. Every download is checked against its checksum
+before the app uses it.
 
 Calls get their speakers right. A call recorded with one track per person
 gives every line the right speaker, with no guessing. For a meeting room on a

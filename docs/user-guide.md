@@ -37,10 +37,9 @@ to the installers.
 The app transcribes with speech models, which are not part of the installer.
 On the first start it asks two things:
 
-- The language you mostly transcribe. Thai, Swiss German and German have
-  models of their own, which come along. English in Precise gets a faster
-  model on a computer that is not rated Very fast. Every other language, and
-  "Several languages", takes only the model for all languages.
+- The language you mostly transcribe. A language with a dedicated model gets
+  it along with the setup. Every other language, and "Several languages",
+  takes only the model for all languages.
 - A setup:
   - Precise: the most accurate results, with the biggest models and the better
     speaker detection. For a computer with a graphics chip and 16 GB RAM.
