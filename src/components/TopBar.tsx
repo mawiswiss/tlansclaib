@@ -6,8 +6,8 @@ type Props = {
   theme: Theme;
   onTheme: (theme: Theme) => void;
   historyOpen: boolean;
-  onHistory: () => void;
-  onModels: () => void;
+  onHistory?: () => void;
+  onModels?: () => void;
   onAbout: () => void;
   update: string | null;
   onUpdate: () => void;
@@ -51,14 +51,18 @@ export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbo
           {update}
         </button>
       )}
-      <button type="button" className={`tool${historyOpen ? " active" : ""}`} onClick={onHistory} aria-expanded={historyOpen} aria-label="History">
-        <Clock />
-        <span className="tool-label">History</span>
-      </button>
-      <button type="button" className="tool" onClick={onModels} disabled={busy} aria-label="Models">
-        <Cube />
-        <span className="tool-label">Models</span>
-      </button>
+      {onHistory && (
+        <button type="button" className={`tool${historyOpen ? " active" : ""}`} onClick={onHistory} aria-expanded={historyOpen} aria-label="History">
+          <Clock />
+          <span className="tool-label">History</span>
+        </button>
+      )}
+      {onModels && (
+        <button type="button" className="tool" onClick={onModels} disabled={busy} aria-label="Models">
+          <Cube />
+          <span className="tool-label">Models</span>
+        </button>
+      )}
       <div className="segmented" role="group" aria-label="Appearance">
         {THEMES.map(({ theme: t, title, icon: I }) => (
           <button key={t} type="button" title={title} aria-label={title} aria-pressed={theme === t} onClick={() => onTheme(t)}>

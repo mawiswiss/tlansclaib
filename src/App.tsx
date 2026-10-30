@@ -1513,8 +1513,8 @@ export default function App() {
         theme={settings.theme}
         onTheme={(theme) => setSettings((s) => ({ ...s, theme }))}
         historyOpen={historyOpen}
-        onHistory={() => setHistoryOpen((o) => !o)}
-        onModels={() => setPanel("models")}
+        onHistory={problem ? undefined : () => setHistoryOpen((o) => !o)}
+        onModels={problem ? undefined : () => setPanel("models")}
         onAbout={() => {
           setAboutFocus(null);
           setPanel("about");
