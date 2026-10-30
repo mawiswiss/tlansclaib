@@ -68,6 +68,7 @@ older version lists as a custom model.
 | Thai | `thai-best`, 1.66 GB | `thai-compact`, 874 MB | none |
 | German | `german-full`, 1.62 GB | `german-full`, 1.62 GB | none |
 | Swiss German | `swiss-german`, 874 MB | `swiss-german`, 874 MB | none |
+| Persian | `persian`, 1.62 GB | `persian`, 1.62 GB | none |
 | English | `english-turbo`, 1.52 GB, on a computer not rated Very fast | none | none |
 
 English Turbo is there for speed, not accuracy. distil-large-v3.5 averages
@@ -146,8 +147,16 @@ in its language.
 |---|---|---|---|---|
 | German | `cstr/whisper-large-v3-turbo-german-ggml` | `primeline/whisper-large-v3-turbo-german` | Apache-2.0 | 2.6% word errors against 3.3% for stock large-v3 |
 | English | `distil-whisper/distil-large-v3.5-ggml` | `distil-whisper/distil-large-v3.5` | MIT | on par with large-v3 on short clips, better on meetings, slightly worse than turbo on long recordings |
+| Persian | `givia/whisper-large-v3-turbo-persian` | the same | CC-BY-4.0 | 11.2% word errors against 19.6% for stock turbo on an unseen 70-minute podcast, 6.4% against 17.3% for stock large-v3 on FLEURS |
 
-German takes the author's f16 file. Universal Compact and
+Persian was downloaded on 2026-10-30, its checksum verified, and run here on
+30 clips of the FLEURS `fa_ir` test split, which the model did not train on.
+On the 16 clips that both models transcribed it made 5.5% word errors against
+18.9% for `large-v3`, in about half the time. The other 14 came out empty with
+either model, because the engine found no stretch of speech in them. `ram_gb` is the German value,
+because the file has the same architecture and size.
+
+German and Persian take the author's f16 file. Universal Compact and
 Universal Small are
 `ggerganov/whisper.cpp`'s `ggml-large-v3-turbo-q8_0.bin` and
 `ggml-small-q8_0.bin`. They are pinned by size and SHA-256 from Hugging Face's

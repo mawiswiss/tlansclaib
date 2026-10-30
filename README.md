@@ -124,7 +124,8 @@ pnpm tauri dev
 - Thai models by [biodatlab](https://huggingface.co/biodatlab), Mahidol University.
 - Swiss German model by [gcoli](https://huggingface.co/gcoli), German by
   [primeline](https://huggingface.co/primeline), English by
-  [distil-whisper](https://huggingface.co/distil-whisper).
+  [distil-whisper](https://huggingface.co/distil-whisper), Persian by
+  [givia](https://huggingface.co/givia).
 - Basic speaker detection, in the Minimal setup:
   [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) by the k2-fsa team
   (Apache 2.0) on [ONNX Runtime](https://onnxruntime.ai) (MIT), with

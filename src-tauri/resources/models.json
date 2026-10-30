@@ -69,6 +69,23 @@
     "license": "MIT"
   },
   {
+    "id": "persian",
+    "name": "Persian",
+    "languages": ["fa"],
+    "setups": ["essential", "precise"],
+    "recommended": "Persian recordings, with about half the word errors of the models for all languages",
+    "file": "ggml-persian-v3-turbo.bin",
+    "size_bytes": 1624555275,
+    "sha256": "743c4030ecb1a1d56ae64ced7a1e20ae8e51b38a87e218e995ee590fa556fff1",
+    "ram_gb": 2.2,
+    "quality": 1,
+    "url": "https://huggingface.co/givia/whisper-large-v3-turbo-persian/resolve/main/ggml-persian-v3-turbo.bin",
+    "architecture": "large-v3-turbo",
+    "quantization": "f16",
+    "source": "https://huggingface.co/givia/whisper-large-v3-turbo-persian",
+    "license": "CC-BY-4.0"
+  },
+  {
     "id": "english-turbo",
     "name": "English Turbo",
     "languages": ["en"],
