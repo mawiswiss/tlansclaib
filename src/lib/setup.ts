@@ -216,13 +216,20 @@ function variants(models: ModelStatus[], languages: Language[], only: (m: ModelS
   return options.sort((a, b) => a.label.localeCompare(b.label));
 }
 
+export const DETECTED = "Any language (detected)";
+
+function withEveryLanguage(own: LanguageOption[], languages: Language[]): LanguageOption[] {
+  const others = languages.filter((l) => !own.some((o) => o.value === l.code)).map((l) => ({ value: l.code, label: nameOf(l.code, languages) }));
+  return [...own, ...others].sort((a, b) => a.label.localeCompare(b.label));
+}
+
 export function setupLanguages(models: ModelStatus[], languages: Language[]): LanguageOption[] {
   const own = variants(models, languages, (m) => (m.setups ?? []).length > 0);
-  return [{ value: SEVERAL.code, label: "Several languages" }, ...own];
+  return [{ value: SEVERAL.code, label: "Several languages" }, ...withEveryLanguage(own, languages)];
 }
 
 export function runLanguages(models: ModelStatus[], languages: Language[]): LanguageOption[] {
-  return [{ value: "auto", label: "Auto-detect" }, ...variants(models, languages, () => true)];
+  return [{ value: "auto", label: DETECTED }, ...withEveryLanguage(variants(models, languages, () => true), languages)];
 }
 
 export function withSelectedLanguage(options: LanguageOption[], key: string, languages: Language[]): LanguageOption[] {

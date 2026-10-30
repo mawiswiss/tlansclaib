@@ -316,9 +316,9 @@ top bar picks one.
   little free disk (`guard::can_update`). `docs/release.md` covers signing and
   `latest.json`.
 - The settings row holds recording language, model and speakers in aligned
-  cells. Its language menu offers Auto-detect, which uses a multilingual model,
-  plus the languages with a dedicated catalog model. A previously selected
-  language stays visible. A variant such as Swiss German runs the engine with
+  cells. Its language menu offers "Any language (detected)", then every
+  Whisper language and every variant with a catalog model, such as Swiss
+  German. A previously selected language stays visible. A variant such as Swiss German runs the engine with
   `de`. The model starts at "Automatic", which names the chosen model's
   language in small text: the setup's model for the language when installed, otherwise
   one for all languages (`modelFor` in `lib/setup.ts`). It steps up to an
@@ -547,9 +547,9 @@ start again as "Speaker 1" and so on.
   three setups. It is the first-start screen and the content of the Models
   dialog, which dims the window behind it. The whole dialog scrolls, its
   header too, so a short window never hides its top. The language menu offers
-  Several languages and languages with dedicated setup models. Several
-  languages downloads a multilingual model and detects the recording language
-  during a run.
+  Several languages, then every Whisper language and every variant with a
+  setup model. Several languages, or a language without a model of its own,
+  downloads only a multilingual model.
   - Precise: the most accurate results, the biggest models and the better
     speaker detection.
   - Essential: mid-sized models and the better speaker detection.

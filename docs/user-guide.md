@@ -39,8 +39,8 @@ On the first start it asks two things:
 
 - The language you mostly transcribe. Thai, Swiss German and German have
   models of their own, which come along. English in Precise gets a faster
-  model on a computer that is not rated Very fast. "Several languages" takes
-  only the model for all languages.
+  model on a computer that is not rated Very fast. Every other language, and
+  "Several languages", takes only the model for all languages.
 - A setup:
   - Precise: the most accurate results, with the biggest models and the better
     speaker detection. For a computer with a graphics chip and 16 GB RAM.
@@ -136,8 +136,8 @@ until a download is done, and a notice says whether detection works now.
 ## Transcribe
 
 1. Check the recording language in the row below the top bar. Leave it on
-   "Auto-detect", which finds the language in most recordings, and choose one
-   only when Auto-detect picks the wrong one. The model is "Automatic": it
+   "Any language (detected)", which finds the language in most recordings, and
+   choose one only when detection picks the wrong one. The model is "Automatic": it
    takes your setup's model for the language, such as the Swiss German model
    for Swiss German, and otherwise the model for all languages. When a
    better model of the same kind is installed and fits the free memory right

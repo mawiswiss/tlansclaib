@@ -232,13 +232,12 @@ describe("recommend", () => {
 describe("languages", () => {
   const whisper = [{ code: "en", name: "english" }, { code: "de", name: "german" }, { code: "th", name: "thai" }, { code: "it", name: "italian" }];
 
-  it("offers several languages or a language with its own setup model", () => {
-    expect(setupLanguages(models, whisper).map((o) => o.label)).toEqual(["Several languages", "English", "German", "Swiss German", "Thai"]);
+  it("offers several languages, then every language once, its variants included", () => {
+    expect(setupLanguages(models, whisper).map((o) => o.label)).toEqual(["Several languages", "English", "German", "Italian", "Swiss German", "Thai"]);
   });
 
-  it("offers Auto-detect and dedicated model languages without listing every engine language", () => {
-    expect(runLanguages(models, whisper).map((o) => o.value)).toEqual(["auto", "en", "de", "de|Swiss German", "th"]);
-    expect(runLanguages(with_(["swiss-german"]), whisper).map((o) => o.value)).not.toContain("it");
+  it("offers detection first, then every language once, its variants included", () => {
+    expect(runLanguages(models, whisper).map((o) => o.value)).toEqual(["auto", "en", "de", "it", "de|Swiss German", "th"]);
   });
 
   it("keeps an unlisted saved language visible", () => {

@@ -30,7 +30,7 @@ import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from
 import { parseTranscript, withTimes, type Transcript } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
 import { quietCheckAllowed, RECHECK_MS, releasePage, topBarLabel, type UpdateState } from "./lib/update";
-import { agreed, betterDownload, DETECTION_IDS, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_DETECTION, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, setupChanges, sizeOf, smallerModel, wanted, wantedBackend, withSelectedLanguage, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
+import { agreed, betterDownload, DETECTED, DETECTION_IDS, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_DETECTION, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, setupChanges, sizeOf, smallerModel, wanted, wantedBackend, withSelectedLanguage, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
 import type { DiskSpace, DownloadProgress, FileKind, Gpu, HistoryEntry, Language, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "./lib/types";
 
 function backendOf(id: string): SpeakerBackend | undefined {
@@ -148,7 +148,7 @@ export default function App() {
   const speakerBackend = wantedBackend(setup, detections);
   const firstRun = modelsLoaded && !setup && installed.length === 0;
   const languageOptions = useMemo(
-    () => (FEATURES.lite ? [{ value: "auto", label: "Auto-detect" }, ...languages.map((l) => ({ value: l.code, label: capitalize(l.name) })).sort((a, b) => a.label.localeCompare(b.label))] : runLanguages(models, languages)),
+    () => (FEATURES.lite ? [{ value: "auto", label: DETECTED }, ...languages.map((l) => ({ value: l.code, label: capitalize(l.name) })).sort((a, b) => a.label.localeCompare(b.label))] : runLanguages(models, languages)),
     [models, languages],
   );
   const running = run.status === "running";
@@ -1430,12 +1430,12 @@ export default function App() {
               waiting
                 ? [
                     { label: "Language model", value: waiting.model.name },
-                    { label: "Recording language", value: waiting.language.code === "auto" ? "Auto-detect" : languageLabel(languageKey(waiting.language)) },
+                    { label: "Recording language", value: waiting.language.code === "auto" ? DETECTED : languageLabel(languageKey(waiting.language)) },
                     ...(FEATURES.speakers ? speakerChips(waiting.speakers ? waiting.backend : null, waiting.speakers ?? "off", waiting.precision) : limitChip),
                   ]
                 : [
                     { label: "Language model", value: model?.name ?? "" },
-                    { label: "Recording language", value: locked ? languageLabel(locked) : settings.language === "auto" ? "Auto-detect" : languageLabel(settings.language) },
+                    { label: "Recording language", value: locked ? languageLabel(locked) : settings.language === "auto" ? DETECTED : languageLabel(settings.language) },
                     ...(FEATURES.speakers ? speakerChips(speakerBackend, settings.speakers, settings.speakerPrecision) : limitChip),
                   ]
             }
