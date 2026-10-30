@@ -13,8 +13,8 @@ export const DETECTION_IDS: Record<SpeakerBackend, string> = { sherpa: "speaker-
 
 export type SetupLanguage = { code: string; variant: string | null };
 
-/** `accepted` holds the members the user agreed to download. Without it, every member counts. */
-export type Setup = { mode: Mode; language: SetupLanguage; added: string[]; removed: string[]; accepted?: string[] };
+/** `accepted` holds the members the user agreed to download. Without it, every member counts. `slow`: the computer was rated below Very fast when the setup was applied. */
+export type Setup = { mode: Mode; language: SetupLanguage; added: string[]; removed: string[]; accepted?: string[]; slow?: boolean };
 
 export const SEVERAL: SetupLanguage = { code: "auto", variant: null };
 
@@ -40,13 +40,13 @@ export function speaks(m: ModelStatus, language: SetupLanguage): boolean {
   return language.code !== "auto" && m.languages.includes(language.code) && (m.language_name ?? null) === language.variant;
 }
 
-export function inMode(m: ModelStatus, mode: Mode, language: SetupLanguage): boolean {
-  return !m.custom && (m.setups ?? []).includes(mode) && (multilingual(m) || speaks(m, language));
+export function inMode(m: ModelStatus, mode: Mode, language: SetupLanguage, slow = false): boolean {
+  return !m.custom && (m.setups ?? []).includes(mode) && (multilingual(m) || speaks(m, language)) && (!m.faster || slow);
 }
 
 /** Model and speaker detection ids the setup asks for. */
 export function wanted(models: ModelStatus[], setup: Setup): string[] {
-  const ids = models.filter((m) => inMode(m, setup.mode, setup.language)).map((m) => m.id);
+  const ids = models.filter((m) => inMode(m, setup.mode, setup.language, setup.slow)).map((m) => m.id);
   const detection = MODE_DETECTION[setup.mode];
   if (detection) ids.push(DETECTION_IDS[detection]);
   for (const id of setup.added) if (!ids.includes(id)) ids.push(id);
@@ -100,7 +100,7 @@ export function modelFor(models: ModelStatus[], setup: Setup | null, language: S
 export function betterDownload(models: ModelStatus[], setup: Setup | null, language: SetupLanguage, resources: Resources | null): ModelStatus | null {
   const current = modelFor(models, setup, language, "auto", resources);
   if (!current) return null;
-  const offered = models.filter((m) => !m.installed && !m.too_heavy && m.url);
+  const offered = models.filter((m) => !m.installed && !m.too_heavy && !m.faster && m.url);
   const own = offered.filter((m) => speaks(m, language));
   if (speaks(current, language)) return better(own, current, resources);
   return better(own, null, resources) ?? better(offered.filter(multilingual), current, resources);

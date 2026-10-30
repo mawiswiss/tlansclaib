@@ -12,6 +12,7 @@ export type ModelStatus = {
   sha256: string | null;
   ram_gb: number;
   quality?: number | null;
+  faster?: boolean;
   url: string | null;
   architecture: string | null;
   quantization: string | null;

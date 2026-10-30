@@ -19,7 +19,7 @@ own ONNX or GGUF files. Every model file is checked before use, see below.
 | field | meaning |
 |---|---|
 | `id` | stable key, also the saved selection |
-| `name` | the name on the card, in menus, messages and the history: the language and a tier, Small, Compact or Best, such as "Thai Compact", or the language alone where it has one model. "Universal" stands for all languages |
+| `name` | the name on the card, in menus, messages and the history: the language and a tier, Small, Compact or Best, such as "Thai Compact", or the language alone where it has one model. Compact makes a few more mistakes than Best for less memory and a smaller download. "Turbo" is a model as accurate as the one it stands in for, only faster. Never "Fast", which could mean the speed of the audio. "Universal" stands for all languages |
 | `recommended` | the description on the card, what the model is for |
 | `setups` | the setup modes the model belongs to: `minimal`, `essential`, `precise`. A single-language model joins when its language is chosen |
 | `languages` | `["all"]` for the stock models, `["th"]` locks the language to Thai |
@@ -28,6 +28,7 @@ own ONNX or GGUF files. Every model file is checked before use, see below.
 | `size_bytes`, `sha256` | checked after a download and when a file is added |
 | `ram_gb` | memory the model needs while running, the guard adds 1 GB on top |
 | `quality` | rank among the models of the same language, higher is better. Automatic takes a higher one that is installed and fits the free memory |
+| `faster` | `true` for a model as accurate as the setup's model for all languages, only faster. Its setup takes it only on a computer that is not rated Very fast, and the app never suggests it as more accurate |
 | `url` | download address, or `null` for a file the user adds |
 | `architecture`, `quantization`, `source`, `license` | shown in the panel |
 
@@ -67,15 +68,20 @@ older version lists as a custom model.
 | Thai | `thai-best`, 1.66 GB | `thai-fast`, 874 MB | none |
 | German | `german-full`, 1.62 GB | `german-full`, 1.62 GB | none |
 | Swiss German | `swiss-german`, 874 MB | `swiss-german`, 874 MB | none |
-| English | `english-fast`, 1.52 GB | none | none |
+| English | `english-fast`, 1.52 GB, on a computer not rated Very fast | none | none |
 
-English in Precise: distil-large-v3.5 averages 7.10% word errors on short
-clips against 7.14% for large-v3, and 14.6% against 16.0% on the AMI meetings,
-on its authors' tests. The engine feeds it short lines. In Essential it would
-add a second large model next to a turbo q8_0 that is already near full
-precision, so English stays on the model for all languages. German is
-different: there Essential only trades the q5_0 file for the f16 file of the
-same model.
+English Turbo is there for speed, not accuracy. distil-large-v3.5 averages
+7.10% word errors on short clips against 7.14% for large-v3, and 14.6% against
+16.0% on the AMI meetings, on its authors' tests, with 2 decoder layers
+instead of 32. The engine feeds it short lines. Precise takes it only when the
+computer's speed score is below 80 when the setup is applied (`fit.ts`). Before
+any transcription that means a computer without a usable graphics chip or with
+less than 10 GB RAM on a Mac, 12 GB on Windows. After one, it means recent
+transcriptions ran at less than eight times the speed of the recording. In
+Essential it would add a second large model next to a turbo q8_0 that shares
+its encoder and is about as fast, so English stays on the model for all
+languages there. German is different: there Essential only
+trades the q5_0 file for the f16 file of the same model.
 
 French has no model of its own. `bofenghuang/whisper-large-v3-french` was
 listed until 0.3.3, but it was never compared against the models for all

@@ -49,6 +49,9 @@ pub struct ModelEntry {
     /// Ranks models of the same language, higher is better. Missing in an override keeps the bundled value.
     #[serde(default)]
     pub quality: Option<u32>,
+    /// As accurate as the setup's model for all languages, only faster. A setup takes it only on a slower computer.
+    #[serde(default)]
+    pub faster: bool,
     #[serde(default)]
     pub url: Option<String>,
     #[serde(default)]
@@ -407,6 +410,7 @@ fn linked_entry(link: &Link, registry: &[ModelEntry]) -> ModelStatus {
                 .map(|i| estimated_ram(size, &i.architecture, &i.quantization, registry))
                 .unwrap_or(0.0),
             quality: None,
+            faster: false,
             url: None,
             architecture: info.as_ref().map(|i| i.architecture.clone()),
             quantization: info.as_ref().map(|i| i.quantization.clone()),
@@ -439,6 +443,7 @@ fn custom_entry(path: &Path, registry: &[ModelEntry]) -> Option<ModelStatus> {
             sha256: None,
             ram_gb: estimated_ram(size, &info.architecture, &info.quantization, registry),
             quality: None,
+            faster: false,
             url: None,
             architecture: Some(info.architecture.clone()),
             quantization: Some(info.quantization.clone()),

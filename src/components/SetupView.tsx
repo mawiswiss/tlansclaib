@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { downloadFit, downloadSeconds, type Score } from "../lib/fit";
+import { downloadFit, downloadSeconds, VERY_FAST, type Score } from "../lib/fit";
 import { bytes, wholeGb } from "../lib/format";
 import { defaultModel, languageKey, missingBytes, MODE_DETECTION, MODE_NAMES, MODES, parseLanguage, recommend, SEVERAL, setupLanguages, wanted, withSelectedLanguage, type Mode, type Setup, type SetupLanguage } from "../lib/setup";
 import type { DiskSpace, Gpu, Language, ModelStatus, SpeakerDetection, Stats } from "../lib/types";
@@ -53,9 +53,9 @@ function Wave({ mode }: { mode: Mode }) {
   );
 }
 
-function draft(mode: Mode, language: SetupLanguage, current: Setup | null): Setup {
+function draft(mode: Mode, language: SetupLanguage, current: Setup | null, score: Score | null): Setup {
   const same = current && current.mode === mode && languageKey(current.language) === languageKey(language);
-  return same ? current : { mode, language, added: current?.added ?? [], removed: [] };
+  return same ? current : { mode, language, added: current?.added ?? [], removed: [], slow: score !== null && score.percent < VERY_FAST };
 }
 
 function timeText(size: number, speed: Props["speed"]): string | null {
@@ -84,16 +84,16 @@ export function SetupView(props: Props) {
   const [languageValue, setLanguageValue] = useState(languageKey(setup?.language ?? SEVERAL));
   const [clicked, setClicked] = useState<Mode | null>(null);
   const language = parseLanguage(languageValue);
-  const sizes = Object.fromEntries(MODES.map((mode) => [mode, missingBytes(wanted(models, draft(mode, language, setup)), models, detections)])) as Record<Mode, number>;
+  const sizes = Object.fromEntries(MODES.map((mode) => [mode, missingBytes(wanted(models, draft(mode, language, setup, props.score)), models, detections)])) as Record<Mode, number>;
   const precise = models.find((m) => (m.setups ?? []).includes("precise") && m.languages.includes("all"));
-  const badge = recommend({ speed, gpu, memoryTotal: stats?.memory_total ?? null, preciseBytes: sizes.precise, preciseRamGb: precise?.ram_gb ?? 0, preciseModel: defaultModel(models, draft("precise", language, setup)) });
+  const badge = recommend({ speed, gpu, memoryTotal: stats?.memory_total ?? null, preciseBytes: sizes.precise, preciseRamGb: precise?.ram_gb ?? 0, preciseModel: defaultModel(models, draft("precise", language, setup, props.score)) });
   const selected = clicked ?? setup?.mode ?? badge;
-  const next = selected ? draft(selected, language, setup) : null;
+  const next = selected ? draft(selected, language, setup, props.score) : null;
   const unchanged = next !== null && next === setup;
   const offline = speed === "offline";
   const blocked = !next || props.busy || unchanged || (offline && sizes[next.mode] > 0);
   const memory = (mode: Mode) => {
-    const ids = wanted(models, draft(mode, language, setup));
+    const ids = wanted(models, draft(mode, language, setup, props.score));
     return Math.max(0, ...models.filter((m) => ids.includes(m.id)).map((m) => m.ram_gb));
   };
   const computer = [

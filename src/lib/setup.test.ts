@@ -17,6 +17,7 @@ const models = [
   model("thai-best", ["th"], ["precise"], { quality: 2 }),
   model("german-fast", ["de"], ["essential"], { quality: 1 }),
   model("swiss-german", ["de"], ["essential", "precise"], { language_name: "Swiss German", quality: 1 }),
+  model("english-turbo", ["en"], ["precise"], { faster: true, quality: 1 }),
   model("turbo-q8", ["all"], ["essential"], { quality: 2 }),
   model("large-v3", ["all"], ["precise"], { size_bytes: 3 * GIB, ram_gb: 4, quality: 5 }),
   model("tiny", ["all"], ["minimal"], { quality: 1 }),
@@ -47,6 +48,12 @@ describe("wanted", () => {
     expect(wanted(models, setup("essential", "de"))).toEqual(["german-fast", "turbo-q8", "speaker-detection-nemotron"]);
     expect(wanted(models, setup("precise", "de|Swiss German"))).toEqual(["swiss-german", "large-v3", "speaker-detection-nemotron"]);
     expect(wanted(models, setup("precise", "de"))).toEqual(["large-v3", "speaker-detection-nemotron"]);
+  });
+
+  it("takes a faster model only on a slow computer", () => {
+    expect(wanted(models, setup("precise", "en", { slow: true }))).toEqual(["english-turbo", "large-v3", "speaker-detection-nemotron"]);
+    expect(wanted(models, setup("precise", "en"))).toEqual(["large-v3", "speaker-detection-nemotron"]);
+    expect(wanted(models, setup("essential", "en", { slow: true }))).toEqual(["turbo-q8", "speaker-detection-nemotron"]);
   });
 
   it("keeps what a technical user added or removed by hand", () => {
@@ -150,6 +157,11 @@ describe("betterDownload", () => {
     expect(betterDownload(with_(["turbo-q8"]), setup("essential", "th"), parseLanguage("th"), plenty)?.id).toBe("thai-best");
     expect(betterDownload(with_(["thai-fast", "turbo-q8"]), setup("essential", "th"), parseLanguage("th"), plenty)?.id).toBe("thai-best");
   });
+
+  it("never offers a faster model as a more accurate one", () => {
+    expect(betterDownload(with_(["large-v3"]), setup("precise", "en"), parseLanguage("en"), plenty)).toBeNull();
+    expect(betterDownload(with_(["turbo-q8"]), setup("essential", "en"), parseLanguage("en"), plenty)?.id).toBe("large-v3");
+  });
 });
 
 describe("downloads", () => {
@@ -221,11 +233,11 @@ describe("languages", () => {
   const whisper = [{ code: "en", name: "english" }, { code: "de", name: "german" }, { code: "th", name: "thai" }, { code: "it", name: "italian" }];
 
   it("offers several languages or a language with its own setup model", () => {
-    expect(setupLanguages(models, whisper).map((o) => o.label)).toEqual(["Several languages", "German", "Swiss German", "Thai"]);
+    expect(setupLanguages(models, whisper).map((o) => o.label)).toEqual(["Several languages", "English", "German", "Swiss German", "Thai"]);
   });
 
   it("offers Auto-detect and dedicated model languages without listing every engine language", () => {
-    expect(runLanguages(models, whisper).map((o) => o.value)).toEqual(["auto", "de", "de|Swiss German", "th"]);
+    expect(runLanguages(models, whisper).map((o) => o.value)).toEqual(["auto", "en", "de", "de|Swiss German", "th"]);
     expect(runLanguages(with_(["swiss-german"]), whisper).map((o) => o.value)).not.toContain("it");
   });
 

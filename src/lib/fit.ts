@@ -33,8 +33,10 @@ export function failedFit(reason: string): Rating {
 
 export type Score = { percent: number; level: Level; word: string; bars: number; speed: number | null; basis: string };
 
+export const VERY_FAST = 80;
+
 function tier(percent: number): { word: string; bars: number } {
-  if (percent >= 80) return { word: "Very fast", bars: 5 };
+  if (percent >= VERY_FAST) return { word: "Very fast", bars: 5 };
   if (percent >= 65) return { word: "Fast", bars: 4 };
   if (percent >= 50) return { word: "Fast", bars: 3 };
   if (percent >= 20) return { word: "Steady", bars: 2 };

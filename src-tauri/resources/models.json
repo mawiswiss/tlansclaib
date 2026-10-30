@@ -70,10 +70,11 @@
   },
   {
     "id": "english-fast",
-    "name": "English",
+    "name": "English Turbo",
     "languages": ["en"],
     "setups": ["precise"],
-    "recommended": "English meetings, as accurate as the large model and faster",
+    "faster": true,
+    "recommended": "English only. As accurate as Universal Best and several times faster. Precise takes it on a computer that is not very fast.",
     "file": "ggml-distil-large-v3.5.bin",
     "size_bytes": 1519521155,
     "sha256": "ec2498919b498c5f6b00041adb45650124b3cd9f26f545fffa8f5d11c28dcf26",
