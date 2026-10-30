@@ -29,6 +29,7 @@ export function Tooltip({ content, children, className, oneLine }: Props) {
     <span
       ref={anchor}
       className={`tip-anchor${className ? ` ${className}` : ""}`}
+      title=""
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={(e) => setFocused(e.target.matches(":focus-visible"))}
