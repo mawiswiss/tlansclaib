@@ -359,6 +359,41 @@ button.icon-button:hover:not(:disabled) {
   }
 }
 
+@media (max-width: 640px) {
+  .topbar {
+    gap: 2px;
+    padding: 0 8px 0 12px;
+  }
+
+  .topbar > * {
+    flex-shrink: 0;
+  }
+
+  .topbar .brand {
+    gap: 8px;
+  }
+
+  .topbar .tagline,
+  .topbar .tool-label {
+    display: none;
+  }
+
+  .topbar button.tool {
+    width: 34px;
+    padding: 0;
+  }
+
+  .topbar .segmented {
+    margin-left: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar .segmented {
+    display: none;
+  }
+}
+
 button.tool {
   color: var(--muted);
 }

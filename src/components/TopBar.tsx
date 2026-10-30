@@ -40,9 +40,9 @@ export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbo
       </div>
       <span className="spacer" />
       {FEATURES.lite && onDesktop && (
-        <button type="button" className="tool update-tool" onClick={onDesktop}>
+        <button type="button" className="tool update-tool" onClick={onDesktop} aria-label="Desktop app">
           <Monitor />
-          Desktop app
+          <span className="tool-label">Desktop app</span>
         </button>
       )}
       {update && (
@@ -51,13 +51,13 @@ export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbo
           {update}
         </button>
       )}
-      <button type="button" className={`tool${historyOpen ? " active" : ""}`} onClick={onHistory} aria-expanded={historyOpen}>
+      <button type="button" className={`tool${historyOpen ? " active" : ""}`} onClick={onHistory} aria-expanded={historyOpen} aria-label="History">
         <Clock />
-        History
+        <span className="tool-label">History</span>
       </button>
-      <button type="button" className="tool" onClick={onModels} disabled={busy}>
+      <button type="button" className="tool" onClick={onModels} disabled={busy} aria-label="Models">
         <Cube />
-        Models
+        <span className="tool-label">Models</span>
       </button>
       <div className="segmented" role="group" aria-label="Appearance">
         {THEMES.map(({ theme: t, title, icon: I }) => (
