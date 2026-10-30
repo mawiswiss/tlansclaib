@@ -13,14 +13,12 @@ precision of the weights, nothing else.
 | `ggml-thai-fast-q8_0.bin` | [distill-whisper-th-large-v3](https://huggingface.co/biodatlab/distill-whisper-th-large-v3) | biodatlab, Mahidol University | MIT |
 | `ggml-thai-best-q8_0.bin` | [whisper-th-large-v3-combined](https://huggingface.co/biodatlab/whisper-th-large-v3-combined) | biodatlab, Mahidol University | Apache-2.0 |
 | `ggml-swiss-german-q8_0.bin` | [whisper-large-v3-turbo-swiss-german-mit](https://huggingface.co/gcoli/whisper-large-v3-turbo-swiss-german-mit) | gcoli | MIT |
-| `ggml-french-large-v3-q8_0.bin` | [whisper-large-v3-french](https://huggingface.co/bofenghuang/whisper-large-v3-french) | bofenghuang | MIT |
 
 | File | Size | SHA-256 |
 |---|---|---|
 | `ggml-thai-fast-q8_0.bin` | 874,188,075 bytes | `e0894592a0a90014a22dd7675c9a001e7f9b8fa58c7fcef547e1ea9f45207042` |
 | `ggml-thai-best-q8_0.bin` | 1,656,538,283 bytes | `a6a149bd28cfd240d3e7cb54253081f76ea360c169abf85cae3f13d179c35464` |
 | `ggml-swiss-german-q8_0.bin` | 874,188,075 bytes | `89ec3580295d070428ba28e9bbeb973281186e740dae3eda5cd28b7942013bbf` |
-| `ggml-french-large-v3-q8_0.bin` | 1,656,538,283 bytes | `a7dd71cbc635dd84ac0f9de34294cf6f9a6937eae5690b314121852f62db5448` |
 
 The models build on [Whisper](https://github.com/openai/whisper) by OpenAI
 (MIT) and are converted with [whisper.cpp](https://github.com/ggml-org/whisper.cpp)

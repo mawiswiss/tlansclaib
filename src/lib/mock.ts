@@ -73,13 +73,12 @@ export function mockBackend(): Backend {
     model("german-full", "German", ["de"], ["essential", "precise"], "German recordings, more accurate than the stock large model", 1624555275, 2.2, "large-v3-turbo", "f16", false),
     { ...model("swiss-german", "Swiss German", ["de"], ["essential", "precise"], "Swiss German speech, written as Standard German", 874188075, 1.3, "large-v3-turbo", "q8_0", false), language_name: "Swiss German" },
     model("english-fast", "English", ["en"], ["precise"], "English meetings, as accurate as the large model and faster", 1519521155, 2.1, "large-v3-distil-2", "f16", false),
-    model("french-q8_0", "French Compact", ["fr"], ["essential"], "French recordings. Half the size of French Best and nearly as accurate.", 1656538283, 2.4, "large-v3", "q8_0", false),
     model("large-v3-turbo-q8_0", "Universal Compact", ["all"], ["essential"], "Most recordings in English and other languages.", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh),
     model("large-v3", "Universal Best", ["all"], ["precise"], "The largest and most accurate model for all languages, for a fast computer with plenty of memory.", 3095033483, 4.0, "large-v3", "f16", false),
     model("small-q8_0", "Universal Small", ["all"], ["minimal"], "Weak computers and clear audio, noticeably more mistakes.", 264464607, 0.7, "small", "q8_0", false),
   ];
   const ranks: Record<string, number> = {
-    "thai-fast": 1, "thai-best": 2, "german-full": 2, "swiss-german": 1, "english-fast": 1, "french-q8_0": 2,
+    "thai-fast": 1, "thai-best": 2, "german-full": 2, "swiss-german": 1, "english-fast": 1,
     "large-v3-turbo-q8_0": 3, "large-v3": 6, "small-q8_0": 1,
   };
   for (const m of models) m.quality = ranks[m.id] ?? null;

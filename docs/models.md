@@ -49,12 +49,11 @@ model for the chosen language when it has one. Precise takes full precision
 wherever the author publishes it, because q5_0 is audibly worse on difficult
 audio (see below) and there is no official large-v3 q8_0. Essential avoids
 q5_0: German takes the full-precision turbo, 2.2 GB RAM, which fits an 8 GB
-computer. French takes a q8_0 converted here, 2.4 GB RAM, because its author
-publishes only q5_0 and the full large-v3 at 4 GB RAM.
+computer.
 
 The list holds only setup members, so there is one model per trade-off. Left
 out: `tiny` and `base`, whose output is not usable, the q5_0 and f16 turbo and
-the q5_0 large-v3 for all languages, the q5_0 German and French files, and
+the q5_0 large-v3 for all languages, the q5_0 German file, and
 Typhoon for Thai, because a listed model matches or beats each of them.
 Minimal takes `small-q8_0`: the turbo has the full large-v3 encoder and is
 several times slower on a weak CPU, and on a low-end test computer `small` was
@@ -69,7 +68,6 @@ older version lists as a custom model.
 | German | `german-full`, 1.62 GB | `german-full`, 1.62 GB | none |
 | Swiss German | `swiss-german`, 874 MB | `swiss-german`, 874 MB | none |
 | English | `english-fast`, 1.52 GB | none | none |
-| French | `french-full`, 3.10 GB | `french-q8_0`, 1.66 GB | none |
 
 English in Precise: distil-large-v3.5 averages 7.10% word errors on short
 clips against 7.14% for large-v3, and 14.6% against 16.0% on the AMI meetings,
@@ -78,6 +76,11 @@ add a second large model next to a turbo q8_0 that is already near full
 precision, so English stays on the model for all languages. German is
 different: there Essential only trades the q5_0 file for the f16 file of the
 same model.
+
+French has no model of its own. `bofenghuang/whisper-large-v3-french` was
+listed until 0.3.3, but it was never compared against the models for all
+languages here, and in Essential it replaced the turbo with a slower full
+large-v3 decoder.
 
 To replace a model, add an entry with a new `id` and `file`, move the
 `setups` of the old entry to it, and keep the old entry without `setups`. The
@@ -115,7 +118,6 @@ licences ask for.
 | Thai Compact | `ggml-thai-fast-q8_0.bin` | 874 MB | `e0894592a0a90014a22dd7675c9a001e7f9b8fa58c7fcef547e1ea9f45207042` |
 | Thai Best | `ggml-thai-best-q8_0.bin` | 1.66 GB | `a6a149bd28cfd240d3e7cb54253081f76ea360c169abf85cae3f13d179c35464` |
 | Swiss German | `ggml-swiss-german-q8_0.bin` | 874 MB | `89ec3580295d070428ba28e9bbeb973281186e740dae3eda5cd28b7942013bbf` |
-| French Compact | `ggml-french-large-v3-q8_0.bin` | 1.66 GB | `a7dd71cbc635dd84ac0f9de34294cf6f9a6937eae5690b314121852f62db5448` |
 
 Thai Compact is `biodatlab/distill-whisper-th-large-v3` (MIT), a fine-tune of
 large-v3-turbo. Thai Best is `biodatlab/whisper-th-large-v3-combined`
@@ -125,12 +127,7 @@ MIT data), a large-v3-turbo fine-tune that writes Swiss German speech as
 Standard German. Its card reports 25.9% word errors on a held-out Swiss German
 test set, against 28.5% for stock turbo and 26.3% for stock large-v3. The
 Swiss German models built on SwissDial data are CC BY-NC, for non-commercial
-use only, and left out on purpose. French Compact is
-`bofenghuang/whisper-large-v3-french` (MIT), whose author publishes whisper.cpp
-files only as q5_0 and f16. On a four-minute synthetic French clip it peaked at
-2.2 GB on the GPU and 2.4 GB on the CPU, like Thai Best, and wrote
-the same words as the q5_0 file, with different punctuation. A recording of
-difficult audio was not compared.
+use only, and left out on purpose.
 
 ## Single-language models to download
 
@@ -143,9 +140,8 @@ in its language.
 |---|---|---|---|---|
 | German | `cstr/whisper-large-v3-turbo-german-ggml` | `primeline/whisper-large-v3-turbo-german` | Apache-2.0 | 2.6% word errors against 3.3% for stock large-v3 |
 | English | `distil-whisper/distil-large-v3.5-ggml` | `distil-whisper/distil-large-v3.5` | MIT | on par with large-v3 on short clips, better on meetings, slightly worse than turbo on long recordings |
-| French | `bofenghuang/whisper-large-v3-french` | the same | MIT | ahead of stock large-v3 on VoxPopuli and in-house sets, equal on MLS |
 
-German takes the author's f16 file, French Best too. Universal Compact and
+German takes the author's f16 file. Universal Compact and
 Universal Small are
 `ggerganov/whisper.cpp`'s `ggml-large-v3-turbo-q8_0.bin` and
 `ggml-small-q8_0.bin`. They are pinned by size and SHA-256 from Hugging Face's

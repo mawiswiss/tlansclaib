@@ -69,8 +69,8 @@ tracking, nothing to pay.
 Whisper's general models cover about 100 languages at once. For some of them
 that shows. Thai is one. Swiss German isn't even on the list. tlansclaib
 offers models trained on exactly those languages: Thai Compact and Thai Best
-from Mahidol University, Swiss German that writes Standard German, and dedicated models for German, English
-and French. Every download is checked against its checksum before the app uses
+from Mahidol University, Swiss German that writes Standard German, and dedicated models for German and
+English. Every download is checked against its checksum before the app uses
 it.
 
 Calls get their speakers right. A call recorded with one track per person
@@ -124,8 +124,7 @@ pnpm tauri dev
 - Thai models by [biodatlab](https://huggingface.co/biodatlab), Mahidol University.
 - Swiss German model by [gcoli](https://huggingface.co/gcoli), German by
   [primeline](https://huggingface.co/primeline), English by
-  [distil-whisper](https://huggingface.co/distil-whisper), French by
-  [bofenghuang](https://huggingface.co/bofenghuang).
+  [distil-whisper](https://huggingface.co/distil-whisper).
 - Basic speaker detection, in the Minimal setup:
   [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) by the k2-fsa team
   (Apache 2.0) on [ONNX Runtime](https://onnxruntime.ai) (MIT), with

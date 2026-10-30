@@ -31,7 +31,7 @@ const LIST = FEATURES.lite
     ]
   : [
   "Runs on the Apple GPU or the processor",
-  "About 100 languages, with special models for Thai, Swiss German, German, English and French",
+  "About 100 languages, with special models for Thai, Swiss German and German",
   "Timecodes on or off, export text or subtitles when you want",
   "A history of every transcript",
   "Stops before the computer runs out of RAM",

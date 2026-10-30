@@ -123,14 +123,14 @@ from the conversion and the release notes that carry the attribution, and it
 is never the latest release:
 
 ```bash
-gh release create models-v1 --repo mawiswiss/tlansclaib --latest=false --title "Speech models" --notes-file docs/model-release.md ggml-thai-fast-q8_0.bin ggml-thai-best-q8_0.bin ggml-swiss-german-q8_0.bin ggml-french-large-v3-q8_0.bin
+gh release create models-v1 --repo mawiswiss/tlansclaib --latest=false --title "Speech models" --notes-file docs/model-release.md ggml-thai-fast-q8_0.bin ggml-thai-best-q8_0.bin ggml-swiss-german-q8_0.bin
 ```
 
 Each file must stay under 2 GiB, the limit for a release file. A new model
 joins the release, and the notes follow it:
 
 ```bash
-gh release upload models-v1 --repo mawiswiss/tlansclaib ggml-french-large-v3-q8_0.bin
+gh release upload models-v1 --repo mawiswiss/tlansclaib ggml-<name>-q8_0.bin
 gh release edit models-v1 --repo mawiswiss/tlansclaib --notes-file docs/model-release.md
 ```
 
