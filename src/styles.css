@@ -1779,6 +1779,8 @@ button.original-file-link:hover:not(:disabled) {
 
 .notice-card h2 {
   margin-top: 4px;
+  line-height: 1.45;
+  text-wrap: balance;
 }
 
 .notice-card p {
