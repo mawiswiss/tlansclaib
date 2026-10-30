@@ -2762,6 +2762,11 @@ button.primary.destructive:hover:not(:disabled) {
   font-size: 12px;
 }
 
+.sign-off .inline-link {
+  margin-top: 2px;
+  font-size: 12px;
+}
+
 .modal.support .actions {
   justify-content: center;
   margin-top: 10px;

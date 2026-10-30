@@ -1,10 +1,10 @@
-import { AUTHOR } from "../lib/about";
+import { AUTHOR, WEBSITE } from "../lib/about";
 import portrait from "../assets/marc.jpg";
 import { Heart } from "./icons";
 
-type Props = { onSupport: () => void; onClose: () => void };
+type Props = { onSupport: () => void; onOpenUrl: (url: string) => void; onClose: () => void };
 
-export function SupportDialog({ onSupport, onClose }: Props) {
+export function SupportDialog({ onSupport, onOpenUrl, onClose }: Props) {
   return (
     <div className="overlay" onClick={onClose}>
       <section className="modal support" role="dialog" aria-modal="true" aria-labelledby="support-title" onClick={(e) => e.stopPropagation()}>
@@ -19,6 +19,9 @@ export function SupportDialog({ onSupport, onClose }: Props) {
         <div className="sign-off">
           <img className="avatar" src={portrait} alt="" width={88} height={88} />
           <span className="faint">{AUTHOR}, Indie Developer</span>
+          <button type="button" className="inline-link" onClick={() => onOpenUrl(WEBSITE)}>
+            {new URL(WEBSITE).host}
+          </button>
         </div>
         <div className="actions">
           <button type="button" className="primary" onClick={onSupport}>

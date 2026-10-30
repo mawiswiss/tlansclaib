@@ -1676,6 +1676,7 @@ export default function App() {
             support();
             closePanel();
           }}
+          onOpenUrl={openUrl}
           onClose={closePanel}
         />
       )}
