@@ -1,7 +1,6 @@
 use crate::RATE;
 
 const FRAME: usize = RATE / 10;
-const SILENT_DB: f32 = -45.0;
 const PAUSE_FRAMES: usize = 6;
 const BREATH_FRAMES: usize = 2;
 const MARGIN_FRAMES: usize = 2;
@@ -127,7 +126,7 @@ pub fn split_explained(audio: &[f32], min_seconds: f32, max_seconds: f32) -> Vec
             };
             (window, reason)
         })
-        .filter(|(w, _)| w.end > w.start && decibels(rms(&audio[w.start..w.end])) > SILENT_DB)
+        .filter(|(w, _)| audible(&audio[w.start..w.end], threshold))
         .collect()
 }
 
@@ -145,6 +144,10 @@ fn quiet_threshold(level: &[f32]) -> f32 {
         return DIGITAL_SILENCE_DB;
     }
     floor + ((speech - floor) * 0.3).max(3.0)
+}
+
+fn audible(samples: &[f32], threshold: f32) -> bool {
+    samples.chunks(FRAME).any(|frame| decibels(rms(frame)) >= threshold)
 }
 
 fn quiet_runs(level: &[f32], threshold: f32, shortest: usize) -> Vec<(usize, usize)> {
@@ -263,6 +266,13 @@ mod tests {
         assert!((seconds(windows[1].start) - 7.8).abs() < 0.15, "{windows:?}");
         assert!((seconds(windows[1].end) - 17.2).abs() < 0.15, "{windows:?}");
         assert_eq!(windows[2].end, audio.len());
+    }
+
+    #[test]
+    fn a_quiet_recording_is_cut_like_a_loud_one() {
+        let loud = [tone(7.0), silence(1.0), tone(9.0), silence(1.0), tone(6.0)].concat();
+        let quiet: Vec<f32> = loud.iter().map(|s| s * 0.01).collect();
+        assert_eq!(split(&quiet, 5.0, 23.0), split(&loud, 5.0, 23.0));
     }
 
     #[test]

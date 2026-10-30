@@ -63,7 +63,8 @@ minutes, and leaves out speakers, updates and system statistics. See
   moment. Thai, Chinese, Japanese, Korean and a few other scripts stop at
   15 s, because Whisper's tokenizer spends up to three times more tokens on
   them and whisper.cpp caps a segment at 220 tokens. Silence between lines is
-  left out, and windows under −45 dB are dropped. With several tracks, each
+  left out, and so is a window with no frame above the quiet level, which
+  keeps quiet recordings as whole as loud ones. With several tracks, each
   track is cut on its own and the lines of all tracks run in order of their
   start (`split_tracks`), so a speaker's turn is one line and a reply that
   overlaps gets its own. `tlansclaib-engine split` prints where and why each
