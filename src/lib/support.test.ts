@@ -8,7 +8,7 @@ function entry(status: HistoryEntry["status"]): HistoryEntry {
     id: Math.random(),
     audio: "/a.m4a",
     file: "/a_transcript.txt",
-    model: "Thai (fast)",
+    model: "Thai Compact",
     language: "th",
     audio_seconds: 60,
     lines: 4,

@@ -86,7 +86,7 @@ mod tests {
 
     fn entry(size: u64, sha: Option<&str>, languages: &[&str]) -> ModelEntry {
         serde_json::from_value(serde_json::json!({
-            "id": "thai-fast", "name": "Thai (fast)", "languages": languages,
+            "id": "thai-compact", "name": "Thai Compact", "languages": languages,
             "file": "ggml-thai-fast-q8_0.bin", "size_bytes": size, "sha256": sha
         }))
         .unwrap()
@@ -114,7 +114,7 @@ mod tests {
         assert!(check(&path, Some(&entry(bytes.len() as u64, Some(&digest), &["th"]))).is_ok());
 
         let reason = check(&path, Some(&entry(999, None, &["th"]))).unwrap_err();
-        assert!(reason.starts_with("This is not the Thai (fast) model file"), "{reason}");
+        assert!(reason.starts_with("This is not the Thai Compact model file"), "{reason}");
         assert!(reason.contains("ggml-thai-fast-q8_0.bin"));
 
         let reason = check(&path, Some(&entry(bytes.len() as u64, Some("00ff"), &["th"]))).unwrap_err();

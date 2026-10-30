@@ -65,10 +65,10 @@ older version lists as a custom model.
 |---|---|---|---|
 | All languages | `large-v3`, 3.10 GB | `large-v3-turbo-q8_0`, 874 MB | `small-q8_0`, 264 MB |
 | Speakers | better, 202 MB | better, 202 MB | basic, 38 MB |
-| Thai | `thai-best`, 1.66 GB | `thai-fast`, 874 MB | none |
+| Thai | `thai-best`, 1.66 GB | `thai-compact`, 874 MB | none |
 | German | `german-full`, 1.62 GB | `german-full`, 1.62 GB | none |
 | Swiss German | `swiss-german`, 874 MB | `swiss-german`, 874 MB | none |
-| English | `english-fast`, 1.52 GB, on a computer not rated Very fast | none | none |
+| English | `english-turbo`, 1.52 GB, on a computer not rated Very fast | none | none |
 
 English Turbo is there for speed, not accuracy. distil-large-v3.5 averages
 7.10% word errors on short clips against 7.14% for large-v3, and 14.6% against
@@ -206,7 +206,7 @@ shifted by 10 ms, 44 ms and 125 ms, so that only the window cuts move:
 | Thai Compact, q8_0 | beam search, 5 beams | 40% |
 | Thai Best, q8_0 | greedy | 50% |
 | Thai Best, q8_0 | beam search, 5 beams | 52% |
-| All languages (fast), q5_0 | greedy | 60%, and half the text missing |
+| Universal Compact, q5_0 | greedy | 60%, and half the text missing |
 
 The transformers pipeline the project started from behaves the same: a 44 ms
 shift changed 55% of its output on this clip. So on hard audio the Thai

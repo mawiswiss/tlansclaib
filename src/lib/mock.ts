@@ -68,17 +68,17 @@ export function mockBackend(): Backend {
   const totalRam = Number(query.get("totalram") || 16);
   const slowStep = query.has("slowstep") ? 15_000 : 0;
   const models: ModelStatus[] = [
-    { ...model("thai-fast", "Thai Compact", ["th"], ["essential"], "Thai recordings on any computer. Smaller than Thai Best, with a few more mistakes.", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh), too_heavy: heavy },
+    { ...model("thai-compact", "Thai Compact", ["th"], ["essential"], "Thai recordings on any computer. Smaller than Thai Best, with a few more mistakes.", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh), too_heavy: heavy },
     model("thai-best", "Thai Best", ["th"], ["precise"], "The most accurate for Thai, when time does not matter.", 1656538283, 2.4, "large-v3", "q8_0", false),
     model("german-full", "German", ["de"], ["essential", "precise"], "German recordings, more accurate than the stock large model", 1624555275, 2.2, "large-v3-turbo", "f16", false),
     { ...model("swiss-german", "Swiss German", ["de"], ["essential", "precise"], "Swiss German speech, written as Standard German", 874188075, 1.3, "large-v3-turbo", "q8_0", false), language_name: "Swiss German" },
-    { ...model("english-fast", "English Turbo", ["en"], ["precise"], "English only. As accurate as Universal Best and several times faster. Precise takes it on a computer that is not very fast.", 1519521155, 2.1, "large-v3-distil-2", "f16", false), faster: true },
+    { ...model("english-turbo", "English Turbo", ["en"], ["precise"], "English only. As accurate as Universal Best and several times faster. Precise takes it on a computer that is not very fast.", 1519521155, 2.1, "large-v3-distil-2", "f16", false), faster: true },
     model("large-v3-turbo-q8_0", "Universal Compact", ["all"], ["essential"], "Most recordings in English and other languages.", 874188075, 1.3, "large-v3-turbo", "q8_0", !fresh),
     model("large-v3", "Universal Best", ["all"], ["precise"], "The largest and most accurate model for all languages, for a fast computer with plenty of memory.", 3095033483, 4.0, "large-v3", "f16", false),
     model("small-q8_0", "Universal Small", ["all"], ["minimal"], "Weak computers and clear audio, noticeably more mistakes.", 264464607, 0.7, "small", "q8_0", false),
   ];
   const ranks: Record<string, number> = {
-    "thai-fast": 1, "thai-best": 2, "german-full": 2, "swiss-german": 1, "english-fast": 1,
+    "thai-compact": 1, "thai-best": 2, "german-full": 2, "swiss-german": 1, "english-turbo": 1,
     "large-v3-turbo-q8_0": 3, "large-v3": 6, "small-q8_0": 1,
   };
   for (const m of models) m.quality = ranks[m.id] ?? null;
@@ -102,28 +102,28 @@ export function mockBackend(): Backend {
   let history: HistoryEntry[] = [
     {
       id: 1, audio: "/Users/someone/Recordings/team call.m4a", file: "/Users/someone/Recordings/team call_transcript.txt",
-      model: "Thai (fast)", language: "th", audio_seconds: 6427, lines: 494, elapsed: 296, finished_at: 1760351400,
+      model: "Thai Compact", language: "th", audio_seconds: 6427, lines: 494, elapsed: 296, finished_at: 1760351400,
       status: "done", timestamps: true, exists: true, audio_exists: true,
     },
     {
       id: 3, audio: "/Users/someone/Recordings/client call.mp4", file: "/Users/someone/Recordings/client call_transcript.txt",
-      model: "All languages (fast)", language: "en", audio_seconds: 1533, lines: 182, elapsed: 73, finished_at: 1760348000,
+      model: "Universal Compact", language: "en", audio_seconds: 1533, lines: 182, elapsed: 73, finished_at: 1760348000,
       status: "done", timestamps: true, speakers: ["Speaker 1", "Speaker 2"], video: true, exists: true, audio_exists: true,
     },
     {
       id: 4, audio: "/Users/someone/Recordings/design review.m4a", file: "/Users/someone/Recordings/design review_transcript.txt",
-      model: "Thai (fast)", model_id: "thai-fast", language: "th", audio_seconds: 2410, lines: 188, elapsed: 120, finished_at: 1760300000,
+      model: "Thai Compact", model_id: "thai-compact", language: "th", audio_seconds: 2410, lines: 188, elapsed: 120, finished_at: 1760300000,
       status: "done", timestamps: true, exists: false, audio_exists: true,
     },
     {
       id: 2, audio: "/Users/someone/Downloads/interview.mp3", file: "/Users/someone/Transcripts/interview_transcript.txt",
-      model: "All languages (fast)", language: "en", audio_seconds: 1520, lines: 61, elapsed: 75, finished_at: 1760265000,
+      model: "Universal Compact", language: "en", audio_seconds: 1520, lines: 61, elapsed: 75, finished_at: 1760265000,
       status: "incomplete", timestamps: false, exists: false, audio_exists: false,
     },
     ...["board meeting", "customer call", "site visit", "weekly sync", "supplier interview", "training session", "budget review", "kick-off", "workshop day 1", "workshop day 2", "handover", "retro"].map(
       (name, i): HistoryEntry => ({
         id: 10 + i, audio: `/Users/someone/Recordings/${name}.m4a`, file: `/Users/someone/Recordings/${name}_transcript.txt`,
-        model: i % 3 ? "Thai (fast)" : "All languages (fast)", language: i % 3 ? "th" : "en", audio_seconds: 900 + i * 410,
+        model: i % 3 ? "Thai Compact" : "Universal Compact", language: i % 3 ? "th" : "en", audio_seconds: 900 + i * 410,
         lines: 40 + i * 9, elapsed: 60 + i * 20, finished_at: 1760000000 - i * 86400 * 3, status: "done", timestamps: name !== "budget review", exists: true, audio_exists: true,
         ...(query.has("slowpc") ? { device: "cpu", timings: { decode: 4, speakers: 0, load: 30, transcribe: (900 + i * 410) * 1.7, write: 0.2 } } : {}),
       }),

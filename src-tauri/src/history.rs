@@ -317,7 +317,7 @@ mod tests {
             id,
             audio: PathBuf::from("/recordings/meeting.m4a"),
             file: PathBuf::from(file),
-            model: "Thai (fast)".into(),
+            model: "Thai Compact".into(),
             language: Some("th".into()),
             audio_seconds: Some(180.0),
             lines: 14,

@@ -1,6 +1,6 @@
 [
   {
-    "id": "thai-fast",
+    "id": "thai-compact",
     "name": "Thai Compact",
     "languages": ["th"],
     "setups": ["essential"],
@@ -69,7 +69,7 @@
     "license": "MIT"
   },
   {
-    "id": "english-fast",
+    "id": "english-turbo",
     "name": "English Turbo",
     "languages": ["en"],
     "setups": ["precise"],

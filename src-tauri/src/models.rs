@@ -594,7 +594,7 @@ mod tests {
     #[test]
     fn the_bundled_list_parses_and_has_the_thai_entries() {
         let list: Vec<ModelEntry> = serde_json::from_str(BUNDLED).unwrap();
-        assert!(list.iter().any(|e| e.id == "thai-fast"));
+        assert!(list.iter().any(|e| e.id == "thai-compact"));
         assert!(list.iter().any(|e| e.id == "small-q8_0" && e.url.is_some()));
         for entry in &list {
             assert!(entry.size_bytes > 0, "{} has no size", entry.id);

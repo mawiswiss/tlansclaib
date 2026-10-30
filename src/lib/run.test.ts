@@ -7,7 +7,7 @@ function play(events: Parameters<typeof reduce>[1][]): RunState {
 
 describe("run reducer", () => {
   it("reports the selected GPU and a CPU retry without ending the run", () => {
-    const started = reduce(idle, { type: "start", audio: "/x/meeting.m4a", folder: "/x", modelName: "Thai (fast)", timestamps: true, autoLanguage: false, now: 0 });
+    const started = reduce(idle, { type: "start", audio: "/x/meeting.m4a", folder: "/x", modelName: "Thai Compact", timestamps: true, autoLanguage: false, now: 0 });
     const retry = reduce(started, { type: "engine", event: { event: "retry", message: "Metal could not load the model. Retrying on CPU." }, now: 1 });
     expect(retry.status).toBe("running");
     const cpu = reduce(retry, { type: "engine", event: { event: "model", device: "cpu", threads: 4, language: "en", windows: 1 }, now: 2 });
@@ -35,7 +35,7 @@ describe("run reducer", () => {
 
   it("follows the engine from start to done", () => {
     const state = play([
-      { type: "start", audio: "/x/meeting.m4a", folder: "/x", modelName: "Thai (fast)", timestamps: true, autoLanguage: false, now: 1000 },
+      { type: "start", audio: "/x/meeting.m4a", folder: "/x", modelName: "Thai Compact", timestamps: true, autoLanguage: false, now: 1000 },
       { type: "engine", event: { event: "step", step: "decode" }, now: 1001 },
       { type: "engine", event: { event: "audio", seconds: 180 }, now: 1002 },
       { type: "engine", event: { event: "model", device: "metal", threads: 9, language: "th", windows: 14 }, now: 1003 },
@@ -62,7 +62,7 @@ describe("run reducer", () => {
 
   it("follows speaker detection and takes the voices it found", () => {
     const state = play([
-      { type: "start", audio: "/x/room.m4a", folder: "/x", modelName: "Thai (fast)", timestamps: true, autoLanguage: false, detecting: true, now: 0 },
+      { type: "start", audio: "/x/room.m4a", folder: "/x", modelName: "Thai Compact", timestamps: true, autoLanguage: false, detecting: true, now: 0 },
       { type: "engine", event: { event: "step", step: "speakers" }, now: 1 },
       { type: "engine", event: { event: "speaker_progress", done: 3, total: 12 }, now: 2 },
     ]);
@@ -79,7 +79,7 @@ describe("run reducer", () => {
 
   it("keeps the speakers of a recording with several tracks and renames them", () => {
     const state = play([
-      { type: "start", audio: "/x/call.mp4", folder: "/x", modelName: "All languages (fast)", timestamps: true, autoLanguage: false, now: 0 },
+      { type: "start", audio: "/x/call.mp4", folder: "/x", modelName: "Universal Compact", timestamps: true, autoLanguage: false, now: 0 },
       { type: "engine", event: { event: "audio", seconds: 60, speakers: ["Speaker 1", "Speaker 2"] }, now: 1 },
       { type: "engine", event: { event: "line", start: 0, end: 4, text: "Hello", speaker: 0 }, now: 2 },
       { type: "engine", event: { event: "line", start: 4.5, end: 9, text: "Hi", speaker: 1 }, now: 3 },
@@ -153,7 +153,7 @@ describe("run reducer", () => {
       id: 1,
       audio: "/rec/meeting.m4a",
       file: "/rec/meeting_transcript.txt",
-      model: "Thai (fast)",
+      model: "Thai Compact",
       language: "th",
       audio_seconds: 180,
       lines: 2,
@@ -180,7 +180,7 @@ describe("run reducer", () => {
     expect(reduce(idle, { type: "open", entry: { ...entry, speakers: ["A", "B", "C"], tracks: 2 }, lines, timestamps: true, check, hash: "h1" }).tracks).toBe(2);
     expect(opened.speakerBackend).toBeNull();
     expect(reduce(idle, { type: "open", entry: { ...entry, speaker_mode: "auto" }, lines, timestamps: true, check, hash: "h1" }).speakerBackend).toBe("sherpa");
-    expect(reduce(idle, { type: "open", entry: { ...entry, speaker_mode: "auto", speaker_backend: "nemotron", model_id: "thai-fast" }, lines, timestamps: true, check, hash: "h1" })).toMatchObject({ speakerBackend: "nemotron", modelId: "thai-fast" });
+    expect(reduce(idle, { type: "open", entry: { ...entry, speaker_mode: "auto", speaker_backend: "nemotron", model_id: "thai-compact" }, lines, timestamps: true, check, hash: "h1" })).toMatchObject({ speakerBackend: "nemotron", modelId: "thai-compact" });
     const edited = reduce(opened, { type: "edit", lines: [lines[0], { ...lines[1], text: "b, corrected" }], speakers: [], hash: "h2" });
     expect(edited.lines[1].text).toBe("b, corrected");
     expect(edited.hash).toBe("h2");

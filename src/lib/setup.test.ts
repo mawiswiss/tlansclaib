@@ -13,7 +13,7 @@ function model(id: string, languages: string[], setups: string[] | null, extra: 
 }
 
 const models = [
-  model("thai-fast", ["th"], ["essential"], { quality: 1 }),
+  model("thai-compact", ["th"], ["essential"], { quality: 1 }),
   model("thai-best", ["th"], ["precise"], { quality: 2 }),
   model("german-fast", ["de"], ["essential"], { quality: 1 }),
   model("swiss-german", ["de"], ["essential", "precise"], { language_name: "Swiss German", quality: 1 }),
@@ -57,16 +57,16 @@ describe("wanted", () => {
   });
 
   it("keeps what a technical user added or removed by hand", () => {
-    expect(wanted(models, setup("essential", "th", { added: ["base"], removed: ["speaker-detection-nemotron"] }))).toEqual(["thai-fast", "turbo-q8", "base"]);
+    expect(wanted(models, setup("essential", "th", { added: ["base"], removed: ["speaker-detection-nemotron"] }))).toEqual(["thai-compact", "turbo-q8", "base"]);
   });
 });
 
 describe("setupChanges", () => {
   it("holds back a member a newer model list adds until the user agrees", () => {
-    const old = setup("precise", "th", { accepted: ["large-v3", "speaker-detection-nemotron", "thai-fast"] });
-    const listed = models.map((m) => (m.id === "thai-fast" ? { ...m, setups: [], installed: true } : m));
+    const old = setup("precise", "th", { accepted: ["large-v3", "speaker-detection-nemotron", "thai-compact"] });
+    const listed = models.map((m) => (m.id === "thai-compact" ? { ...m, setups: [], installed: true } : m));
     expect(agreed(listed, old)).toEqual(["speaker-detection-nemotron", "large-v3"]);
-    expect(setupChanges(listed, detections, old)).toEqual({ fresh: ["thai-best"], dropped: ["thai-fast"] });
+    expect(setupChanges(listed, detections, old)).toEqual({ fresh: ["thai-best"], dropped: ["thai-compact"] });
     const yes = { ...old, accepted: [...old.accepted!, "thai-best"] };
     expect(agreed(listed, yes)).toEqual(["thai-best", "speaker-detection-nemotron", "large-v3"]);
     expect(setupChanges(listed, detections, yes).fresh).toEqual([]);
@@ -99,11 +99,11 @@ describe("modelFor", () => {
   });
 
   it("skips a model that failed here unless it is pinned or nothing else is installed", () => {
-    const installed = with_(["thai-fast", "turbo-q8"]).map((m) => (m.id === "thai-fast" ? { ...m, too_heavy: "Memory ran low while it loaded." } : m));
+    const installed = with_(["thai-compact", "turbo-q8"]).map((m) => (m.id === "thai-compact" ? { ...m, too_heavy: "Memory ran low while it loaded." } : m));
     expect(modelFor(installed, setup("essential", "th"), parseLanguage("th"))?.id).toBe("turbo-q8");
-    expect(modelFor(installed, setup("essential", "th"), parseLanguage("th"), "thai-fast")?.id).toBe("thai-fast");
-    const allFailed = installed.map((m) => ({ ...m, too_heavy: "It could not be loaded.", ram_gb: m.id === "thai-fast" ? 1.3 : 1.7 }));
-    expect(modelFor(allFailed, setup("essential", "th"), parseLanguage("th"))?.id).toBe("thai-fast");
+    expect(modelFor(installed, setup("essential", "th"), parseLanguage("th"), "thai-compact")?.id).toBe("thai-compact");
+    const allFailed = installed.map((m) => ({ ...m, too_heavy: "It could not be loaded.", ram_gb: m.id === "thai-compact" ? 1.3 : 1.7 }));
+    expect(modelFor(allFailed, setup("essential", "th"), parseLanguage("th"))?.id).toBe("thai-compact");
     expect(modelFor(allFailed, setup("essential", "de"), parseLanguage("de"))?.id).toBe("turbo-q8");
   });
 
@@ -117,7 +117,7 @@ describe("modelFor", () => {
 
 describe("stepping up", () => {
   it("takes a better installed model of the same kind when it runs well", () => {
-    const installed = with_(["turbo-q8", "large-v3", "thai-fast", "thai-best"]);
+    const installed = with_(["turbo-q8", "large-v3", "thai-compact", "thai-best"]);
     expect(modelFor(installed, setup("essential"), parseLanguage("auto"), "auto", plenty)?.id).toBe("large-v3");
     expect(modelFor(installed, setup("essential", "th"), parseLanguage("th"), "auto", plenty)?.id).toBe("thai-best");
   });
@@ -155,7 +155,7 @@ describe("betterDownload", () => {
 
   it("offers a language's own model before a larger one for all languages", () => {
     expect(betterDownload(with_(["turbo-q8"]), setup("essential", "th"), parseLanguage("th"), plenty)?.id).toBe("thai-best");
-    expect(betterDownload(with_(["thai-fast", "turbo-q8"]), setup("essential", "th"), parseLanguage("th"), plenty)?.id).toBe("thai-best");
+    expect(betterDownload(with_(["thai-compact", "turbo-q8"]), setup("essential", "th"), parseLanguage("th"), plenty)?.id).toBe("thai-best");
   });
 
   it("never offers a faster model as a more accurate one", () => {
@@ -166,8 +166,8 @@ describe("betterDownload", () => {
 
 describe("downloads", () => {
   it("fetches the language's model first, then speaker detection", () => {
-    expect(defaultModel(models, setup("essential", "th"))?.id).toBe("thai-fast");
-    expect(downloadOrder(models, setup("essential", "th"))).toEqual(["thai-fast", "speaker-detection-nemotron", "turbo-q8"]);
+    expect(defaultModel(models, setup("essential", "th"))?.id).toBe("thai-compact");
+    expect(downloadOrder(models, setup("essential", "th"))).toEqual(["thai-compact", "speaker-detection-nemotron", "turbo-q8"]);
     expect(downloadOrder(models, setup("precise"))).toEqual(["large-v3", "speaker-detection-nemotron"]);
   });
 
@@ -250,7 +250,7 @@ describe("languages", () => {
 describe("a model that fits the free memory", () => {
   const thai = parseLanguage("th");
   const list = [
-    model("thai-fast", ["th"], ["essential"], { quality: 1, ram_gb: 1.3, installed: true }),
+    model("thai-compact", ["th"], ["essential"], { quality: 1, ram_gb: 1.3, installed: true }),
     model("thai-best", ["th"], ["precise"], { quality: 2, ram_gb: 2.4, installed: true }),
     model("turbo-q8", ["all"], ["essential"], { quality: 3, ram_gb: 1.3, installed: true }),
     model("large-v3", ["all"], ["precise"], { quality: 6, ram_gb: 4 }),
@@ -259,12 +259,12 @@ describe("a model that fits the free memory", () => {
 
   it("keeps the language's own model and takes the best that fits", () => {
     expect(fittingInstalled(list, thai, 3 * GIB)?.id).toBe("thai-best");
-    expect(fittingInstalled(list, thai, 2 * GIB)?.id).toBe("thai-fast");
+    expect(fittingInstalled(list, thai, 2 * GIB)?.id).toBe("thai-compact");
   });
 
   it("falls back to a model for all languages, never one that failed here", () => {
     expect(fittingInstalled(list, parseLanguage("de"), 2 * GIB)?.id).toBe("turbo-q8");
-    const failed = list.map((m) => (m.id === "thai-fast" ? { ...m, too_heavy: "Memory ran low." } : m));
+    const failed = list.map((m) => (m.id === "thai-compact" ? { ...m, too_heavy: "Memory ran low." } : m));
     expect(fittingInstalled(failed, thai, 2 * GIB)?.id).toBe("turbo-q8");
     expect(fittingInstalled(list, thai, GIB)).toBeNull();
   });
@@ -277,18 +277,18 @@ describe("a model that fits the free memory", () => {
 });
 
 describe("smallerModel", () => {
-  const sized = models.map((m) => ({ ...m, ram_gb: { "thai-fast": 1.3, "thai-best": 4, "turbo-q8": 1.7, "large-v3": 4, tiny: 0.7, base: 0.9 }[m.id] ?? 1 }));
+  const sized = models.map((m) => ({ ...m, ram_gb: { "thai-compact": 1.3, "thai-best": 4, "turbo-q8": 1.7, "large-v3": 4, tiny: 0.7, base: 0.9 }[m.id] ?? 1 }));
 
   it("finds the language's own lighter model first, then one for all languages", () => {
     const best = sized.find((m) => m.id === "thai-best")!;
-    expect(smallerModel(sized, best, parseLanguage("th"))?.id).toBe("thai-fast");
-    const fast = sized.find((m) => m.id === "thai-fast")!;
-    expect(smallerModel(sized, fast, parseLanguage("th"))?.id).toBe("tiny");
+    expect(smallerModel(sized, best, parseLanguage("th"))?.id).toBe("thai-compact");
+    const compact = sized.find((m) => m.id === "thai-compact")!;
+    expect(smallerModel(sized, compact, parseLanguage("th"))?.id).toBe("tiny");
   });
 
   it("finds none for the smallest model", () => {
     const tiny = sized.find((m) => m.id === "tiny")!;
     expect(smallerModel(sized, tiny, parseLanguage("auto"))).toBeNull();
-    expect(smallerModel(sized.map((m) => (m.id === "tiny" || m.id === "base" ? { ...m, too_heavy: "It could not be loaded." } : m)), sized.find((m) => m.id === "thai-fast")!, parseLanguage("th"))).toBeNull();
+    expect(smallerModel(sized.map((m) => (m.id === "tiny" || m.id === "base" ? { ...m, too_heavy: "It could not be loaded." } : m)), sized.find((m) => m.id === "thai-compact")!, parseLanguage("th"))).toBeNull();
   });
 });
