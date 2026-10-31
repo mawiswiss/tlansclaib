@@ -40,7 +40,7 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
           </span>
           <h2>Open tlansclaib on your computer</h2>
           <p>tlansclaib transcribes audio and video to text or subtitles on your own computer, in about 100 languages, and never uploads the recording.</p>
-          <p>It does not run on a phone or tablet. Open this page in a browser on your computer, or download the free desktop app for Mac and Windows.</p>
+          <p>It does not run on a phone or tablet. Open this page in a browser on your computer, or download the free desktop app for Mac, Windows and Linux.</p>
           <div className="actions">{desktop(true)}</div>
         </div>
       </section>
@@ -123,7 +123,7 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
           <div>
             <strong>More in the desktop app</strong>
             <p className="muted">
-              Full recordings, speaker names and dedicated language models. Free for Mac and Windows.{" "}
+              Full recordings, speaker names and dedicated language models. Free for Mac, Windows and Linux.{" "}
               <button type="button" className="inline-link" onClick={onCompare}>
                 Compare with Lite
               </button>

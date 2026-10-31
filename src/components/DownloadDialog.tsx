@@ -9,10 +9,16 @@ const STEPS: Record<Platform, string[]> = {
     "Run tlansclaib-windows-setup.exe from your Downloads.",
     "Windows may say “Windows protected your PC”, because the installer is not signed yet. Click “More info”, then “Run anyway”.",
   ],
+  linux: [
+    "Make tlansclaib-linux.AppImage in your Downloads executable, under Properties in the file manager or with chmod +x.",
+    "Start it. Some distributions need the libfuse2 package first.",
+  ],
 };
 
+const PLATFORMS: Platform[] = ["mac", "windows", "linux"];
+
 export function DownloadDialog({ platform, onDownload, onClose }: Props) {
-  const other: Platform = platform === "mac" ? "windows" : "mac";
+  const others = PLATFORMS.filter((p) => p !== platform);
   return (
     <div className="overlay" onClick={onClose}>
       <section className="modal compare download" role="dialog" aria-modal="true" aria-labelledby="download-title" onClick={(e) => e.stopPropagation()}>
@@ -44,17 +50,23 @@ export function DownloadDialog({ platform, onDownload, onClose }: Props) {
               </button>
             </div>
             <p className="faint">
-              <button type="button" className="inline-link" onClick={() => onDownload(other)}>
-                Need it for {INSTALLERS[other].name} instead?
-              </button>
+              Need it for{" "}
+              <button type="button" className="inline-link" onClick={() => onDownload(others[0])}>
+                {INSTALLERS[others[0]].name}
+              </button>{" "}
+              or{" "}
+              <button type="button" className="inline-link" onClick={() => onDownload(others[1])}>
+                {INSTALLERS[others[1]].name}
+              </button>{" "}
+              instead?
             </p>
           </>
         ) : (
           <>
-            <h2 id="download-title">tlansclaib runs on Mac and Windows</h2>
+            <h2 id="download-title">tlansclaib runs on Mac, Windows and Linux</h2>
             <p className="muted">The desktop app is free. Download it on the computer you want to transcribe on.</p>
             <div className="download-choices">
-              {(["mac", "windows"] as const).map((p) => (
+              {PLATFORMS.map((p) => (
                 <div key={p}>
                   <button type="button" className="primary" onClick={() => onDownload(p)}>
                     <Download size={15} /> Download for {INSTALLERS[p].name}
