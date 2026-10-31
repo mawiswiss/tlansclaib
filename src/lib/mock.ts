@@ -359,12 +359,12 @@ export function mockBackend(): Backend {
       emit("history", null);
       return `mock-${Date.now()}`;
     },
-    saveTranscript: async (file, expected, _lines, _timestamps, speakers) => {
+    saveTranscript: async (file, expected, _lines, _timestamps, speakers, colors) => {
       if (expected === "stale") throw new Error("This transcript was changed outside tlansclaib since it was opened, so the edit was not saved.");
       if (speakers.some((s) => s.includes(":"))) throw new Error("A speaker name cannot contain a colon, because the colon ends the name in the transcript.");
       const taken = speakers.find((s, i) => speakers.slice(0, i).some((o) => o.toLowerCase() === s.toLowerCase()));
       if (taken) throw new Error(`Two speakers cannot both be called ${taken}.`);
-      history = history.map((h) => (h.file === file ? { ...h, speakers, edited: true } : h));
+      history = history.map((h) => (h.file === file ? { ...h, speakers, speaker_colors: colors, edited: true } : h));
       emit("history", null);
       return `mock-${Date.now()}`;
     },

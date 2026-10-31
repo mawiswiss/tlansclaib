@@ -3,6 +3,7 @@ import { clock, duration, fileName, remaining, speed } from "../lib/format";
 import { differs } from "../lib/language";
 import { overdue, usual } from "../lib/pace";
 import { estimate, type RunState } from "../lib/run";
+import { colorOf } from "../lib/transcript";
 import type { HistoryEntry, Step } from "../lib/types";
 import { Check } from "./icons";
 
@@ -178,7 +179,7 @@ export function RunView({ run, history, smaller, showTimes, languageName, onCanc
           return (
             <p key={`${line.start}-${line.speaker ?? 0}`} className={[showTimes ? "timed" : "", voiced ? "voiced" : ""].join(" ").trim() || undefined}>
               {showTimes && <span className="time">{clock(line.start)}</span>}
-              {voiced && <span className={`line-dot${speaker !== undefined ? ` s${line.speaker! % 8}` : ""}`} title={speaker} />}
+              {voiced && <span className={`line-dot${speaker !== undefined ? ` s${colorOf(run.colors, line.speaker!)}` : ""}`} title={speaker} />}
               <span className={line.text ? "" : "muted"}>{line.text || "(nothing recognised)"}</span>
             </p>
           );

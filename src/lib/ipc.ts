@@ -58,7 +58,7 @@ export type Backend = {
   listHistory(): Promise<HistoryEntry[]>;
   removeHistory(id: number): Promise<void>;
   setTranscriptTimestamps(file: string, lines: Line[], timestamps: boolean, speakers: string[]): Promise<string>;
-  saveTranscript(file: string, expected: string, lines: Line[], timestamps: boolean, speakers: string[]): Promise<string>;
+  saveTranscript(file: string, expected: string, lines: Line[], timestamps: boolean, speakers: string[], colors: number[]): Promise<string>;
   transcriptHash(file: string): Promise<string>;
   exportTranscript(file: string, expected: string, destination: string, lines: Line[], timestamps: boolean, timed: boolean, speakers: string[]): Promise<void>;
   renameTranscript(file: string, title: string): Promise<string>;
@@ -124,7 +124,7 @@ async function tauriBackend(): Promise<Backend> {
     listHistory: () => invoke("list_history"),
     removeHistory: (id) => invoke("remove_history", { id }),
     setTranscriptTimestamps: (file, lines, timestamps, speakers) => invoke("set_transcript_timestamps", { file, lines, timestamps, speakers }),
-    saveTranscript: (file, expected, lines, timestamps, speakers) => invoke("save_transcript", { file, expected, lines, timestamps, speakers }),
+    saveTranscript: (file, expected, lines, timestamps, speakers, colors) => invoke("save_transcript", { file, expected, lines, timestamps, speakers, colors }),
     transcriptHash: (file) => invoke("transcript_hash", { file }),
     exportTranscript: (file, expected, destination, lines, timestamps, timed, speakers) => invoke("export_transcript", { file, expected, destination, lines, timestamps, timed, speakers }),
     renameTranscript: (file, title) => invoke("rename_transcript", { file, title }),

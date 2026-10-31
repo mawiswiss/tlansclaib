@@ -130,8 +130,11 @@ pub fn set_timestamps(file: &Path, lines: &[Line], timestamps: bool, speakers: &
     write(file, &wanted)
 }
 
-pub fn save(file: &Path, expected: &str, lines: &[Line], timestamps: bool, speakers: &[String]) -> Result<String> {
+pub fn save(file: &Path, expected: &str, lines: &[Line], timestamps: bool, speakers: &[String], colors: &[u8]) -> Result<String> {
     check_speakers(speakers)?;
+    if !colors.is_empty() && colors.len() != speakers.len() {
+        return Err(anyhow!("Each speaker needs one colour."));
+    }
     if lines.iter().any(|line| line.speaker.is_some_and(|speaker| speaker >= speakers.len())) {
         return Err(anyhow!("A line names a speaker that is not in the list."));
     }
@@ -148,6 +151,7 @@ pub fn save(file: &Path, expected: &str, lines: &[Line], timestamps: bool, speak
         stored.entry.lines = lines.iter().filter(|line| !line.text.is_empty()).count();
         stored.entry.timestamps = timestamps;
         stored.entry.set_speakers(speakers);
+        stored.entry.speaker_colors = colors.to_vec();
         stored.write(file)?;
         return crate::fingerprint::transcript(file);
     }
@@ -257,12 +261,12 @@ mod tests {
 
         let named = vec!["Marc".to_string(), "Client".to_string()];
         let hash = crate::fingerprint::transcript(&file).unwrap();
-        save(&file, &hash, &lines, false, &named).unwrap();
+        save(&file, &hash, &lines, false, &named, &[]).unwrap();
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "Marc: Hello\nClient: Hi\n");
 
         let hash = crate::fingerprint::transcript(&file).unwrap();
         for bad in [vec!["Marc".to_string(), "marc".to_string()], vec!["Dr: X".to_string()], vec![" ".to_string()]] {
-            assert!(save(&file, &hash, &lines, false, &bad).is_err(), "{bad:?}");
+            assert!(save(&file, &hash, &lines, false, &bad, &[]).is_err(), "{bad:?}");
         }
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "Marc: Hello\nClient: Hi\n");
 
@@ -272,8 +276,8 @@ mod tests {
             Line { start: 4.5, end: 9.0, text: "Hi".into(), speaker: Some(1), words: Vec::new() },
         ];
         let three = vec!["Marc".to_string(), "Client".to_string(), "Guest".to_string()];
-        assert!(save(&file, &hash, &split, false, &named).unwrap_err().to_string().contains("not in the list"));
-        save(&file, &hash, &split, false, &three).unwrap();
+        assert!(save(&file, &hash, &split, false, &named, &[]).unwrap_err().to_string().contains("not in the list"));
+        save(&file, &hash, &split, false, &three, &[]).unwrap();
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "Marc: Hel\nGuest: lo\nClient: Hi\n");
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -312,14 +316,14 @@ mod tests {
 
         let mut edited = lines();
         edited[0].text = "first, corrected".into();
-        let saved = save(&file, &opened, &edited, true, &[]).unwrap();
+        let saved = save(&file, &opened, &edited, true, &[], &[]).unwrap();
         assert_eq!(
             std::fs::read_to_string(&file).unwrap(),
             "[00:00:00.00 --> 00:00:12.75] first, corrected\n[00:00:24.35 --> 00:00:39.25] second\n"
         );
         assert_eq!(saved, crate::fingerprint::transcript(&file).unwrap());
 
-        let refused = save(&file, &opened, &lines(), true, &[]).unwrap_err().to_string();
+        let refused = save(&file, &opened, &lines(), true, &[], &[]).unwrap_err().to_string();
         assert!(refused.contains("changed outside"), "{refused}");
         assert!(std::fs::read_to_string(&file).unwrap().contains("corrected"));
         std::fs::remove_dir_all(&dir).unwrap();

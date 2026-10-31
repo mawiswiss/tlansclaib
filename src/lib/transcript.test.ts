@@ -162,6 +162,7 @@ describe("speaker corrections", () => {
     const reassigned = assignSpeaker(lines, 0, 1);
     expect(removeUnusedSpeakers({ speakers: ["Host", "Guest"], lines: reassigned })).toEqual({
       speakers: ["Guest"],
+      colors: [1],
       lines: reassigned.map((line) => ({ ...line, speaker: 0 })),
     });
     expect(removeUnusedSpeakers({ speakers: ["Host", "Guest"], lines })).toEqual({ speakers: ["Host", "Guest"], lines });
@@ -171,6 +172,7 @@ describe("speaker corrections", () => {
     const three = [...lines, { start: 30, end: 31, text: "Third", speaker: 2 }];
     expect(removeSpeaker({ speakers: ["Host", "Guest", "Caller"], lines: three }, 1)).toEqual({
       speakers: ["Host", "Caller"],
+      colors: [0, 2],
       lines: three.map((line) => ({ ...line, speaker: line.speaker === 1 ? undefined : line.speaker === 2 ? 1 : line.speaker })),
     });
   });
@@ -185,15 +187,23 @@ describe("speaker corrections", () => {
 
   it("keeps unassigned lines unassigned when a speaker is added", () => {
     const mixed = [{ start: 0, end: 1, text: "a" }, { start: 1, end: 2, text: "b", speaker: 0 }];
-    expect(addSpeaker(["Host"], mixed)).toEqual({ speakers: ["Host", "Speaker 2"], lines: mixed });
+    expect(addSpeaker({ speakers: ["Host"], lines: mixed })).toEqual({ speakers: ["Host", "Speaker 2"], colors: [0, 1], lines: mixed });
   });
 
   it("adds a speaker under a free name, and gives every line a speaker when there was none", () => {
     const plain = [{ start: 0, end: 1, text: "a" }];
-    expect(addSpeaker([], plain)).toEqual({ speakers: ["Speaker 1", "Speaker 2"], lines: [{ start: 0, end: 1, text: "a", speaker: 0 }] });
-    expect(addSpeaker(["Speaker 1"], plain).speakers).toEqual(["Speaker 1", "Speaker 2"]);
-    expect(addSpeaker(["Marc", "Client"], lines)).toEqual({ speakers: ["Marc", "Client", "Speaker 3"], lines });
-    expect(addSpeaker(["Marc", "speaker 3"], lines).speakers).toEqual(["Marc", "speaker 3", "Speaker 4"]);
+    expect(addSpeaker({ speakers: [], lines: plain })).toEqual({ speakers: ["Speaker 1", "Speaker 2"], colors: [0, 1], lines: [{ start: 0, end: 1, text: "a", speaker: 0 }] });
+    expect(addSpeaker({ speakers: ["Speaker 1"], lines: plain }).speakers).toEqual(["Speaker 1", "Speaker 2"]);
+    expect(addSpeaker({ speakers: ["Marc", "Client"], lines })).toEqual({ speakers: ["Marc", "Client", "Speaker 3"], colors: [0, 1, 2], lines });
+    expect(addSpeaker({ speakers: ["Marc", "speaker 3"], lines }).speakers).toEqual(["Marc", "speaker 3", "Speaker 4"]);
+  });
+
+  it("keeps each speaker's colour when another one leaves, and gives a new speaker the first free colour", () => {
+    const removed = removeSpeaker({ speakers: ["Host", "Guest", "Caller"], lines }, 0);
+    expect(removed.colors).toEqual([1, 2]);
+    expect(removeUnusedSpeakers({ speakers: ["Host", "Guest"], colors: [4, 6], lines: assignSpeaker(lines, 0, 1) }).colors).toEqual([6]);
+    expect(addSpeaker(removed).colors).toEqual([1, 2, 0]);
+    expect(addSpeaker({ speakers: ["A", "B"], colors: [0, 2], lines }).colors).toEqual([0, 2, 1]);
   });
 });
 

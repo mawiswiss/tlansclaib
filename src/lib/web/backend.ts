@@ -363,10 +363,10 @@ export function webBackend(): Backend {
       emit("history", null);
       return `r${found.revision + 1}`;
     },
-    saveTranscript: async (file, expected, lines, timestamps, speakers) => {
+    saveTranscript: async (file, expected, lines, timestamps, speakers, colors) => {
       const found = await record(file);
       if (expected !== `r${found.revision}`) throw new Refusal("This transcript was changed in another tab since it was opened, so the edit was not saved.");
-      await records.put({ ...found, lines, entry: { ...found.entry, timestamps, speakers, edited: true }, revision: found.revision + 1 });
+      await records.put({ ...found, lines, entry: { ...found.entry, timestamps, speakers, speaker_colors: colors, edited: true }, revision: found.revision + 1 });
       emit("history", null);
       return `r${found.revision + 1}`;
     },

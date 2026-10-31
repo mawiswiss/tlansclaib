@@ -29,7 +29,7 @@ import { score } from "./lib/fit";
 import { measuredSpeed } from "./lib/pace";
 import { loadSettings, saveSettings, settingsLoadError } from "./lib/settings";
 import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from "./lib/support";
-import { parseTranscript, withTimes, type Transcript } from "./lib/transcript";
+import { colorsOf, parseTranscript, withTimes, type Transcript } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
 import { quietCheckAllowed, RECHECK_MS, releasePage, topBarLabel, type UpdateState } from "./lib/update";
 import { agreed, betterDownload, DETECTED, DETECTION_IDS, fittingDownload, fittingInstalled, installed as isInstalled, languageKey, leftovers, MODE_DETECTION, MODE_NAMES, missing, modelFor, parseLanguage, runLanguages, setupChanges, sizeOf, smallerModel, wanted, wantedBackend, withSelectedLanguage, type Resources, type Setup, type SetupLanguage } from "./lib/setup";
@@ -116,8 +116,8 @@ export default function App() {
   const [problem, setProblem] = useState<string | null>(null);
   const [pendingSeconds, setPendingSeconds] = useState<number | null>(null);
   const [run, dispatch] = useReducer(reduce, idle);
-  const latest = useRef<Transcript>({ lines: run.lines, speakers: run.speakers });
-  latest.current = { lines: run.lines, speakers: run.speakers };
+  const latest = useRef<Transcript>({ lines: run.lines, speakers: run.speakers, colors: run.colors });
+  latest.current = { lines: run.lines, speakers: run.speakers, colors: run.colors };
   const savedHash = useRef<string | null>(null);
   savedHash.current = run.hash;
   const saving = useRef(Promise.resolve<Transcript | null>(null));
@@ -614,11 +614,12 @@ export default function App() {
       if (!next) return null;
       try {
         const expected = savedHash.current ?? (await b.transcriptHash(file));
-        const hash = await b.saveTranscript(file, expected, next.lines, timestamps, next.speakers);
+        const colors = colorsOf(next);
+        const hash = await b.saveTranscript(file, expected, next.lines, timestamps, next.speakers, colors);
         latest.current = next;
         savedHash.current = hash;
         editedFile.current = file;
-        dispatch({ type: "edit", lines: next.lines, speakers: next.speakers, hash });
+        dispatch({ type: "edit", lines: next.lines, speakers: next.speakers, colors, hash });
         setResultError(null);
         return before;
       } catch (error) {

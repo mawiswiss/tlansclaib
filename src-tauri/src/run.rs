@@ -589,6 +589,7 @@ fn entry(record: &Record, status: history::Status, lines: usize, elapsed: f64) -
         audio_fingerprint: crate::fingerprint::audio(&record.audio).ok(),
         file_sha256: None,
         speakers: record.speakers.clone(),
+        speaker_colors: Vec::new(),
         detected: record.detected,
         video: Some(record.video),
         model_id: Some(record.model_id.clone()),

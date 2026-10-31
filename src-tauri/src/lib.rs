@@ -185,10 +185,11 @@ fn set_transcript_timestamps(
 ) -> Result<String, String> {
     let file = Path::new(&file);
     transcript::set_timestamps(file, &lines, timestamps, &speakers).map_err(|e| format!("{e:#}"))?;
-    remember_write(&app, &history, file, timestamps, &speakers, false)
+    remember_write(&app, &history, file, timestamps, &speakers, None, false)
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 fn save_transcript(
     app: AppHandle,
     history: State<History>,
@@ -197,10 +198,11 @@ fn save_transcript(
     lines: Vec<transcript::Line>,
     timestamps: bool,
     speakers: Vec<String>,
+    colors: Vec<u8>,
 ) -> Result<String, String> {
     let file = Path::new(&file);
-    transcript::save(file, &expected, &lines, timestamps, &speakers).map_err(|e| format!("{e:#}"))?;
-    remember_write(&app, &history, file, timestamps, &speakers, true)
+    transcript::save(file, &expected, &lines, timestamps, &speakers, &colors).map_err(|e| format!("{e:#}"))?;
+    remember_write(&app, &history, file, timestamps, &speakers, Some(&colors), true)
 }
 
 #[tauri::command]
@@ -236,8 +238,8 @@ fn export_transcript(
         .map_err(|error| format!("{error:#}"))
 }
 
-fn remember_write(app: &AppHandle, history: &History, file: &Path, timestamps: bool, speakers: &[String], edited: bool) -> Result<String, String> {
-    if let Err(error) = history.written(file, timestamps, speakers, edited) {
+fn remember_write(app: &AppHandle, history: &History, file: &Path, timestamps: bool, speakers: &[String], colors: Option<&[u8]>, edited: bool) -> Result<String, String> {
+    if let Err(error) = history.written(file, timestamps, speakers, colors, edited) {
         report_history_error(app, "The transcript was saved", &error);
     }
     let _ = app.emit("history-changed", ());

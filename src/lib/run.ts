@@ -31,6 +31,8 @@ export type RunState = {
   /** The recording's whole length, which the browser version may cut at its limit. */
   fullSeconds: number | null;
   speakers: string[];
+  /** Each speaker's palette slot, see `colorOf`. */
+  colors: number[];
   tracks: number;
   detecting: boolean;
   speakerProgress: number | null;
@@ -77,6 +79,7 @@ export const idle: RunState = {
   audioSeconds: null,
   fullSeconds: null,
   speakers: [],
+  colors: [],
   tracks: 1,
   detecting: false,
   speakerProgress: null,
@@ -120,7 +123,7 @@ export type RunAction =
       hash: string;
     }
   | { type: "hash"; hash: string }
-  | { type: "edit"; lines: Line[]; speakers: string[]; hash: string }
+  | { type: "edit"; lines: Line[]; speakers: string[]; colors: number[]; hash: string }
   | { type: "audio"; path: string }
   | { type: "rename"; file: string; title: string }
   | { type: "engine"; event: EngineEvent; now: number }
@@ -162,6 +165,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
         heard: e.heard ?? [],
         audioSeconds: e.audio_seconds,
         speakers: e.speakers ?? [],
+        colors: e.speaker_colors ?? [],
         tracks: e.tracks ?? (e.detected ? 1 : Math.max(1, (e.speakers ?? []).length)),
         detected: e.detected ?? false,
         voices: e.detected ? Math.max(1, (e.speakers ?? []).length) : null,
@@ -184,6 +188,7 @@ export function reduce(state: RunState, action: RunAction): RunState {
         hash: action.hash,
         lines: action.lines,
         speakers: action.speakers,
+        colors: action.colors,
         result: state.result && { ...state.result, lines: action.lines.filter((l) => l.text).length },
       };
     case "audio":

@@ -9,7 +9,8 @@ function seconds(h: string, m: string, s: string): number {
   return Number(h) * 3600 + Number(m) * 60 + Number(s);
 }
 
-export type Transcript = { lines: Line[]; speakers: string[] };
+/** `colors` holds each speaker's palette slot. A transcript saved before there were colours has none, and falls back to the order. */
+export type Transcript = { lines: Line[]; speakers: string[]; colors?: number[] };
 
 export type Parsed = { lines: Line[]; timestamps: boolean };
 
@@ -144,13 +145,23 @@ export function assignSpeaker(lines: Line[], index: number, speaker: number | un
   return lines.map((line, i) => (i === index ? { ...line, speaker } : line));
 }
 
+export function colorOf(colors: number[] | undefined, track: number): number {
+  return colors?.[track] ?? track % SPEAKER_COLORS;
+}
+
+export function colorsOf(transcript: Transcript): number[] {
+  return transcript.speakers.map((_, track) => colorOf(transcript.colors, track));
+}
+
 export function removeUnusedSpeakers(transcript: Transcript): Transcript {
   const used = new Set(transcript.lines.filter((line) => line.text.trim()).map((line) => line.speaker));
+  const colors = colorsOf(transcript);
   const kept = transcript.speakers.flatMap((name, index) => (used.has(index) ? [{ name, index }] : []));
   if (kept.length === transcript.speakers.length) return transcript;
   const positions = new Map(kept.map(({ index }, position) => [index, position]));
   return {
     speakers: kept.map(({ name }) => name),
+    colors: kept.map(({ index }) => colors[index]),
     lines: transcript.lines.map((line) => ({ ...line, speaker: line.speaker === undefined ? undefined : positions.get(line.speaker) })),
   };
 }
@@ -159,6 +170,7 @@ export function removeUnusedSpeakers(transcript: Transcript): Transcript {
 export function removeSpeaker(transcript: Transcript, track: number): Transcript {
   return {
     speakers: transcript.speakers.filter((_, i) => i !== track),
+    colors: colorsOf(transcript).filter((_, i) => i !== track),
     lines: transcript.lines.map((line) => {
       if (line.speaker === undefined || line.speaker < track) return line;
       return { ...line, speaker: line.speaker === track ? undefined : line.speaker - 1 };
@@ -172,17 +184,25 @@ export function hasUnassigned(transcript: Transcript): boolean {
   return transcript.speakers.length > 0 && spoken.some((line) => line.speaker === undefined) && spoken.some((line) => line.speaker !== undefined);
 }
 
-/** Speakers have eight colours, so a transcript names at most eight. */
-export const MAX_SPEAKERS = 8;
+/** The palette has eight colours, `--speaker-0` to `--speaker-7` in styles.css. */
+export const SPEAKER_COLORS = 8;
 
-export function addSpeaker(speakers: string[], lines: Line[]): Transcript {
+/** Speakers have eight colours, so a transcript names at most eight. */
+export const MAX_SPEAKERS = SPEAKER_COLORS;
+
+/** A new speaker takes the first colour no other speaker has. */
+export function addSpeaker(transcript: Transcript): Transcript {
+  const { speakers, lines } = transcript;
   const taken = new Set(speakers.map((name) => name.toLowerCase()));
   const named = speakers.length === 0 ? ["Speaker 1"] : [...speakers];
+  const colors = speakers.length === 0 ? [0] : colorsOf(transcript);
   let n = named.length + 1;
   while (taken.has(`speaker ${n}`)) n++;
   named.push(`Speaker ${n}`);
+  const free = Array.from({ length: SPEAKER_COLORS }, (_, slot) => slot).find((slot) => !colors.includes(slot));
+  colors.push(free ?? colors.length % SPEAKER_COLORS);
   const plain = lines.every((line) => line.speaker === undefined);
-  return { speakers: named, lines: plain ? lines.map((line) => ({ ...line, speaker: 0 })) : lines };
+  return { speakers: named, colors, lines: plain ? lines.map((line) => ({ ...line, speaker: 0 })) : lines };
 }
 
 export function findMatches(lines: Line[], needle: string): number[] {

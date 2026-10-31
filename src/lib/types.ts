@@ -44,6 +44,7 @@ export type HistoryEntry = {
   status: "done" | "incomplete";
   timestamps: boolean;
   speakers?: string[];
+  speaker_colors?: number[];
   tracks?: number | null;
   detected?: boolean;
   video?: boolean | null;

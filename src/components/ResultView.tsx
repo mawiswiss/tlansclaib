@@ -3,7 +3,7 @@ import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/
 import { DETECTION } from "../lib/detection";
 import { differs } from "../lib/language";
 import type { RunState, Word } from "../lib/run";
-import { addSpeaker, assignSpeaker, EXPORT_NAMES, MAX_SPEAKERS, findMatches, hasUnassigned, joinLine, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
+import { addSpeaker, assignSpeaker, colorOf, EXPORT_NAMES, MAX_SPEAKERS, findMatches, hasUnassigned, joinLine, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
 import type { ExportFormat } from "../lib/types";
 import { FEATURES } from "../lib/ipc";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
@@ -447,7 +447,7 @@ export function ResultView(props: Props) {
 
   const renameNewest = (saved: Transcript | null) => {
     if (!saved) return;
-    const named = addSpeaker(saved.speakers, saved.lines).speakers;
+    const named = addSpeaker(saved).speakers;
     startSpeakerRename(named.length - 1, named[named.length - 1]);
   };
 
@@ -458,7 +458,7 @@ export function ResultView(props: Props) {
     }
     let newest: [number, string] = [-1, ""];
     const saved = await save((t) => {
-      const added = addSpeaker(t.speakers, t.lines);
+      const added = addSpeaker(t);
       const next = removeUnusedSpeakers({ ...added, lines: assignSpeaker(added.lines, index, added.speakers.length - 1) });
       newest = [next.speakers.length - 1, next.speakers[next.speakers.length - 1]];
       return next;
@@ -470,7 +470,7 @@ export function ResultView(props: Props) {
     await save((t) => removeUnusedSpeakers(removeSpeaker(t, track)));
   };
 
-  const addOne = async () => renameNewest(await save((t) => addSpeaker(t.speakers, t.lines)));
+  const addOne = async () => renameNewest(await save((t) => addSpeaker(t)));
 
   const onTime = (seconds: number, playing: boolean) => {
     playhead.set(seconds);
@@ -730,7 +730,7 @@ export function ResultView(props: Props) {
                     key={track}
                     ref={speakerInput}
                     type="text"
-                    className={`speaker-editor s${track % 8}`}
+                    className={`speaker-editor s${colorOf(run.colors, track)}`}
                     value={speakerDraft}
                     maxLength={40}
                     size={Math.max(speakerDraft ? 8 : 15, speakerDraft.length + 1)}
@@ -756,7 +756,7 @@ export function ResultView(props: Props) {
                   <span key={track} className="speaker-item">
                     <button
                       type="button"
-                      className={`speaker-chip s${track % 8}`}
+                      className={`speaker-chip s${colorOf(run.colors, track)}`}
                       onClick={() => startSpeakerRename(track, name)}
                       title="Rename this speaker"
                     >
@@ -931,7 +931,7 @@ export function ResultView(props: Props) {
                       title={`${line.speaker !== undefined ? run.speakers[line.speaker] : "Unassigned"}. Click to change the speaker`}
                       className="dot-select"
                       chevron={false}
-                      trigger={() => <span className={`line-dot ${line.speaker !== undefined ? `s${line.speaker % 8}` : "unassigned"}`} />}
+                      trigger={() => <span className={`line-dot ${line.speaker !== undefined ? `s${colorOf(run.colors, line.speaker)}` : "unassigned"}`} />}
                     />
                   </span>
                 )}
