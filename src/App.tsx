@@ -893,7 +893,7 @@ export default function App() {
   const missingDetection = detections.find((d) => d.available && !d.installed && d.backend === preferredDetection) ?? detections.find((d) => d.available && !d.installed) ?? null;
   const fixTarget = brokenDetection?.damaged ? brokenDetection : missingDetection;
   const speakerFix: SpeakerFix | null = (() => {
-    if (!FEATURES.speakers) return { state: "Not in Lite", action: "Desktop app", tip: "Speaker detection names who speaks when. It runs in the desktop app for Mac and Windows." };
+    if (!FEATURES.speakers) return { state: "Not included in Lite", action: "Desktop app", tip: "Speaker detection names who speaks when. It runs in the desktop app for Mac and Windows." };
     if (speakerBackend) return null;
     const intact = brokenDetection && !brokenDetection.damaged
       ? `${DETECTION[brokenDetection.backend].name} does not start on this computer. Its files match the download, so downloading it again would not help.`

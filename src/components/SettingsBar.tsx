@@ -1,7 +1,9 @@
 import { DETECTION } from "../lib/detection";
 import { failedFit, FIT_LABEL, ramFit } from "../lib/fit";
+import { FEATURES } from "../lib/ipc";
 import type { LanguageOption } from "../lib/setup";
 import type { ModelStatus, SpeakerBackend, Stats } from "../lib/types";
+import { Info } from "./icons";
 import { languagesOf, menuLabel } from "./ModelsPanel";
 import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
@@ -42,30 +44,44 @@ export function SettingsBar(props: Props) {
         <span className="label">Recording language</span>
         <Select id="language-setting" value={locked ?? language} onChange={onLanguage} disabled={busy || locked !== null} label="Recording language" options={languages} />
       </label>
-      <label className="setting" htmlFor="model-setting" title="Automatic takes the model of your setup for the language, or a better installed one while it fits the free memory.">
-        <span className="label">
-          Model
-          {fit?.tip ? <Tooltip content={fit.tip}>{pill}</Tooltip> : pill}
-        </span>
-        <Select
-          id="model-setting"
-          value={installed.length === 0 ? "" : pinned}
-          onChange={onModel}
-          disabled={busy || installed.length === 0}
-          label="Model"
-          trigger={(selected) => (
-            <span className="select-value">
-              {selected?.label ?? ""}
-              {selected?.value === "auto" && (model || installed.some((m) => m.too_heavy)) && <span className="select-sub">{model ? languagesOf(model) : "None that works here"}</span>}
-            </span>
-          )}
-          options={
-            installed.length === 0
-              ? [{ value: "", label: "No model installed" }]
-              : [{ value: "auto", label: "Automatic" }, ...installed.map((m) => ({ value: m.id, label: menuLabel(m) }))]
-          }
-        />
-      </label>
+      {FEATURES.lite ? (
+        <div className="setting fixed">
+          <span className="label">
+            Model
+            <Tooltip content="Lite has a single model to choose from. It covers about 100 languages.">
+              <span className="setting-info" tabIndex={0} aria-label="About the model in Lite">
+                <Info size={13} />
+              </span>
+            </Tooltip>
+          </span>
+          <span className="setting-value">{(model ?? installed[0])?.name ?? "No model installed"}</span>
+        </div>
+      ) : (
+        <label className="setting" htmlFor="model-setting" title="Automatic takes the model of your setup for the language, or a better installed one while it fits the free memory.">
+          <span className="label">
+            Model
+            {fit?.tip ? <Tooltip content={fit.tip}>{pill}</Tooltip> : pill}
+          </span>
+          <Select
+            id="model-setting"
+            value={installed.length === 0 ? "" : pinned}
+            onChange={onModel}
+            disabled={busy || installed.length === 0}
+            label="Model"
+            trigger={(selected) => (
+              <span className="select-value">
+                {selected?.label ?? ""}
+                {selected?.value === "auto" && (model || installed.some((m) => m.too_heavy)) && <span className="select-sub">{model ? languagesOf(model) : "None that works here"}</span>}
+              </span>
+            )}
+            options={
+              installed.length === 0
+                ? [{ value: "", label: "No model installed" }]
+                : [{ value: "auto", label: "Automatic" }, ...installed.map((m) => ({ value: m.id, label: menuLabel(m) }))]
+            }
+          />
+        </label>
+      )}
       <label className="setting" htmlFor="speakers-setting" title="Name who speaks in a recording with one audio track. A recording with several tracks gets one speaker per track anyway.">
         <span className="label">
           Speakers

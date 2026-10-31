@@ -537,6 +537,16 @@ main {
   color: var(--faint);
 }
 
+.setting .setting-value {
+  height: 22px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .setting .select-trigger {
   width: 100%;
   height: 22px;
@@ -566,10 +576,12 @@ main {
   border-radius: 4px;
 }
 
+.setting.fixed,
 .setting:has(.select-trigger:disabled) {
   cursor: default;
 }
 
+.setting.fixed:hover,
 .setting:has(> .select-trigger:disabled):hover {
   background: transparent;
 }
@@ -3600,6 +3612,12 @@ button.setup-details-toggle:hover:not(:disabled) {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.setting .label .setting-info {
+  display: inline-flex;
+  color: var(--faint);
+  cursor: default;
 }
 
 .setting .label .setting-action {
