@@ -23,7 +23,7 @@ const LIMITS = [
   { text: "Speaker detection", has: false },
 ];
 
-const DESKTOP_PITCH = "Lite runs a compact model with more mistakes. The desktop app transcribes full recordings and names the speakers.";
+const DESKTOP_PITCH = "Lite uses a lightweight model, ideal for trying the app. For full-length recordings with several speakers, use the desktop app.";
 
 export function WebSetup({ variant, model, progress, error, problem, busy, onDownload, onCancel, onDelete, onOpenUrl, onCompare }: Props) {
   const desktop = (primary: boolean) => (

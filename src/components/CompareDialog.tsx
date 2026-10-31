@@ -8,7 +8,7 @@ type Cell = string | boolean;
 const ROWS: { label: string; lite: Cell; desktop: Cell }[] = [
   { label: "Recording length", lite: "First 10 minutes", desktop: "Any length" },
   { label: "File size", lite: "Up to 1 GB", desktop: "Any size" },
-  { label: "Accuracy", lite: "More mistakes", desktop: "Larger models, fewer mistakes" },
+  { label: "Accuracy", lite: "Lightweight model", desktop: "Larger, more accurate models" },
   { label: "Speaker detection", lite: false, desktop: true },
   { label: "Languages", lite: "About 100, one model", desktop: "About 100, plus dedicated models" },
   { label: "Stays on this computer", lite: true, desktop: true },
