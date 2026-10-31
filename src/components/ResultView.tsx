@@ -3,7 +3,7 @@ import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/
 import { DETECTION } from "../lib/detection";
 import { differs } from "../lib/language";
 import type { RunState, Word } from "../lib/run";
-import { addSpeaker, assignSpeaker, EXPORT_NAMES, MAX_SPEAKERS, findMatches, joinLine, placeWords, playingAt, removeUnusedSpeakers, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
+import { addSpeaker, assignSpeaker, EXPORT_NAMES, MAX_SPEAKERS, findMatches, hasUnassigned, joinLine, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
 import type { ExportFormat } from "../lib/types";
 import { FEATURES } from "../lib/ipc";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
@@ -40,6 +40,7 @@ function when(ms: number): string {
 }
 
 const NEW_SPEAKER = "new";
+const UNASSIGNED = "unassigned";
 
 const MAC = /Mac|iPhone|iPad/.test(navigator.userAgent);
 const KEYS = MAC
@@ -195,6 +196,8 @@ export function ResultView(props: Props) {
   const result = run.result!;
   const title = run.title;
   const spoken = differs(run.language, run.heard);
+  const unassigned = useMemo(() => hasUnassigned({ lines: run.lines, speakers: run.speakers }), [run.lines, run.speakers]);
+  const voiced = run.speakers.length > 1 || unassigned;
   const lines = useMemo(() => run.lines.flatMap((l, index) => (l.text ? [{ ...l, index }] : [])), [run.lines]);
   const audioMissing = run.check?.audio === "missing";
   const audioChanged = run.check?.audio === "different";
@@ -332,12 +335,12 @@ export function ResultView(props: Props) {
     const track = speakerOpen.current;
     if (track === null || speakerBusy.current) return;
     const name = speakerDraft.replace(/\s+/g, " ").trim();
-    if (!name || name === run.speakers[track]) {
+    if (name === run.speakers[track]) {
       closeSpeakerRename();
       return;
     }
     speakerBusy.current = true;
-    const saved = await save((t) => ({ ...t, speakers: t.speakers.map((s, i) => (i === track ? name : s)) }));
+    const saved = await save((t) => (name ? { ...t, speakers: t.speakers.map((s, i) => (i === track ? name : s)) } : removeUnusedSpeakers(removeSpeaker(t, track))));
     speakerBusy.current = false;
     if (saved || !fromEnter) closeSpeakerRename();
   };
@@ -450,7 +453,7 @@ export function ResultView(props: Props) {
 
   const reassign = async (index: number, value: string) => {
     if (value !== NEW_SPEAKER) {
-      await save((t) => removeUnusedSpeakers({ ...t, lines: assignSpeaker(t.lines, index, Number(value)) }));
+      await save((t) => removeUnusedSpeakers({ ...t, lines: assignSpeaker(t.lines, index, value === UNASSIGNED ? undefined : Number(value)) }));
       return;
     }
     let newest: [number, string] = [-1, ""];
@@ -461,6 +464,10 @@ export function ResultView(props: Props) {
       return next;
     });
     if (saved && newest[0] >= 0) startSpeakerRename(newest[0], newest[1]);
+  };
+
+  const removeOne = async (track: number) => {
+    await save((t) => removeUnusedSpeakers(removeSpeaker(t, track)));
   };
 
   const addOne = async () => renameNewest(await save((t) => addSpeaker(t.speakers, t.lines)));
@@ -714,7 +721,7 @@ export function ResultView(props: Props) {
         </div>
         {playerError && !unplayable && <p className="problem" role="alert">{playerError}</p>}
         <div className="transcript-bar">
-          {run.speakers.length > 1 ? (
+          {voiced ? (
             <div className="speakers-group">
               <span className="speakers-label">Speakers</span>
               {run.speakers.map((name, track) =>
@@ -726,7 +733,8 @@ export function ResultView(props: Props) {
                     className={`speaker-editor s${track % 8}`}
                     value={speakerDraft}
                     maxLength={40}
-                    size={Math.max(8, speakerDraft.length + 1)}
+                    size={Math.max(speakerDraft ? 8 : 15, speakerDraft.length + 1)}
+                    placeholder="Remove speaker"
                     spellCheck={false}
                     onChange={(e) => setSpeakerDraft(e.target.value)}
                     onBlur={() => void commitSpeakerRename(false)}
@@ -745,18 +753,34 @@ export function ResultView(props: Props) {
                     aria-label={`Name of speaker ${track + 1}`}
                   />
                 ) : (
-                  <button
-                    key={track}
-                    type="button"
-                    className={`speaker-chip s${track % 8}`}
-                    onClick={() => startSpeakerRename(track, name)}
-                    title="Click to rename"
-                  >
-                    <span className="speaker-dot" />
-                    {name}
-                    <Pencil size={12} />
-                  </button>
+                  <span key={track} className="speaker-item">
+                    <button
+                      type="button"
+                      className={`speaker-chip s${track % 8}`}
+                      onClick={() => startSpeakerRename(track, name)}
+                      title="Rename this speaker"
+                    >
+                      <span className="speaker-dot" />
+                      {name}
+                      <Pencil size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className="speaker-remove"
+                      onClick={() => void removeOne(track)}
+                      aria-label={`Remove ${name}`}
+                      title={`Remove ${name}. Their lines become Unassigned.`}
+                    >
+                      <Close size={11} strokeWidth={2.2} />
+                    </button>
+                  </span>
                 ),
+              )}
+              {unassigned && (
+                <span className="speaker-chip unassigned" title="Lines without a speaker, such as noises">
+                  <span className="speaker-dot" />
+                  Unassigned
+                </span>
               )}
               {run.detected && !audioMissing && (
                 <button
@@ -767,7 +791,7 @@ export function ResultView(props: Props) {
                   Wrong number?
                 </button>
               )}
-              <Tooltip content="Click the dot in front of a line to change its speaker. Speakers come from the audio tracks of the recording, or from speaker detection. A new name is saved in app history right away.">
+              <Tooltip content="Click the dot in front of a line to change its speaker. Remove a speaker with its ×, or by clearing its name, and its lines become Unassigned. Speakers come from the audio tracks of the recording, or from speaker detection.">
                 <span className="meta-info" tabIndex={0} aria-label="About speakers">
                   <Info size={14} />
                 </span>
@@ -861,7 +885,7 @@ export function ResultView(props: Props) {
             const isEditing = editing === line.index;
             const classes = [
               run.timestamps ? "timed" : "",
-              run.speakers.length > 1 ? "voiced" : "",
+              voiced ? "voiced" : "",
               syncable && !isEditing ? "seekable" : "",
               heard.lines.includes(i) ? "current" : "",
               hits.length > 0 && hits[hit] === i ? "hit" : "",
@@ -893,14 +917,18 @@ export function ResultView(props: Props) {
                 title={syncable && !isEditing ? "Play from here" : undefined}
               >
                 {run.timestamps && <span className="time">{clock(line.start)}</span>}
-                {run.speakers.length > 1 && (
+                {voiced && (
                   <span className="dot-pick" onClick={(e) => e.stopPropagation()}>
                     <Select
-                      value={line.speaker !== undefined ? String(line.speaker) : ""}
-                      options={[...run.speakers.map((name, track) => ({ value: String(track), label: name })), ...(run.speakers.length < MAX_SPEAKERS ? [{ value: NEW_SPEAKER, label: "New speaker" }] : [])]}
+                      value={line.speaker !== undefined ? String(line.speaker) : UNASSIGNED}
+                      options={[
+                        ...run.speakers.map((name, track) => ({ value: String(track), label: name })),
+                        ...(unassigned ? [{ value: UNASSIGNED, label: "Unassigned", className: "unassigned" }] : []),
+                        ...(run.speakers.length < MAX_SPEAKERS ? [{ value: NEW_SPEAKER, label: "New speaker" }] : []),
+                      ]}
                       onChange={(value) => void reassign(line.index, value)}
                       label="Speaker of this line"
-                      title={line.speaker !== undefined ? `${run.speakers[line.speaker]}. Click to change the speaker` : "Choose the speaker"}
+                      title={`${line.speaker !== undefined ? run.speakers[line.speaker] : "Unassigned"}. Click to change the speaker`}
                       className="dot-select"
                       chevron={false}
                       trigger={() => <span className={`line-dot ${line.speaker !== undefined ? `s${line.speaker % 8}` : "unassigned"}`} />}

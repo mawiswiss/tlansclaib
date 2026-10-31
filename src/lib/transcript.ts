@@ -140,7 +140,7 @@ export function joinLine(lines: Line[], index: number, text: string): { lines: L
   };
 }
 
-export function assignSpeaker(lines: Line[], index: number, speaker: number): Line[] {
+export function assignSpeaker(lines: Line[], index: number, speaker: number | undefined): Line[] {
   return lines.map((line, i) => (i === index ? { ...line, speaker } : line));
 }
 
@@ -155,6 +155,23 @@ export function removeUnusedSpeakers(transcript: Transcript): Transcript {
   };
 }
 
+/** Its lines become unassigned, and the speakers after it move up one place. */
+export function removeSpeaker(transcript: Transcript, track: number): Transcript {
+  return {
+    speakers: transcript.speakers.filter((_, i) => i !== track),
+    lines: transcript.lines.map((line) => {
+      if (line.speaker === undefined || line.speaker < track) return line;
+      return { ...line, speaker: line.speaker === track ? undefined : line.speaker - 1 };
+    }),
+  };
+}
+
+/** Lines without a speaker show as Unassigned, unless no line has one, which is a transcript without speakers. */
+export function hasUnassigned(transcript: Transcript): boolean {
+  const spoken = transcript.lines.filter((line) => line.text.trim());
+  return transcript.speakers.length > 0 && spoken.some((line) => line.speaker === undefined) && spoken.some((line) => line.speaker !== undefined);
+}
+
 /** Speakers have eight colours, so a transcript names at most eight. */
 export const MAX_SPEAKERS = 8;
 
@@ -164,7 +181,8 @@ export function addSpeaker(speakers: string[], lines: Line[]): Transcript {
   let n = named.length + 1;
   while (taken.has(`speaker ${n}`)) n++;
   named.push(`Speaker ${n}`);
-  return { speakers: named, lines: speakers.length <= 1 ? lines.map((line) => ({ ...line, speaker: line.speaker ?? 0 })) : lines };
+  const plain = lines.every((line) => line.speaker === undefined);
+  return { speakers: named, lines: plain ? lines.map((line) => ({ ...line, speaker: 0 })) : lines };
 }
 
 export function findMatches(lines: Line[], needle: string): number[] {

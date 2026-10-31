@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { transcriptText } from "./format";
-import { addSpeaker, assignSpeaker, findMatches, joinLine, lineAt, nextSpeaker, parseTranscript, placeWords, playingAt, removeUnusedSpeakers, splitLine, withTimes, wordAt } from "./transcript";
+import { addSpeaker, assignSpeaker, findMatches, hasUnassigned, joinLine, lineAt, nextSpeaker, parseTranscript, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, withTimes, wordAt } from "./transcript";
 
 describe("parseTranscript", () => {
   it("reads a file with timecodes back into lines", () => {
@@ -165,6 +165,27 @@ describe("speaker corrections", () => {
       lines: reassigned.map((line) => ({ ...line, speaker: 0 })),
     });
     expect(removeUnusedSpeakers({ speakers: ["Host", "Guest"], lines })).toEqual({ speakers: ["Host", "Guest"], lines });
+  });
+
+  it("removes a speaker, leaves its lines unassigned and moves the later speakers up", () => {
+    const three = [...lines, { start: 30, end: 31, text: "Third", speaker: 2 }];
+    expect(removeSpeaker({ speakers: ["Host", "Guest", "Caller"], lines: three }, 1)).toEqual({
+      speakers: ["Host", "Caller"],
+      lines: three.map((line) => ({ ...line, speaker: line.speaker === 1 ? undefined : line.speaker === 2 ? 1 : line.speaker })),
+    });
+  });
+
+  it("sees unassigned lines only next to assigned ones", () => {
+    const plain = [{ start: 0, end: 1, text: "a" }];
+    expect(hasUnassigned({ speakers: ["Host"], lines: [...plain, { start: 1, end: 2, text: "b", speaker: 0 }] })).toBe(true);
+    expect(hasUnassigned({ speakers: ["Host"], lines: plain })).toBe(false);
+    expect(hasUnassigned({ speakers: [], lines: plain })).toBe(false);
+    expect(hasUnassigned({ speakers: ["Host", "Guest"], lines })).toBe(false);
+  });
+
+  it("keeps unassigned lines unassigned when a speaker is added", () => {
+    const mixed = [{ start: 0, end: 1, text: "a" }, { start: 1, end: 2, text: "b", speaker: 0 }];
+    expect(addSpeaker(["Host"], mixed)).toEqual({ speakers: ["Host", "Speaker 2"], lines: mixed });
   });
 
   it("adds a speaker under a free name, and gives every line a speaker when there was none", () => {

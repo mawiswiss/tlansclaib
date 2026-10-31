@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "./icons";
 
-export type Option = { value: string; label: string };
+export type Option = { value: string; label: string; className?: string };
 
 type Props = {
   value: string;
@@ -173,7 +173,7 @@ export function Select({ value, options, onChange, id, label, title, disabled, c
                 id={optionId(i)}
                 role="option"
                 aria-selected={option.value === value}
-                className={i === active ? "active" : undefined}
+                className={[i === active ? "active" : "", option.className ?? ""].filter(Boolean).join(" ") || undefined}
                 onMouseEnter={() => setActive(i)}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => choose(i)}
