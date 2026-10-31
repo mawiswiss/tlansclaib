@@ -10,7 +10,7 @@ points to the desktop app for the rest. A browser without WebGPU or
 Every pointer to the desktop app opens the comparison with Lite. Only its
 button downloads: the installer for the visitor's system, read from the
 browser in `src/lib/desktop.ts`, followed by the install steps. On any other
-system, and on an iPad, it offers both installers.
+system, and on an iPad, it offers all three installers.
 
 ## Commands
 
