@@ -227,7 +227,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     let scratch_dir = data.join("scratch");
     std::fs::create_dir_all(&transcripts)?;
     std::fs::create_dir_all(&scratch_dir)?;
-    let id = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() as u64;
+    let id = record_id(SystemTime::now().duration_since(UNIX_EPOCH)?);
     let output = transcripts.join(format!("{id}.json"));
     let scratch = scratch_dir.join(format!("{id}.txt"));
     let replace_id = transcript.map(|file| app.state::<History>().by_file(file)).transpose()?.flatten().map(|entry| entry.id);
@@ -507,6 +507,11 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     Ok(())
 }
 
+/// Microseconds stay below 2^53, so the window's JavaScript numbers hold the id exactly.
+fn record_id(since_epoch: Duration) -> u64 {
+    since_epoch.as_micros() as u64
+}
+
 fn with_own<T>(app: &AppHandle, id: u64, f: impl FnOnce(&mut ActiveRun) -> T) -> Option<T> {
     let state = app.state::<RunState>();
     let mut active = state.0.lock().unwrap();
@@ -733,6 +738,13 @@ mod tests {
         assert_eq!(json["budget_without_speakers"], gib - guard::WORD_TIMING_RAM);
         let other = serde_json::to_value(StartError::from(anyhow!("gone"))).unwrap();
         assert_eq!(other, serde_json::json!({ "kind": "other", "message": "gone" }));
+    }
+
+    #[test]
+    fn a_record_id_survives_a_javascript_number_until_the_year_2200() {
+        let year_2200 = Duration::from_secs(7_258_118_400);
+        assert!(record_id(year_2200) < 1 << 53);
+        assert_eq!(record_id(year_2200) as f64 as u64, record_id(year_2200));
     }
 
     #[test]
