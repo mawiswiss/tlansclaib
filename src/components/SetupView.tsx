@@ -77,7 +77,8 @@ function runsOn(gpu: Gpu | null): string {
 function connection(speed: Props["speed"]): string {
   if (speed === "measuring") return "Measuring…";
   if (speed === "offline") return "Offline";
-  return `${speed >= 1e7 ? Math.round(speed / 1e6) : (speed / 1e6).toFixed(1)} MB/s`;
+  const mbit = (speed * 8) / 1e6;
+  return `${mbit >= 10 ? Math.round(mbit) : mbit.toFixed(1)} Mbit/s`;
 }
 
 export function SetupView(props: Props) {
