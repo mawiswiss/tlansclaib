@@ -48,6 +48,9 @@ const KEYS = MAC
 
 const HISTORY = 100;
 
+/** A click on text plays only after this long, so a double click can edit instead. */
+const DOUBLE_CLICK_MS = 250;
+
 function flat(text: string): string {
   return text.replace(/\s*[\r\n]+\s*/g, " ");
 }
@@ -117,6 +120,7 @@ const Spoken = memo(function Spoken({ row, start, text, words, live, playhead, o
         className={i === now ? "word now" : "word"}
         onClick={(e) => {
           e.stopPropagation();
+          if (e.detail > 1) return;
           onWord({ row, index: i, from: i > 0 ? placed[i - 1].word.start : start, until: word.start });
         }}
       >
@@ -469,16 +473,36 @@ export function ResultView(props: Props) {
     if (next.main >= 0) rows.current[next.main]?.scrollIntoView({ block: "center" });
   };
 
+  const pendingPlay = useRef(0);
+  const playSoon = useCallback((play: () => void) => {
+    clearTimeout(pendingPlay.current);
+    pendingPlay.current = window.setTimeout(play, DOUBLE_CLICK_MS);
+  }, []);
+
+  useEffect(() => () => clearTimeout(pendingPlay.current), []);
+
   const playWord = useCallback(
-    (word: Held) => {
-      playhead.hold(word);
-      player.current?.seek(word.from);
-      playhead.set(word.from);
-      setHeard({ lines: [word.row], main: word.row });
-      userScrolled.current = 0;
-    },
-    [playhead],
+    (word: Held) =>
+      playSoon(() => {
+        playhead.hold(word);
+        player.current?.seek(word.from);
+        playhead.set(word.from);
+        setHeard({ lines: [word.row], main: word.row });
+        userScrolled.current = 0;
+      }),
+    [playhead, playSoon],
   );
+
+  const editLine = (line: (typeof lines)[number], row: number) => {
+    clearTimeout(pendingPlay.current);
+    startEdit(line.index, line.text);
+    if (!syncable) return;
+    const at = line.words?.[0]?.start ?? line.start;
+    playhead.hold(null);
+    player.current?.seek(at, false);
+    playhead.set(at);
+    setHeard({ lines: [row], main: row });
+  };
 
   const step = (delta: number) => {
     if (hits.length > 0) setHit((h) => (h + delta + hits.length) % hits.length);
@@ -841,11 +865,15 @@ export function ResultView(props: Props) {
                 className={classes || undefined}
                 onClick={
                   syncable && !isEditing
-                    ? () => {
-                        playhead.hold(null);
-                        player.current?.seek(line.start);
-                        setHeard({ lines: [i], main: i });
-                        userScrolled.current = 0;
+                    ? (e) => {
+                        const play = () => {
+                          playhead.hold(null);
+                          player.current?.seek(line.start);
+                          setHeard({ lines: [i], main: i });
+                          userScrolled.current = 0;
+                        };
+                        if (!(e.target as Element).closest(".line-text")) play();
+                        else if (e.detail <= 1) playSoon(play);
                       }
                     : undefined
                 }
@@ -947,7 +975,10 @@ export function ResultView(props: Props) {
                     </span>
                   </span>
                 ) : (
-                  <span onDoubleClick={() => startEdit(line.index, line.text)}>
+                  <span
+                    className="line-text"
+                    onDoubleClick={() => editLine(line, i)}
+                  >
                     {syncable && line.words?.length && !needle ? (
                       <Spoken row={i} start={line.start} text={line.text} words={line.words} live={heard.lines.includes(i)} playhead={playhead} onWord={playWord} />
                     ) : (
@@ -961,7 +992,7 @@ export function ResultView(props: Props) {
                     className="icon-button tiny line-edit"
                     onClick={(e) => {
                       e.stopPropagation();
-                      startEdit(line.index, line.text);
+                      editLine(line, i);
                     }}
                     aria-label="Edit this line"
                     title="Edit this line"

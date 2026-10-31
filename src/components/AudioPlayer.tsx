@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { clock } from "../lib/format";
 import { Pause, Play } from "./icons";
 
-export type PlayerHandle = { seek: (seconds: number) => void };
+export type PlayerHandle = { seek: (seconds: number, play?: boolean) => void };
 
 type Props = {
   src: string;
@@ -41,12 +41,13 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
   };
 
   useImperativeHandle(ref, () => ({
-    seek(seconds: number) {
+    seek(seconds: number, andPlay = true) {
       const a = audio.current;
       if (!a) return;
       a.currentTime = seconds;
       setTime(seconds);
-      play();
+      if (andPlay) play();
+      else a.pause();
     },
   }));
 
