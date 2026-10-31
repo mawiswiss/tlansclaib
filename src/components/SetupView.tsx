@@ -14,6 +14,7 @@ type Props = {
   languages: Language[];
   setup: Setup | null;
   speed: number | "measuring" | "offline";
+  speedError: string | null;
   gpu: Gpu | null;
   stats: Stats | null;
   score: Score | null;
@@ -198,7 +199,7 @@ export function SetupView(props: Props) {
       </div>
       {offline && (
         <p className="problem setup-offline" role="alert">
-          No connection. Connect to the internet to download the models.{" "}
+          The models cannot be downloaded right now: {props.speedError ?? "the model server did not answer"}.{" "}
           <button type="button" className="inline-link" onClick={props.onMeasureAgain}>
             Try again
           </button>

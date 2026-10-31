@@ -55,6 +55,10 @@ type RerunOptions = { focus?: "speakers" | "language"; speakers?: string; langua
 
 const GIB = 2 ** 30;
 
+function notStarted(startupError: string | null): string {
+  return startupError ? `The app could not start: ${startupError}` : "The app is still starting. Please try again.";
+}
+
 function languageOf(model: ModelStatus, requested: SetupLanguage): SetupLanguage {
   return model.languages.includes("all") ? requested : { code: model.languages[0], variant: model.language_name ?? null };
 }
@@ -76,6 +80,7 @@ type MemoryAsk = { launch: Launch; error: Extract<StartError, { kind: "memory" }
 
 export default function App() {
   const backend = useRef<Backend | null>(null);
+  const startupError = useRef<string | null>(null);
   const [models, setModels] = useState<ModelStatus[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -91,6 +96,7 @@ export default function App() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [disk, setDisk] = useState<DiskSpace | null>(null);
   const [speed, setSpeed] = useState<number | "measuring" | "offline">("measuring");
+  const [speedError, setSpeedError] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
   const [resultError, setResultError] = useState<string | null>(null);
   const [downloads, setDownloads] = useState<Record<string, DownloadProgress>>({});
@@ -177,7 +183,7 @@ export default function App() {
     showError(`${context}: ${String(error)}`);
   }, [showError]);
   const requireBackend = useCallback(() => {
-    if (!backend.current) throw new Error("The app is still starting. Please try again.");
+    if (!backend.current) throw new Error(notStarted(startupError.current));
     return backend.current;
   }, []);
 
@@ -237,11 +243,13 @@ export default function App() {
     if (!looking || !b || measured.current) return;
     measured.current = true;
     setSpeed("measuring");
+    setSpeedError(null);
     b.measureSpeed()
       .then(setSpeed)
-      .catch(() => {
+      .catch((error) => {
         measured.current = false;
         setSpeed("offline");
+        setSpeedError(String(error));
       });
     const precise = models.find((m) => (m.setups ?? []).includes("precise") && m.languages.includes("all"));
     b.gpuInfo(precise?.id ?? null)
@@ -385,6 +393,7 @@ export default function App() {
         if (active && audio) startLatest.current(audio);
       }).catch((error) => reportError("Could not start the requested recording", error));
     }).catch((error) => {
+      startupError.current = String(error);
       if (active) reportError("Could not start the app", error);
     });
     return () => {
@@ -396,7 +405,7 @@ export default function App() {
   const launch = async (l: Launch, current: ModelStatus[]): Promise<void> => {
     const b = backend.current;
     if (!b) {
-      showError("The app is still starting. Please try again.");
+      showError(notStarted(startupError.current));
       return;
     }
     lastLaunch.current = l;
@@ -472,7 +481,7 @@ export default function App() {
   const start = async (audio: string) => {
     const b = backend.current;
     if (!b) {
-      showError("The app is still starting. Please try again.");
+      showError(notStarted(startupError.current));
       return;
     }
     let current: ModelStatus[];
@@ -648,7 +657,7 @@ export default function App() {
     const b = backend.current;
     setRerunTarget(null);
     if (!b || running) {
-      if (!b) showError("The app is still starting. Please try again.");
+      if (!b) showError(notStarted(startupError.current));
       return;
     }
     const model = models.find((m) => m.installed && m.id === choice.modelId);
@@ -1131,7 +1140,7 @@ export default function App() {
   const addFile = async (id: string | null) => {
     const b = backend.current;
     if (!b) {
-      setPanelError("The app is still starting. Please try again.");
+      setPanelError(notStarted(startupError.current));
       return;
     }
     setPanelError(null);
@@ -1419,6 +1428,7 @@ export default function App() {
               languages={languages}
               setup={null}
               speed={speed}
+              speedError={speedError}
               gpu={gpu}
               stats={stats}
               score={computerScore}
@@ -1637,6 +1647,7 @@ export default function App() {
             languages={languages}
             setup={setup}
             speed={speed}
+            speedError={speedError}
             gpu={gpu}
             stats={stats}
             score={computerScore}

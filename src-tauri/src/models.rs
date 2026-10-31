@@ -266,7 +266,7 @@ impl Models {
             .url
             .clone()
             .ok_or_else(|| anyhow!("{} has no download address. Add it from a file instead.", entry.name))?;
-        std::fs::create_dir_all(&self.dir)?;
+        std::fs::create_dir_all(&self.dir).with_context(|| format!("cannot create {}", self.dir.display()))?;
         guard::can_download(free_disk(&self.dir), entry.size_bytes).map_err(|e| anyhow!(e))?;
 
         let cancel = Arc::new(AtomicBool::new(false));
@@ -297,7 +297,7 @@ impl Models {
                     let _ = std::fs::remove_file(&part);
                     anyhow!("The downloaded file failed its check: {reason}")
                 })?;
-                std::fs::rename(&part, self.dir.join(&entry.file))?;
+                std::fs::rename(&part, self.dir.join(&entry.file)).with_context(|| format!("cannot move the download into {}", self.dir.display()))?;
                 let _ = app.emit("models-changed", ());
                 Ok(())
             }
@@ -513,7 +513,8 @@ pub async fn fetch(
         .error_for_status()
         .with_context(|| format!("the download of {name} failed"))?;
     let total = response.content_length().unwrap_or(size);
-    let mut file = tokio::fs::File::create(part).await?;
+    let cannot_write = || format!("cannot write {}", part.display());
+    let mut file = tokio::fs::File::create(part).await.with_context(cannot_write)?;
     let mut stream = response.bytes_stream();
     let mut bytes = 0u64;
     let mut reported = 0u64;
@@ -524,14 +525,14 @@ pub async fn fetch(
         }
         let chunk = chunk.context("the download was interrupted")?;
         hasher.update(&chunk);
-        file.write_all(&chunk).await?;
+        file.write_all(&chunk).await.with_context(cannot_write)?;
         bytes += chunk.len() as u64;
         if bytes - reported >= 4 << 20 || bytes == total {
             reported = bytes;
             progress(bytes, total);
         }
     }
-    file.flush().await?;
+    file.flush().await.with_context(cannot_write)?;
     drop(file);
     if let Some(expected) = sha256 {
         let digest = crate::validate::hex(&hasher.finalize());

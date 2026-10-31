@@ -253,7 +253,7 @@ impl Detection {
         let runtime = self.runtime().ok_or_else(|| anyhow!("Speaker detection is not available on this kind of computer."))?;
         let total = self.download_bytes();
         let parent = self.dir.parent().unwrap_or(&self.dir).to_path_buf();
-        std::fs::create_dir_all(&parent)?;
+        std::fs::create_dir_all(&parent).with_context(|| format!("cannot create {}", parent.display()))?;
         guard::can_download(free_disk(&parent), total * 2).map_err(|e| anyhow!(e))?;
         let cancel = Arc::new(AtomicBool::new(false));
         {
@@ -269,9 +269,9 @@ impl Detection {
         match result {
             Ok(()) => {
                 if self.dir.exists() {
-                    std::fs::remove_dir_all(&self.dir)?;
+                    std::fs::remove_dir_all(&self.dir).with_context(|| format!("cannot remove {}", self.dir.display()))?;
                 }
-                std::fs::rename(&staging, &self.dir)?;
+                std::fs::rename(&staging, &self.dir).with_context(|| format!("cannot move the download into {}", self.dir.display()))?;
                 self.check(app).await;
                 let _ = app.emit("models-changed", ());
                 Ok(())
@@ -285,10 +285,11 @@ impl Detection {
     }
 
     async fn fetch_all(&self, app: &AppHandle, runtime: &Download, staging: &Path, cancel: &AtomicBool, total: u64) -> Result<()> {
+        let cannot_write = || format!("cannot write {}", staging.display());
         if staging.exists() {
-            std::fs::remove_dir_all(staging)?;
+            std::fs::remove_dir_all(staging).with_context(cannot_write)?;
         }
-        std::fs::create_dir_all(staging)?;
+        std::fs::create_dir_all(staging).with_context(cannot_write)?;
         let progress_id = id(self.backend);
         let mut done = 0u64;
         for item in std::iter::once(runtime).chain(self.models()) {
@@ -304,15 +305,16 @@ impl Detection {
             Backend::Sherpa => unpack_sherpa(&archive, &staging.join("lib"))?,
             Backend::Nemotron => {
                 unpack_parakeet(&archive, &staging.join("lib"), nemotron::LIBRARY_FILE)?;
-                std::fs::write(staging.join("OpenMDW-1.1.txt"), include_str!("../resources/openmdw-1.1.txt"))?;
+                std::fs::write(staging.join("OpenMDW-1.1.txt"), include_str!("../resources/openmdw-1.1.txt")).with_context(cannot_write)?;
                 std::fs::write(
                     staging.join("NOTICE.txt"),
                     "Nemotron 3 Diarization by NVIDIA. GGUF conversion by mudler. Runtime: parakeet.cpp by LocalAI contributors.\n",
-                )?;
+                )
+                .with_context(cannot_write)?;
             }
         }
-        std::fs::remove_file(&archive)?;
-        std::fs::write(staging.join(VERSION_FILE), self.version())?;
+        std::fs::remove_file(&archive).with_context(cannot_write)?;
+        std::fs::write(staging.join(VERSION_FILE), self.version()).with_context(cannot_write)?;
         Ok(())
     }
 
