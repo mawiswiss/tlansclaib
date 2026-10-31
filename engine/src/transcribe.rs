@@ -1,6 +1,7 @@
 use std::ffi::{CStr, c_char, c_void};
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Result, anyhow};
 use serde::Serialize;
@@ -18,6 +19,8 @@ pub struct Engine {
     pub device: &'static str,
     pub device_name: Option<String>,
     pub decoding: Decoding,
+    /// Once set, whisper.cpp gives up on the line it is working on.
+    pub stop: Option<Arc<AtomicBool>>,
 }
 
 static BACKEND_NAME: Mutex<Option<String>> = Mutex::new(None);
@@ -44,6 +47,10 @@ unsafe extern "C" fn whisper_log(level: whisper_rs::whisper_rs_sys::ggml_log_lev
         sys::ggml_log_level_GGML_LOG_LEVEL_DEBUG => log::debug!(target: "whisper", "{message}"),
         _ => log::info!(target: "whisper", "{message}"),
     }
+}
+
+unsafe extern "C" fn stop_requested(stop: *mut c_void) -> bool {
+    unsafe { &*(stop as *const AtomicBool) }.load(Ordering::Relaxed)
 }
 
 fn selected_backend(message: &str) -> Option<&str> {
@@ -121,6 +128,7 @@ impl Engine {
             device: "cpu",
             device_name: None,
             decoding: Decoding::default(),
+            stop: None,
         })
     }
 
@@ -192,6 +200,13 @@ impl Engine {
         params.set_print_progress(false);
         params.set_print_realtime(false);
         params.set_print_timestamps(false);
+        // whisper-rs 0.16's set_abort_callback_safe hands whisper.cpp a pointer of the wrong type.
+        if let Some(stop) = &self.stop {
+            unsafe {
+                params.set_abort_callback(Some(stop_requested));
+                params.set_abort_callback_user_data(Arc::as_ptr(stop) as *mut c_void);
+            }
+        }
         state.full(params, samples)?;
         let tokens: i32 = state.as_iter().map(|segment| segment.n_tokens()).sum();
         if tokens >= NEAR_TOKEN_LIMIT {

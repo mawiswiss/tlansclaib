@@ -1,11 +1,14 @@
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use clap::{Parser, Subcommand};
-use engine::protocol::{Event, Heard, LoadPart, Step, Timings, emit};
+use engine::protocol::{Event, emit};
+use engine::run::{self, TranscribeArgs, parse_window};
 use engine::speakers::{nemotron, sherpa};
-use engine::{audio, model_file, output, speakers, transcribe, windows, words};
+use engine::{audio, model_file, speakers, transcribe, windows};
 use serde_json::json;
 
 #[derive(Parser)]
@@ -18,59 +21,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Transcribe an audio file and print progress as JSON lines
-    Transcribe {
-        /// A whisper.cpp model file (ggml-*.bin)
-        #[arg(long)]
-        model: PathBuf,
-        /// Any audio file: m4a, mp3, wav, mp4, flac, ...
-        #[arg(long)]
-        audio: PathBuf,
-        /// The text file to write, one line per stretch of speech
-        #[arg(long)]
-        output: PathBuf,
-        /// Leave out the time stamps in front of each line
-        #[arg(long)]
-        no_timestamps: bool,
-        /// Language code such as th or en, or auto
-        #[arg(long, default_value = "auto")]
-        language: String,
-        /// Number of threads, default: every physical core up to 4, otherwise one less
-        #[arg(long)]
-        threads: Option<usize>,
-        /// Run on the CPU even when a GPU is available
-        #[arg(long)]
-        cpu: bool,
-        /// Line length in seconds as MIN-MAX: a line ends at the first pause after MIN, at the latest at MAX. Default 5-23, or 5-15 for Thai, Chinese, Japanese and other dense scripts
-        #[arg(long, value_parser = parse_window)]
-        window: Option<(f32, f32)>,
-        /// Name each line's speaker in a recording with one audio track: auto, or the number of people
-        #[arg(long, value_parser = parse_speakers, requires = "speaker_models")]
-        speakers: Option<SpeakerCount>,
-        /// Folder with the speaker detection files of --speaker-backend
-        #[arg(long)]
-        speaker_models: Option<PathBuf>,
-        /// sherpa: pyannote and CAM++ through sherpa-onnx. nemotron: Nemotron 3 Diarization through parakeet.cpp, at most 8 people
-        #[arg(long, default_value = "sherpa")]
-        speaker_backend: speakers::Backend,
-        /// sherpa only: standard, or fast for about a third of the time with somewhat rougher speaker changes
-        #[arg(long, default_value = "standard", value_parser = ["standard", "fast"])]
-        speaker_precision: String,
-        /// Beams to keep while decoding, 1 is greedy and fastest
-        #[arg(long, default_value_t = transcribe::Decoding::default().beam_size)]
-        beam_size: usize,
-        /// Temperature step of the retry when a window decodes badly, 0 disables retries
-        #[arg(long, default_value_t = transcribe::Decoding::default().temperature_inc)]
-        temperature_inc: f32,
-        /// A window whose token entropy is below this is retried (loop detection)
-        #[arg(long, default_value_t = transcribe::Decoding::default().entropy_thold)]
-        entropy_thold: f32,
-        /// A window whose average log probability is below this is retried
-        #[arg(long, default_value_t = transcribe::Decoding::default().logprob_thold)]
-        logprob_thold: f32,
-        /// Encode only as much of the 30 s input as each line needs. Faster, mostly on the CPU
-        #[arg(long)]
-        fit_encoder: bool,
-    },
+    Transcribe(TranscribeArgs),
     /// Check whether a file is a whisper.cpp model and print what it is
     Check { file: PathBuf },
     /// Decode an audio file to raw 16 kHz mono float samples, for checking the decoder
@@ -144,55 +95,9 @@ fn main() {
 
     let cli = Cli::parse();
     let result = match cli.command {
-        Command::Transcribe {
-            model,
-            audio,
-            output,
-            no_timestamps,
-            language,
-            threads,
-            cpu,
-            window,
-            speakers,
-            speaker_models,
-            speaker_backend,
-            speaker_precision,
-            beam_size,
-            temperature_inc,
-            entropy_thold,
-            logprob_thold,
-            fit_encoder,
-        } => {
+        Command::Transcribe(args) => {
             lower_priority();
-            let result = run(
-                &model,
-                &audio,
-                &output,
-                !no_timestamps,
-                &language,
-                threads.unwrap_or_else(transcribe::default_threads),
-                !cpu,
-                window,
-                speakers.zip(speaker_models.as_deref()).map(|(count, folder)| SpeakerSetup {
-                    count,
-                    backend: speaker_backend,
-                    folder,
-                    window_shift: if speaker_precision == "fast" { sherpa::FAST_WINDOW_SHIFT } else { sherpa::WINDOW_SHIFT },
-                }),
-                transcribe::Decoding {
-                    beam_size,
-                    temperature_inc,
-                    entropy_thold,
-                    logprob_thold,
-                    fit_encoder,
-                },
-            );
-            if let Err(error) = &result {
-                emit(&Event::Error {
-                    message: format!("{error:#}"),
-                });
-            }
-            result
+            run::transcribe(&args, &mut |event| emit(event), &Arc::new(AtomicBool::new(false)))
         }
         Command::Check { file } => check(&file),
         Command::Probe => {
@@ -276,212 +181,6 @@ fn main() {
     if result.is_err() {
         std::process::exit(1);
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-struct SpeakerCount(Option<usize>);
-
-fn parse_speakers(text: &str) -> Result<SpeakerCount, String> {
-    if text == "auto" {
-        return Ok(SpeakerCount(None));
-    }
-    match text.parse::<usize>() {
-        Ok(n) if (2..=20).contains(&n) => Ok(SpeakerCount(Some(n))),
-        _ => Err("expected auto or a number of people from 2 to 20".into()),
-    }
-}
-
-struct SpeakerSetup<'a> {
-    count: SpeakerCount,
-    backend: speakers::Backend,
-    folder: &'a Path,
-    window_shift: f32,
-}
-
-fn parse_window(text: &str) -> Result<(f32, f32), String> {
-    let (min, max) = text
-        .split_once('-')
-        .ok_or("expected MIN-MAX, for example 17-23")?;
-    let (min, max): (f32, f32) = (
-        min.trim().parse().map_err(|_| "MIN is not a number")?,
-        max.trim().parse().map_err(|_| "MAX is not a number")?,
-    );
-    if !(1.0..30.0).contains(&min) || !(min..=30.0).contains(&max) {
-        return Err("windows must be between 1 and 30 seconds, with MIN below MAX".into());
-    }
-    Ok((min, max))
-}
-
-#[allow(clippy::too_many_arguments)]
-fn run(
-    model: &Path,
-    audio_path: &Path,
-    output: &Path,
-    timestamps: bool,
-    language: &str,
-    threads: usize,
-    use_gpu: bool,
-    window: Option<(f32, f32)>,
-    detection: Option<SpeakerSetup>,
-    decoding: transcribe::Decoding,
-) -> Result<()> {
-    let started = Instant::now();
-    let mut timings = Timings::default();
-    if !audio_path.is_file() {
-        return Err(anyhow!("{} not found", audio_path.display()));
-    }
-    model_file::inspect(model).map_err(|e| anyhow!("{} is {e}", model.display()))?;
-
-    emit(&Event::Step { step: Step::Decode });
-    let phase = Instant::now();
-    let audio::Source { tracks, video, warnings } = audio::load_tracks(audio_path)?;
-    timings.decode = phase.elapsed().as_secs_f64();
-    if !warnings.is_empty() {
-        emit(&Event::Warning { message: format!("The transcript leaves out audio that could not be read: {}.", warnings.join("; ")) });
-    }
-    let mut speakers = output::speakers(tracks.len());
-    emit(&Event::Audio {
-        seconds: tracks.iter().map(Vec::len).max().unwrap_or(0) as f64 / engine::RATE as f64,
-        speakers: speakers.clone(),
-        video,
-    });
-
-    let turns = match detection {
-        Some(_) if tracks.len() > 1 => {
-            log::info!("{} audio tracks name the speakers, so speaker detection is skipped", tracks.len());
-            None
-        }
-        Some(SpeakerSetup { count: SpeakerCount(count), backend, folder, window_shift }) => {
-            emit(&Event::Step { step: Step::Speakers });
-            let phase = Instant::now();
-            let detection = match backend {
-                speakers::Backend::Sherpa => speakers::Detection::Sherpa(sherpa::Detection {
-                    folder,
-                    speakers: count,
-                    threshold: sherpa::DEFAULT_THRESHOLD,
-                    threads,
-                    window_shift,
-                    min_on: sherpa::MIN_ON,
-                    min_off: sherpa::MIN_OFF,
-                }),
-                speakers::Backend::Nemotron if count.is_some_and(|n| n > nemotron::MAX_SPEAKERS) => {
-                    return Err(anyhow!("Nemotron speaker detection names at most {} people", nemotron::MAX_SPEAKERS));
-                }
-                speakers::Backend::Nemotron => speakers::Detection::Nemotron(nemotron::Detection { folder, speakers: count }),
-            };
-            let mut reported = usize::MAX;
-            let turns = speakers::detect(&tracks[0], &detection, |done, total| {
-                let percent = done * 100 / total.max(1);
-                if percent != reported {
-                    reported = percent;
-                    emit(&Event::SpeakerProgress { done, total });
-                }
-            })?;
-            timings.speakers = phase.elapsed().as_secs_f64();
-            Some(turns)
-        }
-        None => None,
-    };
-
-    emit(&Event::Step { step: Step::Load });
-    let phase = Instant::now();
-    let mut engine = transcribe::Engine::load(model, threads, use_gpu)?;
-    emit(&Event::Loading { part: LoadPart::Device });
-    engine.decoding = decoding;
-    let mut state = engine.state()?;
-    let (language, heard) = if !engine.is_multilingual() {
-        ("en".to_string(), Vec::new())
-    } else {
-        let probe = windows::split_tracks(&tracks, windows::PROBE_MIN_SECONDS, windows::PROBE_MAX_SECONDS);
-        if language == "auto" {
-            let heard = detect(&engine, &mut state, &tracks, &probe)?;
-            (heard.first().map_or_else(|| "en".to_string(), |h| h.code.clone()), heard)
-        } else {
-            let heard = detect(&engine, &mut state, &tracks, &probe).unwrap_or_else(|error| {
-                log::warn!("could not detect the spoken language: {error:#}");
-                Vec::new()
-            });
-            (language.to_string(), heard)
-        }
-    };
-    let (min_window, max_window) = window.unwrap_or_else(|| windows::bounds_for(&language));
-    let segments: Vec<(usize, Option<usize>, windows::Window)> = match &turns {
-        Some(turns) => {
-            let lines: Vec<windows::Window> = windows::split_tracks(&tracks, min_window, max_window).into_iter().map(|(_, w)| w).collect();
-            let attributed = speakers::attribute(&lines, turns);
-            speakers = output::speakers(attributed.iter().map(|(_, s)| s + 1).max().unwrap_or(0));
-            emit(&Event::Speakers { speakers: speakers.clone() });
-            attributed.into_iter().map(|(w, s)| (0, (!speakers.is_empty()).then_some(s), w)).collect()
-        }
-        None => windows::split_tracks(&tracks, min_window, max_window)
-            .into_iter()
-            .map(|(track, w)| (track, (!speakers.is_empty()).then_some(track), w))
-            .collect(),
-    };
-    emit(&Event::Model {
-        device: engine.device.to_string(),
-        device_name: engine.device_name.clone(),
-        threads,
-        language: language.clone(),
-        windows: segments.len(),
-        heard,
-    });
-    timings.load = phase.elapsed().as_secs_f64();
-
-    emit(&Event::Step { step: Step::Transcribe });
-    let mut writer = output::Writer::create(output, timestamps)?;
-    let mut position = 0.0f64;
-    for (done, (track, speaker, window)) in segments.iter().enumerate() {
-        let phase = Instant::now();
-        let decoded = engine.transcribe(&mut state, &tracks[*track][window.start..window.end], &language)?;
-        let text = decoded.text;
-        timings.transcribe += phase.elapsed().as_secs_f64();
-        emit(&Event::Line {
-            start: window.start_seconds(),
-            end: window.end_seconds(),
-            text: text.clone(),
-            speaker: *speaker,
-            words: words::group(&decoded.tokens, window.start_seconds(), window.end_seconds()),
-        });
-        let phase = Instant::now();
-        writer.append(window, speaker.and_then(|s| speakers.get(s)).map(String::as_str), &text)?;
-        timings.write += phase.elapsed().as_secs_f64();
-        position = position.max(window.end_seconds());
-        emit(&Event::Progress {
-            done: done + 1,
-            total: segments.len(),
-            position,
-        });
-    }
-
-    emit(&Event::Step { step: Step::Write });
-    let phase = Instant::now();
-    let (lines, file) = writer.finish()?;
-    timings.write += phase.elapsed().as_secs_f64();
-    emit(&Event::Done {
-        lines,
-        elapsed: started.elapsed().as_secs_f64(),
-        file,
-        timings,
-    });
-    Ok(())
-}
-
-fn detect(
-    engine: &transcribe::Engine,
-    state: &mut whisper_rs::WhisperState,
-    tracks: &[Vec<f32>],
-    segments: &[(usize, windows::Window)],
-) -> Result<Vec<Heard>> {
-    let mut probes = Vec::new();
-    for (track, window) in segments.iter().take(3) {
-        emit(&Event::Loading { part: LoadPart::Language });
-        probes.push(engine.language_probabilities(state, &tracks[*track][window.start..window.end])?);
-    }
-    Ok(transcribe::rank_languages(&probes, 3)
-        .into_iter()
-        .map(|(code, probability)| Heard { code, probability })
-        .collect())
 }
 
 fn check(file: &Path) -> Result<()> {
