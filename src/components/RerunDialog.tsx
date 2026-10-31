@@ -74,17 +74,24 @@ export function RerunDialog(props: Props) {
             </div>
           )}
           {props.missingModel && <p className="note">{props.missingModel} is not installed any more, so another model is chosen.</p>}
-          <label className="field" htmlFor="rerun-model">
-            <span className="label">Model</span>
-            <Select
-              id="rerun-model"
-              className="field-select"
-              value={choice.modelId}
-              onChange={(value) => set({ modelId: value })}
-              label="Model"
-              options={installed.map((m) => ({ value: m.id, label: menuLabel(m) }))}
-            />
-          </label>
+          {FEATURES.lite ? (
+            <div className="field">
+              <span className="label">Model</span>
+              <span className="field-note">{(model ?? installed[0])?.name ?? "No model installed"}</span>
+            </div>
+          ) : (
+            <label className="field" htmlFor="rerun-model">
+              <span className="label">Model</span>
+              <Select
+                id="rerun-model"
+                className="field-select"
+                value={choice.modelId}
+                onChange={(value) => set({ modelId: value })}
+                label="Model"
+                options={installed.map((m) => ({ value: m.id, label: menuLabel(m) }))}
+              />
+            </label>
+          )}
           <label className={`field${focus === "language" ? " focused" : ""}`} htmlFor="rerun-language">
             <span className="label">Recording language</span>
             <Select
