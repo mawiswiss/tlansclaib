@@ -697,9 +697,6 @@ export default function App() {
     else setResultError("This transcript is not in the history, so its settings are unknown.");
   };
 
-  const renameSpeaker = async (track: number, name: string): Promise<boolean> =>
-    (await editTranscript((t) => ({ ...t, speakers: t.speakers.map((s, i) => (i === track ? name : s)) }))) !== null;
-
   useEffect(() => {
     if (import.meta.env.DEV) return;
     if (run.status !== "done" || run.opened || panel !== null || !shouldAskForSupport(settings)) return;
@@ -1358,7 +1355,6 @@ export default function App() {
               }
             }}
             onRename={renameTranscript}
-            onRenameSpeaker={renameSpeaker}
             onRerun={rerunResult}
             detectionInstalled={speakerBackend !== null}
             onSetUpDetection={setUpDetection}

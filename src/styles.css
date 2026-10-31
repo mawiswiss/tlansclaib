@@ -1189,6 +1189,12 @@ input.toggle:checked::after {
   outline: none;
 }
 
+.history-tools {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
 .transcript p.seekable {
   cursor: pointer;
 }

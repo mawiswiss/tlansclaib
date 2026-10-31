@@ -7,7 +7,7 @@ import { addSpeaker, assignSpeaker, EXPORT_NAMES, MAX_SPEAKERS, findMatches, joi
 import type { ExportFormat } from "../lib/types";
 import { FEATURES } from "../lib/ipc";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
-import { Check, ChevronDown, Close, Download, Folder, Info, Pencil, Plus, Retry, Search } from "./icons";
+import { Check, ChevronDown, Close, Download, Folder, Info, Pencil, Plus, Redo, Retry, Search, Undo } from "./icons";
 import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
 
@@ -25,7 +25,6 @@ type Props = {
   onLog: (level: "info" | "warn", message: string) => void;
   onExport: (format: ExportFormat) => Promise<string | null>;
   onRename: (title: string) => Promise<boolean>;
-  onRenameSpeaker: (track: number, name: string) => Promise<boolean>;
   onRerun: (options?: { focus?: "speakers" | "language"; speakers?: string; language?: string }) => void;
   detectionInstalled: boolean;
   onSetUpDetection: () => void;
@@ -41,6 +40,11 @@ function when(ms: number): string {
 }
 
 const NEW_SPEAKER = "new";
+
+const MAC = /Mac|iPhone|iPad/.test(navigator.userAgent);
+const KEYS = MAC ? { undo: "⌘Z", redo: "⇧⌘Z" } : { undo: "Ctrl+Z", redo: "Ctrl+Y" };
+
+const HISTORY = 100;
 
 function flat(text: string): string {
   return text.replace(/\s*[\r\n]+\s*/g, " ");
@@ -138,7 +142,6 @@ export function ResultView(props: Props) {
     onLog,
     onExport,
     onRename,
-    onRenameSpeaker,
     onRerun,
     detectionInstalled,
     onSetUpDetection,
@@ -148,7 +151,12 @@ export function ResultView(props: Props) {
   } = props;
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
-  const [lastEdit, setLastEdit] = useState<Transcript | null>(null);
+  const opened = useRef("");
+  const past = useRef<Transcript[]>([]);
+  const future = useRef<Transcript[]>([]);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const [steps, setSteps] = useState({ undo: 0, redo: 0 });
+  const [justSaved, setJustSaved] = useState(0);
   const committing = useRef(false);
   const editingNow = useRef<number | null>(null);
   const caret = useRef<number | null>(null);
@@ -193,6 +201,13 @@ export function ResultView(props: Props) {
   useEffect(() => setExported(null), [result.file]);
 
   useEffect(() => {
+    past.current = [];
+    future.current = [];
+    setSteps({ undo: 0, redo: 0 });
+    setJustSaved(0);
+  }, [result.file, run.startedAt, run.finishedAt]);
+
+  useEffect(() => {
     setSrc(null);
     setUnplayable(false);
     setPlayerError(null);
@@ -234,6 +249,23 @@ export function ResultView(props: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      const back = key === "z" && !e.shiftKey;
+      const forward = (key === "z" && e.shiftKey) || (key === "y" && !MAC && !e.shiftKey);
+      if (!back && !forward) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable], dialog, [role=dialog]")) return;
+      e.preventDefault();
+      if (back) history.current.undo();
+      else history.current.redo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   useLayoutEffect(() => {
     const el = editor.current;
     if (!el) return;
@@ -251,10 +283,10 @@ export function ResultView(props: Props) {
   }, [editing]);
 
   useEffect(() => {
-    if (!lastEdit) return;
-    const t = setTimeout(() => setLastEdit(null), 8000);
+    if (!justSaved) return;
+    const t = setTimeout(() => setJustSaved(0), 8000);
     return () => clearTimeout(t);
-  }, [lastEdit]);
+  }, [justSaved]);
 
   useLayoutEffect(() => {
     if (renaming) titleInput.current?.select();
@@ -284,7 +316,7 @@ export function ResultView(props: Props) {
       return;
     }
     speakerBusy.current = true;
-    const saved = await onRenameSpeaker(track, name);
+    const saved = await save((t) => ({ ...t, speakers: t.speakers.map((s, i) => (i === track ? name : s)) }));
     speakerBusy.current = false;
     if (saved || !fromEnter) closeSpeakerRename();
   };
@@ -315,15 +347,47 @@ export function ResultView(props: Props) {
 
   const startEdit = (index: number | null, text = "") => {
     editingNow.current = index;
+    opened.current = text;
     setEditing(index);
     setDraft(text);
   };
 
-  const save = async (change: (current: Transcript) => Transcript | null): Promise<Transcript | null> => {
-    const before = await onSave(change);
-    if (before) setLastEdit(before);
-    return before;
+  const counted = () => setSteps({ undo: past.current.length, redo: future.current.length });
+
+  const save = (change: (current: Transcript) => Transcript | null): Promise<Transcript | null> => {
+    const saved = queue.current.then(async () => {
+      const before = await onSave(change);
+      if (before) {
+        past.current = [...past.current, before].slice(-HISTORY);
+        future.current = [];
+        counted();
+        setJustSaved(Date.now());
+      }
+      return before;
+    });
+    queue.current = saved;
+    return saved;
   };
+
+  const travel = (from: typeof past, to: typeof past) => {
+    startEdit(null);
+    setJustSaved(0);
+    queue.current = queue.current.then(async () => {
+      const target = from.current[from.current.length - 1];
+      if (!target) return;
+      const current = await onSave(() => target);
+      if (current) {
+        from.current = from.current.slice(0, -1);
+        to.current = [...to.current, current];
+      }
+      counted();
+    });
+  };
+
+  const undo = () => travel(past, future);
+  const redo = () => travel(future, past);
+  const history = useRef({ undo, redo });
+  history.current = { undo, redo };
 
   const saveEdit = async (index: number, change: (current: Transcript) => Transcript | null): Promise<boolean> => {
     if (editingNow.current !== index || committing.current) return false;
@@ -379,14 +443,6 @@ export function ResultView(props: Props) {
   };
 
   const addOne = async () => renameNewest(await save((t) => addSpeaker(t.speakers, t.lines)));
-
-  const undo = async () => {
-    if (!lastEdit) return;
-    const before = lastEdit;
-    setLastEdit(null);
-    await onSave(() => before);
-    setLastEdit(null);
-  };
 
   const onTime = (seconds: number, playing: boolean) => {
     playhead.set(seconds);
@@ -570,7 +626,7 @@ export function ResultView(props: Props) {
         </p>
       )}
       {noTimecodes && <p className="note">This transcript was saved without timecodes, so there are none to show or play from.</p>}
-      {lastEdit && (
+      {justSaved > 0 && steps.undo > 0 && (
         <p className="note">
           Correction saved.{" "}
           <button type="button" className="inline-link" onClick={undo}>
@@ -725,6 +781,20 @@ export function ResultView(props: Props) {
               </>
             )}
           </label>
+          {(steps.undo > 0 || steps.redo > 0) && (
+            <span className="history-tools">
+              <Tooltip content={`Undo the last correction (${KEYS.undo})`} oneLine>
+                <button type="button" className="icon-button small" onClick={undo} disabled={steps.undo === 0} aria-label="Undo" aria-keyshortcuts={MAC ? "Meta+Z" : "Control+Z"}>
+                  <Undo size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip content={`Redo (${KEYS.redo})`} oneLine>
+                <button type="button" className="icon-button small" onClick={redo} disabled={steps.redo === 0} aria-label="Redo" aria-keyshortcuts={MAC ? "Shift+Meta+Z" : "Control+Y"}>
+                  <Redo size={16} />
+                </button>
+              </Tooltip>
+            </span>
+          )}
           <label
             className="tool-switch"
             title={noTimecodes ? "This transcript has no times to show" : "Show line times here and in text exports"}
@@ -805,6 +875,11 @@ export function ResultView(props: Props) {
                     onKeyDown={(e) => {
                       if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                       const { selectionStart: from, selectionEnd: to, value } = e.currentTarget;
+                      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "z" && draft === opened.current) {
+                        e.preventDefault();
+                        undo();
+                        return;
+                      }
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         if (from === to && value.slice(0, from).trim() && value.slice(from).trim()) void split(line.index, from);
