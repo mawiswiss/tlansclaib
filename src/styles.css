@@ -1189,6 +1189,48 @@ input.toggle:checked::after {
   outline: none;
 }
 
+.line-editing {
+  display: block;
+  min-width: 0;
+}
+
+.edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+.edit-actions-end {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+button.edit-action {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.edit-action kbd {
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--sunken);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.edit-action.primary kbd {
+  background: transparent;
+  color: inherit;
+}
+
 .history-tools {
   display: flex;
   flex: none;

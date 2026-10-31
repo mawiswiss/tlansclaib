@@ -42,7 +42,9 @@ function when(ms: number): string {
 const NEW_SPEAKER = "new";
 
 const MAC = /Mac|iPhone|iPad/.test(navigator.userAgent);
-const KEYS = MAC ? { undo: "⌘Z", redo: "⇧⌘Z" } : { undo: "Ctrl+Z", redo: "Ctrl+Y" };
+const KEYS = MAC
+  ? { undo: "⌘Z", redo: "⇧⌘Z", enter: "↵", backspace: "⌫" }
+  : { undo: "Ctrl+Z", redo: "Ctrl+Y", enter: "Enter", backspace: "Backspace" };
 
 const HISTORY = 100;
 
@@ -151,6 +153,7 @@ export function ResultView(props: Props) {
   } = props;
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
+  const [caretAt, setCaretAt] = useState(-1);
   const opened = useRef("");
   const past = useRef<Transcript[]>([]);
   const future = useRef<Transcript[]>([]);
@@ -280,6 +283,7 @@ export function ResultView(props: Props) {
     caret.current = null;
     el.focus();
     el.setSelectionRange(at, at);
+    setCaretAt(at);
   }, [editing]);
 
   useEffect(() => {
@@ -863,40 +867,85 @@ export function ResultView(props: Props) {
                   </span>
                 )}
                 {isEditing ? (
-                  <textarea
-                    ref={editor}
-                    className="line-editor"
-                    value={draft}
-                    rows={1}
-                    autoFocus
-                    onChange={(e) => setDraft(e.target.value)}
+                  <span
+                    className="line-editing"
                     onClick={(e) => e.stopPropagation()}
-                    onBlur={() => void commit(line.index)}
-                    onKeyDown={(e) => {
-                      if (e.nativeEvent.isComposing || e.keyCode === 229) return;
-                      const { selectionStart: from, selectionEnd: to, value } = e.currentTarget;
-                      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "z" && draft === opened.current) {
-                        e.preventDefault();
-                        undo();
-                        return;
-                      }
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        if (from === to && value.slice(0, from).trim() && value.slice(from).trim()) void split(line.index, from);
-                        else void commit(line.index);
-                      }
-                      if (e.key === "Backspace" && from === 0 && to === 0) {
-                        e.preventDefault();
-                        void join(line.index);
-                      }
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        startEdit(null);
-                      }
+                    onBlur={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) void commit(line.index);
                     }}
-                    aria-label="Edit this line"
-                  />
+                    onKeyDown={(e) => {
+                      if (e.key !== "Escape") return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      startEdit(null);
+                    }}
+                  >
+                    <textarea
+                      ref={editor}
+                      className="line-editor"
+                      value={draft}
+                      rows={1}
+                      autoFocus
+                      onChange={(e) => {
+                        setDraft(e.target.value);
+                        setCaretAt(e.target.selectionStart);
+                      }}
+                      onSelect={(e) => setCaretAt(e.currentTarget.selectionStart === e.currentTarget.selectionEnd ? e.currentTarget.selectionStart : -1)}
+                      onKeyDown={(e) => {
+                        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                        const { selectionStart: from, selectionEnd: to, value } = e.currentTarget;
+                        if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "z" && draft === opened.current) {
+                          e.preventDefault();
+                          undo();
+                          return;
+                        }
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          if (from === to && value.slice(0, from).trim() && value.slice(from).trim()) void split(line.index, from);
+                          else void commit(line.index);
+                        }
+                        if (e.key === "Backspace" && from === 0 && to === 0) {
+                          e.preventDefault();
+                          void join(line.index);
+                        }
+                      }}
+                      aria-label="Edit this line"
+                    />
+                    <span className="edit-actions" role="toolbar" aria-label="Line actions">
+                      <button
+                        type="button"
+                        className="edit-action"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => void join(line.index)}
+                        disabled={i === 0}
+                        title="Join this line to the end of the line above"
+                      >
+                        Merge with line above <kbd>{KEYS.backspace} at start</kbd>
+                      </button>
+                      <button
+                        type="button"
+                        className="edit-action"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => void split(line.index, caretAt)}
+                        disabled={caretAt <= 0 || !draft.slice(0, caretAt).trim() || !draft.slice(caretAt).trim()}
+                        title={
+                          run.speakers.length > 1
+                            ? "The text after the cursor becomes a new line for the next speaker"
+                            : "The text after the cursor becomes a new line"
+                        }
+                      >
+                        {run.speakers.length > 1 ? "New speaker from cursor" : "New line from cursor"} <kbd>{KEYS.enter}</kbd>
+                      </button>
+                      <span className="edit-actions-end">
+                        <button type="button" className="edit-action" onMouseDown={(e) => e.preventDefault()} onClick={() => startEdit(null)}>
+                          Cancel <kbd>Esc</kbd>
+                        </button>
+                        <button type="button" className="edit-action primary" onMouseDown={(e) => e.preventDefault()} onClick={() => void commit(line.index)}>
+                          Done
+                        </button>
+                      </span>
+                    </span>
+                  </span>
                 ) : (
                   <span onDoubleClick={() => startEdit(line.index, line.text)}>
                     {syncable && line.words?.length && !needle ? (
