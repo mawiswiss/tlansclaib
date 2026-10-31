@@ -767,7 +767,7 @@ export function ResultView(props: Props) {
                   Wrong number?
                 </button>
               )}
-              <Tooltip content="Speakers come from the audio tracks of the recording, or from speaker detection. A new name is saved in app history right away.">
+              <Tooltip content="Click the dot in front of a line to change its speaker. Speakers come from the audio tracks of the recording, or from speaker detection. A new name is saved in app history right away.">
                 <span className="meta-info" tabIndex={0} aria-label="About speakers">
                   <Info size={14} />
                 </span>
@@ -900,7 +900,7 @@ export function ResultView(props: Props) {
                       options={[...run.speakers.map((name, track) => ({ value: String(track), label: name })), ...(run.speakers.length < MAX_SPEAKERS ? [{ value: NEW_SPEAKER, label: "New speaker" }] : [])]}
                       onChange={(value) => void reassign(line.index, value)}
                       label="Speaker of this line"
-                      title={line.speaker !== undefined ? run.speakers[line.speaker] : "Choose the speaker"}
+                      title={line.speaker !== undefined ? `${run.speakers[line.speaker]}. Click to change the speaker` : "Choose the speaker"}
                       className="dot-select"
                       chevron={false}
                       trigger={() => <span className={`line-dot ${line.speaker !== undefined ? `s${line.speaker % 8}` : "unassigned"}`} />}
