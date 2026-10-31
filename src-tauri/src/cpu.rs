@@ -42,6 +42,7 @@ pub fn detect() -> Features {
 }
 
 /// Whether the Vulkan engine can run here at all: its CPU code needs AVX2 too.
+#[cfg(desktop)]
 pub fn runs_vulkan_engine() -> bool {
     level(detect()) == Level::Avx2 && vulkan_loader()
 }
@@ -52,7 +53,7 @@ fn vulkan_loader() -> bool {
     std::env::var_os("SystemRoot").is_some_and(|root| std::path::Path::new(&root).join("System32").join("vulkan-1.dll").is_file())
 }
 
-#[cfg(not(windows))]
+#[cfg(all(desktop, not(windows)))]
 fn vulkan_loader() -> bool {
     true
 }

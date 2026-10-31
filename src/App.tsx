@@ -20,7 +20,7 @@ import { DesktopPromo } from "./components/DesktopPromo";
 import { DownloadDialog } from "./components/DownloadDialog";
 import { WebSetup } from "./components/WebSetup";
 import { bytes, capitalize, duration, gib, titleOf, wholeGb } from "./lib/format";
-import { FEATURES, getBackend, type Backend } from "./lib/ipc";
+import { DEVICE, FEATURES, getBackend, type Backend } from "./lib/ipc";
 import { idle, reduce, startError, type StartError } from "./lib/run";
 import { DONATE } from "./lib/about";
 import { desktopPlatform, INSTALLERS, type Platform } from "./lib/desktop";
@@ -175,7 +175,7 @@ export default function App() {
   const languageLabel = (key: string) => parseLanguage(key).variant ?? languageName(parseLanguage(key).code);
   const notify = useCallback((kind: Notice["kind"], text: string, actions?: NoticeAction[]) => {
     const id = noticeId.current++;
-    setNotices((current) => current.some((n) => n.text === text) ? current : [...current, { id, kind, text, actions }].slice(-4));
+    setNotices((current) => current.some((n) => n.text === text) ? current : [...current, { id, kind, text, actions }].slice(FEATURES.mobile ? -2 : -4));
   }, []);
   const dismissNotice = useCallback((id: number) => setNotices((current) => current.filter((n) => n.id !== id)), []);
   const showError = useCallback((message: string) => notify("error", message), [notify]);
@@ -554,7 +554,7 @@ export default function App() {
 
   const runModel = models.find((m) => m.id === run.modelId);
   const scoreGpu = gpu ?? runGpu;
-  const computerScore = scoreGpu && stats ? score(scoreGpu, stats.memory_total, measuredSpeed(history)) : null;
+  const computerScore = scoreGpu && stats ? score(scoreGpu, stats.memory_total, measuredSpeed(history), FEATURES.mobile ? stats.model_budget : null) : null;
   const dismiss = (key: string) => setSettings((s) => ({ ...s, dismissed: s.dismissed.includes(key) ? s.dismissed : [...s.dismissed, key] }));
 
   const setUpDetection = () => {
@@ -1032,15 +1032,16 @@ export default function App() {
   };
   const smallest = (m: ModelStatus, language: SetupLanguage) =>
     language.code === "auto" ? `${m.name} is already the smallest model.` : `${m.name} is already the smallest model for ${languageLabel(languageKey(language))}.`;
+  const orElse = (fix: string) => (FEATURES.mobile ? capitalize(fix) : `Close other programs, or ${fix}`);
   const askAdvice = !ask
     ? ""
     : roomWithoutSpeakers != null
-      ? "Close other programs, or transcribe without speaker detection."
+      ? orElse("transcribe without speaker detection.")
       : askSmaller || askDownload
-        ? `Close other programs, or use ${(askSmaller ?? askDownload)!.name}, which fits.`
+        ? orElse(`use ${(askSmaller ?? askDownload)!.name}, which fits.`)
         : smallerModel(models, ask.launch.model, ask.launch.language)
-          ? "Close other programs, or use a shorter recording. No smaller model fits right now either."
-          : `${smallest(ask.launch.model, ask.launch.language)} Close other programs, or use a shorter recording.`;
+          ? `${orElse("use a shorter recording.")} No smaller model fits right now either.`
+          : `${smallest(ask.launch.model, ask.launch.language)} ${orElse("use a shorter recording.")}`;
   const memoryActions = ask
     ? [
         askSmaller && { label: `Use ${askSmaller.name}`, run: () => answer({ ...ask.launch, model: askSmaller, pinned: true }) },
@@ -1107,8 +1108,8 @@ export default function App() {
   const heavyAdvice = !failedModel || !failedLaunch
     ? ""
     : stepDown || lighter
-      ? `Close other programs, or use ${(stepDown ?? lighter)!.name}, which needs less memory.`
-      : `${smallest(failedModel, failedLaunch.language)} Close other programs, then start again.`;
+      ? orElse(`use ${(stepDown ?? lighter)!.name}, which needs less memory.`)
+      : `${smallest(failedModel, failedLaunch.language)} ${FEATURES.mobile ? "Start again" : "Close other programs, then start again"}.`;
   const automaticNow = failedModel && settings.modelId === "auto" && model && model.id !== failedModel.id ? model : null;
 
   const leaveSetup = async (id: string) => {
@@ -1344,6 +1345,12 @@ export default function App() {
               const b = backend.current;
               if (!b || !run.result) return null;
               try {
+                if (FEATURES.mobile && b.exportOnPhone) {
+                  const expected = run.hash ?? await b.transcriptHash(run.result.file);
+                  const name = await b.exportOnPhone(run.title, format, run.result.file, expected, run.lines, run.timestamps, run.timed, run.speakers);
+                  if (name) setResultError(null);
+                  return name;
+                }
                 const destination = await b.pickExportFile(run.title, format);
                 if (!destination) return null;
                 const expected = run.hash ?? await b.transcriptHash(run.result.file);
@@ -1371,7 +1378,7 @@ export default function App() {
             <ErrorView
               title={roomWithoutSpeakers != null ? "Not enough free memory for speaker detection" : `Not enough free memory for ${ask.launch.model.name}`}
               message={`${ask.error.message} ${askAdvice}`}
-              note="Try anyway starts regardless. The app still stops the transcription before the computer runs out of memory."
+              note={FEATURES.mobile ? "Try anyway starts regardless. The transcription still stops before the app runs out of memory." : "Try anyway starts regardless. The app still stops the transcription before the computer runs out of memory."}
               actions={memoryActions}
               retryLabel="Cancel"
               onRetry={() => {
@@ -1394,6 +1401,7 @@ export default function App() {
               note={run.error ? `Details: ${run.error}` : undefined}
               actions={speakerActions(speakerFailure)}
               onRetry={() => dispatch({ type: "reset" })}
+              retryLabel={FEATURES.mobile ? "New transcription" : undefined}
             />
           );
         }
@@ -1403,6 +1411,7 @@ export default function App() {
             message={failedModel ? `${run.error ?? ""} ${heavyAdvice}` : (run.error ?? "")}
             note={automaticNow ? `Automatic now picks ${automaticNow.name} instead of ${failedModel!.name}.` : undefined}
             onRetry={() => dispatch({ type: "reset" })}
+            retryLabel={FEATURES.mobile ? "New transcription" : undefined}
             actions={heavyActions}
           />
         );
@@ -1412,6 +1421,7 @@ export default function App() {
             title="Cancelled"
             message="The transcription was stopped. Any completed lines are saved in app history."
             onRetry={() => dispatch({ type: "reset" })}
+            retryLabel={FEATURES.mobile ? "New transcription" : undefined}
           />
         );
       default:
@@ -1576,8 +1586,10 @@ export default function App() {
         {computerScore?.level === "high" && stats && !settings.dismissed.includes("slow") && run.status !== "running" && run.status !== "done" && !firstRun && (
           <Note warn onDismiss={() => dismiss("slow")}>
             {computerScore.speed !== null
-              ? `Transcriptions run very slowly on this computer: recent ones took about ${(1 / computerScore.speed).toFixed(1)} times as long as the recording. `
-              : `This computer has no graphics chip the app can use and ${wholeGb(stats.memory_total)} of memory, so transcriptions may run very slowly or not finish. `}
+              ? `Transcriptions run very slowly on this ${DEVICE}: recent ones took about ${(1 / computerScore.speed).toFixed(1)} times as long as the recording. `
+              : FEATURES.mobile
+                ? `This phone lets the app use ${gib(stats.memory_free)} of memory, so larger models do not run and transcriptions may be slow. `
+                : `This computer has no graphics chip the app can use and ${wholeGb(stats.memory_total)} of memory, so transcriptions may run very slowly or not finish. `}
             {setup && setup.mode !== "minimal" ? (
               <>
                 <button type="button" className="inline-link" onClick={() => setPanel("models")}>
@@ -1586,13 +1598,13 @@ export default function App() {
                 runs faster.
               </>
             ) : (
-              "Close other programs while a transcription runs."
+              `Close other ${FEATURES.mobile ? "apps" : "programs"} while a transcription runs.`
             )}
           </Note>
         )}
         {suggestion && !downloads[suggestion.id] && !(setup && wanted(models, setup).includes(suggestion.id)) && !settings.dismissed.includes(`better:${suggestion.id}`) && run.status !== "running" && run.status !== "done" && !firstRun && (
           <Note onDismiss={() => dismiss(`better:${suggestion.id}`)}>
-            {suggestion.name} would transcribe more accurately and fits this computer right now.{" "}
+            {suggestion.name} would transcribe more accurately and fits this {DEVICE} right now.{" "}
             <button type="button" className="inline-link" onClick={() => void download(suggestion.id)}>
               Download {bytes(suggestion.size_bytes)}
             </button>

@@ -23,24 +23,36 @@ bzip2 = "0.6.1"
 flate2 = "1"
 engine = { package = "tlansclaib-engine", path = "../engine", default-features = false }
 futures-util = "0.3"
-keepawake = "0.6"
 log = "0.4"
+percent-encoding = "2"
 reqwest = { version = "0.13", features = ["stream"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
-sysinfo = "0.39"
+sysinfo = { version = "0.39", default-features = false, features = ["disk", "system"] }
 tar = "0.4"
 zip = { version = "6", default-features = false, features = ["deflate"] }
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
 tauri-plugin-log = "2"
 tauri-plugin-opener = "2"
+time = { version = "0.3", features = ["formatting", "macros"] }
+tokio = { version = "1", features = ["fs", "io-util", "rt-multi-thread", "time"] }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+keepawake = "0.6"
 tauri-plugin-process = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"
-time = { version = "0.3", features = ["formatting", "macros"] }
-tokio = { version = "1", features = ["fs", "io-util", "rt-multi-thread", "time"] }
+
+# Phones start no sidecar, so the engine runs inside the app.
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+engine = { package = "tlansclaib-engine", path = "../engine" }
+libc = "0.2"
+
+[target.'cfg(target_os = "android")'.dependencies]
+webpki-root-certs = "1"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_System_Diagnostics_Debug"] }

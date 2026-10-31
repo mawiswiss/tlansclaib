@@ -87,6 +87,9 @@ fn threads_for(physical: usize) -> usize {
     if physical <= 4 { physical.max(1) } else { physical - 1 }
 }
 
+// The iOS Simulator's Metal driver crashes the app when whisper.cpp uploads a model.
+const IOS_SIMULATOR: bool = cfg!(all(target_os = "ios", target_abi = "sim"));
+
 const AUDIO_CTX_FULL: usize = 1500;
 const AUDIO_CTX_PER_SECOND: usize = 50;
 // Turbo models repeated lines with a margin of 1 or 5 s in tests, not with 10 s.
@@ -109,6 +112,7 @@ impl Engine {
         let mut params = WhisperContextParameters::default();
         #[cfg(feature = "vulkan")]
         let use_gpu = use_gpu && gpu().is_some();
+        let use_gpu = use_gpu && !IOS_SIMULATOR;
         params.use_gpu(use_gpu);
         match crate::model_file::inspect(model) {
             Ok(info) => {
@@ -141,7 +145,7 @@ impl Engine {
         self.device_name = BACKEND_NAME.lock().unwrap().clone().map(|name| describe(&name).unwrap_or(name));
         self.device = if self.device_name.is_none() {
             "cpu"
-        } else if cfg!(target_os = "macos") {
+        } else if cfg!(any(target_os = "macos", target_os = "ios")) {
             "metal"
         } else if cfg!(feature = "vulkan") {
             "vulkan"
@@ -276,6 +280,9 @@ pub struct Gpu {
 
 /// The GPU whisper.cpp would pick, started once to prove it works.
 pub fn gpu() -> Option<Gpu> {
+    if IOS_SIMULATOR {
+        return None;
+    }
     register_vulkan();
     unsafe {
         let device = (0..sys::ggml_backend_dev_count()).map(|i| sys::ggml_backend_dev_get(i)).find(|&device| {

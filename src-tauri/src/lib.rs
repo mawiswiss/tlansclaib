@@ -5,17 +5,22 @@ mod gpu;
 mod guard;
 mod history;
 mod models;
+#[cfg(mobile)]
+mod phone_export;
+#[cfg(any(mobile, test))]
+mod recordings;
 mod run;
 mod stall;
 mod system;
 mod transcript;
 mod validate;
+mod worker;
 
 use std::path::{Path, PathBuf};
 
 use engine::speakers::Backend;
 use tauri::{AppHandle, Emitter, Manager, State};
-use tauri_plugin_shell::ShellExt;
+use tauri_plugin_opener::OpenerExt;
 
 use history::History;
 use models::{ModelStatus, Models};
@@ -24,12 +29,6 @@ use system::Monitor;
 pub(crate) fn report_history_error(app: &AppHandle, action: &str, error: &anyhow::Error) {
     log::warn!("history update failed");
     let _ = app.emit("app-error", format!("{action}, but the history could not be updated: {error:#}"));
-}
-
-#[derive(serde::Deserialize, serde::Serialize)]
-struct Language {
-    code: String,
-    name: String,
 }
 
 #[tauri::command]
@@ -92,19 +91,8 @@ fn reveal(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn list_languages(app: AppHandle) -> Result<Vec<Language>, String> {
-    let output = app
-        .shell()
-        .sidecar(cpu::engine())
-        .map_err(|e| e.to_string())?
-        .args(["languages"])
-        .output()
-        .await
-        .map_err(|e| e.to_string())?;
-    if !output.status.success() {
-        return Err("Could not load languages from the transcription engine.".into());
-    }
-    serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())
+async fn list_languages(app: AppHandle) -> Result<Vec<worker::Language>, String> {
+    worker::languages(&app).await.map_err(|e| format!("{e:#}"))
 }
 
 #[tauri::command]
@@ -169,7 +157,13 @@ fn list_history(history: State<History>) -> Result<Vec<history::Listed>, String>
 
 #[tauri::command]
 fn remove_history(app: AppHandle, history: State<History>, id: u64) -> Result<(), String> {
+    #[cfg(mobile)]
+    let audio = history.get(id).ok().flatten().map(|entry| entry.audio);
     history.remove(id).map_err(|e| format!("{e:#}"))?;
+    #[cfg(mobile)]
+    if let Some(audio) = audio {
+        recordings::forget(&app, &audio);
+    }
     let _ = app.emit("history-changed", ());
     Ok(())
 }
@@ -238,6 +232,46 @@ fn export_transcript(
         .map_err(|error| format!("{error:#}"))
 }
 
+/// Phones cannot write where their save dialog points, see `phone_export.rs`. On iOS `target` is the file name, on Android the dialog's address.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn export_on_phone(
+    app: AppHandle,
+    target: String,
+    format: String,
+    file: String,
+    expected: String,
+    lines: Vec<transcript::Line>,
+    timestamps: bool,
+    timed: bool,
+    speakers: Vec<String>,
+) -> Result<(), String> {
+    #[cfg(mobile)]
+    return tauri::async_runtime::spawn_blocking(move || {
+        let text = transcript::export_text(Path::new(&file), &expected, &format, &lines, timestamps, timed, &speakers)?;
+        phone_export::write(&app, &target, &text)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| format!("{e:#}"));
+    #[cfg(desktop)]
+    {
+        let _ = (app, target, format, file, expected, lines, timestamps, timed, speakers);
+        Err("Export through the save dialog instead.".into())
+    }
+}
+
+#[tauri::command]
+fn discard_export(app: AppHandle, target: String) -> Result<(), String> {
+    #[cfg(mobile)]
+    return phone_export::discard(&app, &target).map_err(|e| format!("{e:#}"));
+    #[cfg(desktop)]
+    {
+        let _ = (app, target);
+        Ok(())
+    }
+}
+
 fn remember_write(app: &AppHandle, history: &History, file: &Path, timestamps: bool, speakers: &[String], colors: Option<&[u8]>, edited: bool) -> Result<String, String> {
     if let Err(error) = history.written(file, timestamps, speakers, colors, edited) {
         report_history_error(app, "The transcript was saved", &error);
@@ -295,11 +329,11 @@ async fn measure_speed() -> Result<f64, String> {
 }
 
 #[tauri::command]
-fn open_url(url: String) -> Result<(), String> {
+fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     if !url.starts_with("https://") {
         return Err(format!("not opening {url}: only https links are allowed"));
     }
-    tauri_plugin_opener::open_url(url, None::<&str>).map_err(|e| e.to_string())
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
 #[derive(serde::Serialize)]
@@ -355,6 +389,22 @@ fn audio_source(app: AppHandle, path: String) -> Result<(), String> {
         return Err(format!("{} is not there", path.display()));
     }
     app.asset_protocol_scope().allow_file(&path).map_err(|e| e.to_string())
+}
+
+/// Phones work on a copy of the picked recording, see `recordings.rs`. The desktop reads it where it lies.
+#[tauri::command]
+async fn keep_recording(app: AppHandle, path: String) -> Result<String, String> {
+    #[cfg(mobile)]
+    return tauri::async_runtime::spawn_blocking(move || recordings::keep(&app, &path))
+        .await
+        .map_err(|e| e.to_string())?
+        .map(|kept| kept.to_string_lossy().into_owned())
+        .map_err(|e| format!("Could not open the recording: {e:#}"));
+    #[cfg(desktop)]
+    {
+        let _ = app;
+        Ok(path)
+    }
 }
 
 #[tauri::command]
@@ -413,12 +463,17 @@ fn without_home(text: &str, home: Option<&str>) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init())
+    let builder = tauri::Builder::default();
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_process::init());
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_fs::init());
+    builder
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
@@ -454,6 +509,11 @@ pub fn run() {
                 log::warn!("could not recover app history: {error:#}");
             }
             app.manage(history);
+            #[cfg(mobile)]
+            {
+                recordings::rebase(app.handle());
+                recordings::prune(app.handle());
+            }
             let monitor = Monitor::new();
             app.manage(monitor.clone());
             let handle = app.handle().clone();
@@ -483,6 +543,8 @@ pub fn run() {
             save_transcript,
             transcript_hash,
             export_transcript,
+            export_on_phone,
+            discard_export,
             rename_transcript,
             speaker_detection,
             download_speaker_detection,
@@ -490,6 +552,7 @@ pub fn run() {
             remove_speaker_detection,
             check_candidate,
             audio_source,
+            keep_recording,
             open_url,
             disk_space,
             measure_speed,

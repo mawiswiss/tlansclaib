@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { DETECTION } from "../lib/detection";
-import { diskFit, downloadFit, downloadSeconds, failedFit, ramFit, type Rating } from "../lib/fit";
+import { diskFit, downloadFit, downloadSeconds, failedFit, modelFit, type Rating } from "../lib/fit";
 import { bytes, capitalize, fileName, folderOf } from "../lib/format";
+import { DEVICE, FEATURES } from "../lib/ipc";
 import { DETECTION_IDS, installed as isInstalled, MODE_NAMES, sizeOf, wanted, type Setup } from "../lib/setup";
 import type { DiskSpace, DownloadProgress, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "../lib/types";
 import { Check, ChevronDown, Close, Info, LinkIcon, Pencil, Trash, Unlink } from "./icons";
@@ -197,7 +198,7 @@ export function ModelDetails(props: DetailsProps) {
   };
 
   const customCard = (m: ModelStatus) => {
-    const ram = stats && m.installed ? ramFit(m.ram_gb, stats.memory_total) : null;
+    const ram = stats && m.installed ? modelFit(m.ram_gb, stats, FEATURES.mobile) : null;
     return (
       <li key={m.id} className={`model-card${m.installed ? " installed" : ""}`}>
         <div className="model-top">
@@ -262,7 +263,7 @@ export function ModelDetails(props: DetailsProps) {
         </p>
         <div className="chips">
           <span className="chip custom">Custom</span>
-          {m.too_heavy && <Chip rating={failedFit(m.too_heavy)}>Failed on this computer</Chip>}
+          {m.too_heavy && <Chip rating={failedFit(m.too_heavy)}>Failed on this {DEVICE}</Chip>}
           {m.label && <span className="chip">{m.label}</span>}
           {m.installed && <span className="chip">{m.languages.includes("all") ? "Multilingual" : "English only"}</span>}
           {m.installed && <span className="chip">{bytes(m.size_bytes)} size</span>}
@@ -273,7 +274,7 @@ export function ModelDetails(props: DetailsProps) {
   };
 
   const card = (m: ModelStatus) => {
-    const ram = stats ? ramFit(m.ram_gb, stats.memory_total) : null;
+    const ram = stats ? modelFit(m.ram_gb, stats, FEATURES.mobile) : null;
     const space = !m.installed && disk ? diskFit(m.size_bytes, disk.free, disk.minimum, disk.reserve) : null;
     const time = seconds(m.size_bytes);
     return (
@@ -323,7 +324,7 @@ export function ModelDetails(props: DetailsProps) {
         </div>
         <p className="model-about">{m.recommended}</p>
         <div className="chips">
-          {m.too_heavy && <Chip rating={failedFit(m.too_heavy)}>Failed on this computer</Chip>}
+          {m.too_heavy && <Chip rating={failedFit(m.too_heavy)}>Failed on this {DEVICE}</Chip>}
           {membership(m.id, m.installed)}
           {m.architecture && <span className="chip">{[m.architecture, m.quantization].filter(Boolean).join(", ")}</span>}
           <Chip rating={critical(space)}>{bytes(m.size_bytes)} size</Chip>
@@ -442,17 +443,19 @@ export function ModelDetails(props: DetailsProps) {
       )}
       {group("detection", "Speaker detection", available.length, <ul className="model-grid">{available.map(detectionCard)}</ul>, detectionGroup)}
       {group("custom", "Custom models", custom.length, <ul className="model-grid">{custom.map(customCard)}</ul>)}
-      <div className="details-actions">
-        <Tooltip content="Only whisper.cpp files named ggml-….bin work. PyTorch, CTranslate2 and ONNX files from Hugging Face do not. The file is used where it lies, not copied.">
-          <button type="button" onClick={() => onAddFile(null)}>
-            Add any model file…
-            <Info size={15} className="button-info" />
+      {!FEATURES.mobile && (
+        <div className="details-actions">
+          <Tooltip content="Only whisper.cpp files named ggml-….bin work. PyTorch, CTranslate2 and ONNX files from Hugging Face do not. The file is used where it lies, not copied.">
+            <button type="button" onClick={() => onAddFile(null)}>
+              Add any model file…
+              <Info size={15} className="button-info" />
+            </button>
+          </Tooltip>
+          <button type="button" className="ghost" onClick={onShowFolder} title={folder}>
+            Show models folder
           </button>
-        </Tooltip>
-        <button type="button" className="ghost" onClick={onShowFolder} title={folder}>
-          Show models folder
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

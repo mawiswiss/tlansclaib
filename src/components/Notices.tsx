@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { FEATURES } from "../lib/ipc";
 import { Close } from "./icons";
 
 /** primary is the fix the app recommends, danger deletes or skips a safety check. */
@@ -9,18 +10,26 @@ export type NoticeAction = { label: string; run: () => void; tone?: Tone };
 export type Notice = { id: number; kind: "info" | "warning" | "error"; text: string; actions?: NoticeAction[] };
 
 const FADE_MS = 8000;
+const PHONE_FADE_MS = 4000;
 
 export function toneClass(tone: Tone = "neutral"): string | undefined {
   return tone === "neutral" ? undefined : tone;
 }
 
+/** How long a notice stays, or null until dismissed. A phone has no room for notices that wait, so only errors stay there. */
+export function fadeAfter(notice: Notice, phone: boolean): number | null {
+  const plain = notice.kind === "info" && !notice.actions?.length;
+  if (phone) return notice.kind === "error" ? null : plain ? PHONE_FADE_MS : FADE_MS;
+  return plain ? FADE_MS : null;
+}
+
 function NoticeItem({ notice, onDismiss }: { notice: Notice; onDismiss: (id: number) => void }) {
-  const fades = notice.kind === "info" && !notice.actions?.length;
+  const fade = fadeAfter(notice, FEATURES.mobile);
   useEffect(() => {
-    if (!fades) return;
-    const timer = setTimeout(() => onDismiss(notice.id), FADE_MS);
+    if (fade === null) return;
+    const timer = setTimeout(() => onDismiss(notice.id), fade);
     return () => clearTimeout(timer);
-  }, [fades, notice.id, onDismiss]);
+  }, [fade, notice.id, onDismiss]);
   return (
     <div className={`notice-toast ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}>
       <div className="notice-toast-body">

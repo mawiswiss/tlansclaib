@@ -188,10 +188,13 @@ export function leftovers(models: ModelStatus[], detections: SpeakerDetection[],
   return [...listed, ...detectionIds];
 }
 
-export type Recommendation = { speed: number | "measuring" | "offline"; gpu: Gpu | null; memoryTotal: number | null; preciseBytes: number; preciseRamGb: number; preciseModel: ModelStatus | null };
+/** `phoneBudget`: a phone's model budget, which picks Minimal when Essential's model does not fit. */
+export type Recommendation = { speed: number | "measuring" | "offline"; gpu: Gpu | null; memoryTotal: number | null; preciseBytes: number; preciseRamGb: number; preciseModel: ModelStatus | null; phoneBudget?: number | null; essentialRamGb?: number };
 
-export function recommend({ speed, gpu, memoryTotal, preciseBytes, preciseRamGb, preciseModel }: Recommendation): Mode | null {
+export function recommend({ speed, gpu, memoryTotal, preciseBytes, preciseRamGb, preciseModel, phoneBudget = null, essentialRamGb = 0 }: Recommendation): Mode | null {
   if (speed === "measuring" || gpu === null || memoryTotal === null) return null;
+  if (phoneBudget !== null && essentialRamGb * GIB > phoneBudget) return "minimal";
+  if (phoneBudget !== null && preciseRamGb * GIB > phoneBudget) return "essential";
   if (speed === "offline" || !gpu.usable || memoryTotal < PRECISE_MEMORY) return "essential";
   if (preciseModel?.installed && preciseModel.too_heavy) return "essential";
   if (ramFit(preciseRamGb, memoryTotal).level !== "ok") return "essential";

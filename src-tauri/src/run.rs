@@ -5,10 +5,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{Result, anyhow};
 use engine::protocol::{Event, Heard, LoadPart, Step, Timings};
 use engine::speakers::Backend;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_shell::ShellExt;
-use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 
 use crate::guard;
 use crate::history::{self, History};
@@ -16,16 +14,18 @@ use crate::models::Models;
 use crate::stall::{self, Watch};
 use crate::system::{Monitor, Stats};
 use crate::transcript::{Line, Stored};
+use crate::worker::{self, Output, Worker};
 
 pub struct ActiveRun {
-    child: Option<CommandChild>,
-    pid: u32,
+    worker: Worker,
     swap_at_start: u64,
     saw_error: bool,
     step: Option<Step>,
-    watch: Watch,
+    /// None where the engine runs inside the app, whose own work hides whether the engine is stuck.
+    watch: Option<Watch>,
     stalled: bool,
     record: Record,
+    #[cfg(desktop)]
     _awake: Option<keepawake::KeepAwake>,
 }
 
@@ -57,8 +57,12 @@ struct Record {
     saved: bool,
 }
 
+/// The running engine, the lock that lets one run start at a time, and stopped engines that have not ended yet.
 #[derive(Default)]
-pub struct RunState(pub Mutex<Option<ActiveRun>>, pub tokio::sync::Mutex<()>);
+pub struct RunState(pub Mutex<Option<ActiveRun>>, pub tokio::sync::Mutex<()>, Mutex<Vec<Worker>>);
+
+/// How long a start waits for a stopped engine to end. A killed sidecar ends at once, a thread in the app only at its next check.
+const STOPPING_LIMIT: Duration = if cfg!(mobile) { Duration::from_secs(30) } else { Duration::from_secs(3) };
 
 #[derive(Clone, Serialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
@@ -109,11 +113,6 @@ fn memory_refusal(message: String, free: u64, detection: u64, sample_seconds: Op
         budget: guard::recording_budget(free, detection, sample_seconds),
         budget_without_speakers: (detection > 0).then(|| guard::recording_budget(free, 0, sample_seconds)).flatten(),
     })
-}
-
-#[derive(Deserialize)]
-struct AudioInfo {
-    sample_seconds: Option<f64>,
 }
 
 fn stall_message(step: Option<Step>) -> String {
@@ -170,7 +169,7 @@ fn retry_on_cpu(gpu_attempt: bool, step: Option<Step>, model_ready: bool, code: 
 }
 
 pub fn engine_pid(app: &AppHandle) -> Option<u32> {
-    app.state::<RunState>().0.lock().unwrap().as_ref().map(|r| r.pid)
+    app.state::<RunState>().0.lock().unwrap().as_ref().and_then(|r| r.worker.pid())
 }
 
 pub struct Request<'a> {
@@ -193,22 +192,26 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     if state.0.lock().unwrap().is_some() {
         return Err(anyhow!("A transcription is already running."));
     }
+    let monitor = app.state::<Arc<Monitor>>();
+    if !stopped_engines_ended(app, &monitor).await {
+        #[cfg(mobile)]
+        return Err(anyhow!("The last transcription is still stopping. Try again in a moment."));
+        #[cfg(desktop)]
+        {
+            log::warn!("a stopped engine was still running after {} s", STOPPING_LIMIT.as_secs());
+            state.2.lock().unwrap().clear();
+        }
+    }
     if !audio.is_file() {
         return Err(anyhow!("{} does not exist.", audio.display()));
     }
     let (entry, model_path) = app.state::<Models>().installed_path(model_id)?;
-    let monitor = app.state::<Arc<Monitor>>();
     let (free, _) = monitor.memory();
     let detection_ram = if speakers.is_some() { guard::detection_ram(detector, None) } else { 0 };
     if !force && let Err(message) = guard::can_start(free, guard::model_run_ram(entry.ram_bytes()).max(detection_ram)) {
         return Err(memory_refusal(message, free, detection_ram, None));
     }
-    let audio_arg = audio.to_string_lossy().into_owned();
-    let info = app.shell().sidecar(crate::cpu::engine())?.args(["audio-info", "--audio", &audio_arg]).output().await?;
-    if !info.status.success() {
-        return Err(anyhow!("Could not inspect the recording. Check that it is a supported audio or video file."));
-    }
-    let AudioInfo { sample_seconds } = serde_json::from_slice(&info.stdout)?;
+    let sample_seconds = worker::audio_seconds(app, audio).await?;
     if sample_seconds.is_none() {
         log::warn!("recording length is unavailable, so the decoded audio memory estimate was skipped");
     }
@@ -273,16 +276,19 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     };
     #[cfg(not(any(windows, target_os = "linux")))]
     let engine_name = crate::cpu::engine();
+    let metal = cfg!(any(target_os = "macos", all(target_os = "ios", not(target_abi = "sim"))));
     let mut retry_args = args.clone();
-    #[cfg(target_os = "macos")]
-    retry_args.push("--cpu".into());
+    if metal {
+        retry_args.push("--cpu".into());
+    }
     retry_args.push("--fit-encoder".into());
-    let mut gpu_attempt = cfg!(target_os = "macos") || engine_name == "tlansclaib-engine-vulkan";
+    let mut gpu_attempt = metal || engine_name == "tlansclaib-engine-vulkan";
     if !gpu_attempt {
         args.push("--fit-encoder".into());
     }
-    let backend = if cfg!(target_os = "macos") { "Metal" } else { "Vulkan" };
-    let (mut events, child) = app.shell().sidecar(engine_name)?.args(args).spawn()?;
+    let backend = if metal { "Metal" } else { "Vulkan" };
+    let (mut events, worker) = worker::spawn(app, engine_name, args)?;
+    #[cfg(desktop)]
     let awake = keepawake::Builder::default()
         .idle(true)
         .sleep(true)
@@ -295,15 +301,16 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
             let _ = app.emit("app-error", format!("Could not keep the computer awake for this transcription: {error}"));
         })
         .ok();
-    log::info!("started the engine (pid {})", child.pid());
-    let pid = child.pid();
+    match worker.pid() {
+        Some(pid) => log::info!("started the engine (pid {pid})"),
+        None => log::info!("started the engine inside the app"),
+    }
     *state.0.lock().unwrap() = Some(ActiveRun {
-        pid,
-        child: Some(child),
+        watch: worker.pid().map(|pid| Watch::new(pid, Instant::now())),
+        worker,
         swap_at_start,
         saw_error: false,
         step: None,
-        watch: Watch::new(pid, Instant::now()),
         stalled: false,
         record: Record {
             id,
@@ -332,6 +339,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
             device: None,
             timings: None,
         },
+        #[cfg(desktop)]
         _awake: awake,
     });
 
@@ -344,65 +352,63 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         let mut pending_gpu_error = None;
         let mut process_error = None;
         let mut speakers_failed = false;
-        while let Some(event) = events.recv().await {
-            if matches!(event, CommandEvent::Stdout(_) | CommandEvent::Stderr(_)) {
-                with_own(&app, id, |run| run.watch.heard(Instant::now()));
+        while let Some(output) = events.recv().await {
+            if matches!(output, Output::Event(_) | Output::Unreadable | Output::Diagnostic) {
+                with_own(&app, id, |run| run.watch.as_mut().map(|watch| watch.heard(Instant::now())));
             }
-            match event {
-                CommandEvent::Stdout(line) => match serde_json::from_slice::<Event>(&line) {
-                    Ok(event) => {
-                        match &event {
-                            Event::Step { step: next } => {
-                                step = Some(*next);
-                                with_own(&app, id, |run| run.step = step);
-                                log::info!("step {next:?} after {:.1} s", started.elapsed().as_secs_f64());
-                            }
-                            Event::Loading { part } => {
-                                probing |= *part == LoadPart::Language;
-                                log::info!("loading part {part:?} after {:.1} s", started.elapsed().as_secs_f64());
-                            }
-                            _ => {}
+            match output {
+                Output::Event(event) => {
+                    match &event {
+                        Event::Step { step: next } => {
+                            step = Some(*next);
+                            with_own(&app, id, |run| run.step = step);
+                            log::info!("step {next:?} after {:.1} s", started.elapsed().as_secs_f64());
                         }
-                        if matches!(&event, Event::Model { .. }) {
-                            model_ready = true;
+                        Event::Loading { part } => {
+                            probing |= *part == LoadPart::Language;
+                            log::info!("loading part {part:?} after {:.1} s", started.elapsed().as_secs_f64());
                         }
-                        if gpu_attempt && step == Some(Step::Load) && !model_ready
-                            && let Event::Error { message } = &event
-                        {
-                            pending_gpu_error = Some(message.clone());
-                            continue;
-                        }
-                        speakers_failed |= matches!(&event, Event::Error { .. }) && step == Some(Step::Speakers);
-                        if matches!(&event, Event::Error { .. })
-                            && let Some(reason) = too_heavy(Failure::EngineError, step, probing)
-                            && let Some(model_id) = with_own(&app, id, |run| run.record.model_id.clone())
-                        {
-                            mark_too_heavy(&app, &model_id, reason);
-                        }
-                        let forwarded = with_own(&app, id, |run| {
-                            let event = match &event {
-                                Event::Done { lines, elapsed, timings, .. } => match finish(&app, run, *lines, *elapsed, timings) {
-                                    Ok(file) => Event::Done { lines: *lines, elapsed: *elapsed, file, timings: timings.clone() },
-                                    Err(error) => Event::Error { message: format!("Could not save the transcription: {error:#}") },
-                                },
-                                _ => {
-                                    track(run, &event);
-                                    event
-                                }
-                            };
-                            let _ = app.emit("engine-event", &event);
-                        });
-                        if forwarded.is_none() {
-                            break;
-                        }
+                        _ => {}
                     }
-                    Err(_) => {
-                        log::warn!(target: "engine", "unreadable progress event");
-                        process_error = Some("The engine sent unreadable progress data.".to_string());
+                    if matches!(&event, Event::Model { .. }) {
+                        model_ready = true;
                     }
-                },
-                CommandEvent::Stderr(_) => log::info!(target: "engine", "engine diagnostic received"),
-                CommandEvent::Error(message) => {
+                    if gpu_attempt && step == Some(Step::Load) && !model_ready
+                        && let Event::Error { message } = &event
+                    {
+                        pending_gpu_error = Some(message.clone());
+                        continue;
+                    }
+                    speakers_failed |= matches!(&event, Event::Error { .. }) && step == Some(Step::Speakers);
+                    if matches!(&event, Event::Error { .. })
+                        && let Some(reason) = too_heavy(Failure::EngineError, step, probing)
+                        && let Some(model_id) = with_own(&app, id, |run| run.record.model_id.clone())
+                    {
+                        mark_too_heavy(&app, &model_id, reason);
+                    }
+                    let forwarded = with_own(&app, id, |run| {
+                        let event = match &event {
+                            Event::Done { lines, elapsed, timings, .. } => match finish(&app, run, *lines, *elapsed, timings) {
+                                Ok(file) => Event::Done { lines: *lines, elapsed: *elapsed, file, timings: timings.clone() },
+                                Err(error) => Event::Error { message: format!("Could not save the transcription: {error:#}") },
+                            },
+                            _ => {
+                                track(run, &event);
+                                event
+                            }
+                        };
+                        let _ = app.emit("engine-event", &event);
+                    });
+                    if forwarded.is_none() {
+                        break;
+                    }
+                }
+                Output::Unreadable => {
+                    log::warn!(target: "engine", "unreadable progress event");
+                    process_error = Some("The engine sent unreadable progress data.".to_string());
+                }
+                Output::Diagnostic => log::info!(target: "engine", "engine diagnostic received"),
+                Output::Failed(message) => {
                     log::error!(target: "engine", "could not read the engine process");
                     if gpu_attempt && step == Some(Step::Load) && !model_ready {
                         pending_gpu_error = Some(message);
@@ -410,9 +416,9 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                         process_error = Some(message);
                     }
                 }
-                CommandEvent::Terminated(payload) => {
+                Output::Ended(code) => {
                     let stalled = with_own(&app, id, |run| run.stalled).unwrap_or(false);
-                    if retry_on_cpu(gpu_attempt, step, model_ready, payload.code) && with_own(&app, id, |_| ()).is_some() {
+                    if retry_on_cpu(gpu_attempt, step, model_ready, code) && with_own(&app, id, |_| ()).is_some() {
                         log::warn!("{backend} model startup failed. Retrying on CPU.");
                         let message = if stalled {
                             format!("{backend} stopped responding while loading the model. Retrying on CPU.")
@@ -420,16 +426,14 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                             format!("{backend} could not load the model. Retrying on CPU.")
                         };
                         let _ = app.emit("engine-event", AppEvent::Retry { message });
-                        let retry = (|| -> Result<_> { Ok(app.shell().sidecar(crate::cpu::engine())?.args(retry_args.clone()).spawn()?) })();
-                        match retry {
-                            Ok((new_events, child)) => {
+                        match worker::spawn(&app, crate::cpu::engine(), retry_args.clone()) {
+                            Ok((new_events, worker)) => {
                                 let state = app.state::<RunState>();
                                 let mut active = state.0.lock().unwrap();
                                 if let Some(run) = active.as_mut().filter(|run| run.record.id == id) {
-                                    run.pid = child.pid();
-                                    run.watch = Watch::new(child.pid(), Instant::now());
+                                    run.watch = worker.pid().map(|pid| Watch::new(pid, Instant::now()));
                                     run.stalled = false;
-                                    run.child = Some(child);
+                                    run.worker = worker;
                                     run.saw_error = false;
                                     run.step = None;
                                     events = new_events;
@@ -441,7 +445,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                                     process_error = None;
                                     continue;
                                 }
-                                let _ = child.kill();
+                                park(&app, worker);
                                 break;
                             }
                             Err(error) => {
@@ -456,20 +460,20 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                         }
                     }
                     if let Some(run) = take_own(&app, id) {
-                        if !run.saw_error && (payload.code != Some(0) || !run.record.saved) {
+                        if !run.saw_error && (code != Some(0) || !run.record.saved) {
                             speakers_failed |= step == Some(Step::Speakers);
-                            let failure = if stalled { Some(Failure::Stall) } else if payload.code != Some(0) { Some(Failure::Crash) } else { None };
+                            let failure = if stalled { Some(Failure::Stall) } else if code != Some(0) { Some(Failure::Crash) } else { None };
                             let marked = failure
-                                .filter(|_| !retry_on_cpu(gpu_attempt, step, model_ready, payload.code))
+                                .filter(|_| !retry_on_cpu(gpu_attempt, step, model_ready, code))
                                 .and_then(|failure| too_heavy(failure, step, probing));
                             if let Some(reason) = marked {
                                 mark_too_heavy(&app, &run.record.model_id, reason);
                             }
                             let message = stalled.then(|| stall_message(step)).or_else(|| pending_gpu_error.take()).or_else(|| process_error.take().map(|error| format!("Could not read the transcription process: {error}"))).unwrap_or_else(|| {
-                                        if payload.code == Some(0) {
+                                        if code == Some(0) {
                                             return "The transcription process ended without saving a result.".into();
                                         }
-                                        match payload.code {
+                                        match code {
                                             Some(code) => format!("The transcription stopped unexpectedly (error code {code})."),
                                             None => "The transcription stopped unexpectedly.".into(),
                                         }
@@ -478,20 +482,17 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
                         }
                         remember_incomplete(&app, &run.record);
                     }
-                    if payload.code == Some(0)
+                    if code == Some(0)
                         && let Some(error) = process_error.take()
                     {
                         let _ = app.emit("app-error", format!("Could not read all output from the transcription process: {error}"));
                     }
                     break;
                 }
-                _ => {}
             }
         }
         if let Some(mut run) = take_own(&app, id) {
-            if let Some(child) = run.child.take() {
-                let _ = child.kill();
-            }
+            run.worker.stop();
             if !run.saw_error {
                 let message = pending_gpu_error
                     .or_else(|| process_error.map(|error| format!("Could not read the transcription process: {error}")))
@@ -510,6 +511,31 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
 /// Microseconds stay below 2^53, so the window's JavaScript numbers hold the id exactly.
 fn record_id(since_epoch: Duration) -> u64 {
     since_epoch.as_micros() as u64
+}
+
+/// Keeps a stopped engine until it has ended, so the next run never shares the memory with it.
+fn park(app: &AppHandle, mut worker: Worker) {
+    worker.stop();
+    app.state::<RunState>().2.lock().unwrap().push(worker);
+}
+
+async fn stopped_engines_ended(app: &AppHandle, monitor: &Monitor) -> bool {
+    let deadline = Instant::now() + STOPPING_LIMIT;
+    loop {
+        let waiting = {
+            let state = app.state::<RunState>();
+            let mut parked = state.2.lock().unwrap();
+            parked.retain(|worker| worker.running(monitor));
+            parked.len()
+        };
+        if waiting == 0 {
+            return true;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
 }
 
 fn with_own<T>(app: &AppHandle, id: u64, f: impl FnOnce(&mut ActiveRun) -> T) -> Option<T> {
@@ -637,36 +663,25 @@ fn remember_incomplete(app: &AppHandle, record: &Record) {
 
 pub fn cancel(app: &AppHandle) {
     let run = app.state::<RunState>().0.lock().unwrap().take();
-    if let Some(mut run) = run {
-        if let Some(child) = run.child.take() {
-            let _ = child.kill();
-        }
+    if let Some(run) = run {
+        let ActiveRun { worker, record, .. } = run;
+        park(app, worker);
         let _ = app.emit("engine-event", AppEvent::Cancelled);
         log::info!("cancelled the engine");
-        remember_incomplete(app, &run.record);
+        remember_incomplete(app, &record);
     }
 }
 
 pub async fn restart(app: &AppHandle, language: &str) -> Result<()> {
     let run = app.state::<RunState>().0.lock().unwrap().take();
-    let Some(mut run) = run else {
+    let Some(run) = run else {
         return Err(anyhow!("No transcription is running."));
     };
-    if let Some(child) = run.child.take() {
-        let _ = child.kill();
-    }
     let _ = std::fs::remove_file(&run.record.scratch);
     log::info!("restarting the engine");
     let _ = app.emit("engine-event", AppEvent::Restart { language: language.to_string() });
-    let ActiveRun { pid, record, .. } = run;
-    let monitor = app.state::<Arc<Monitor>>().inner().clone();
-    let _ = tauri::async_runtime::spawn_blocking(move || {
-        let deadline = Instant::now() + Duration::from_secs(3);
-        while monitor.is_running(pid) && Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(50));
-        }
-    })
-    .await;
+    let ActiveRun { worker, record, .. } = run;
+    park(app, worker);
     start(
         app,
         Request {
@@ -688,14 +703,12 @@ fn stop_stalled(app: &AppHandle, stats: &Stats) {
     let state = app.state::<RunState>();
     let mut active = state.0.lock().unwrap();
     let Some(run) = active.as_mut() else { return };
-    if run.stalled || !run.watch.stalled(Instant::now(), stats.engine_usage) {
+    if run.stalled || !run.watch.as_mut().is_some_and(|watch| watch.stalled(Instant::now(), stats.engine_usage)) {
         return;
     }
     log::error!("the engine sent nothing and did no work for {} s, so it was stopped", stall::LIMIT.as_secs());
     run.stalled = true;
-    if let Some(child) = run.child.take() {
-        let _ = child.kill();
-    }
+    run.worker.stop();
 }
 
 pub fn guard_tick(app: &AppHandle, stats: &Stats) {
@@ -710,14 +723,13 @@ pub fn guard_tick(app: &AppHandle, stats: &Stats) {
     };
     if let Some(message) = stop {
         let run = app.state::<RunState>().0.lock().unwrap().take();
-        if let Some(mut run) = run {
-            if let Some(child) = run.child.take() {
-                let _ = child.kill();
+        if let Some(run) = run {
+            let ActiveRun { worker, step, record, .. } = run;
+            park(app, worker);
+            if let Some(reason) = too_heavy(Failure::Memory, step, false) {
+                mark_too_heavy(app, &record.model_id, reason);
             }
-            if let Some(reason) = too_heavy(Failure::Memory, run.step, false) {
-                mark_too_heavy(app, &run.record.model_id, reason);
-            }
-            remember_incomplete(app, &run.record);
+            remember_incomplete(app, &record);
         }
         log::error!("{message}");
         let _ = app.emit("engine-event", Event::Error { message });

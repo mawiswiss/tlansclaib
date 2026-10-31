@@ -3,20 +3,18 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow};
 use engine::speakers::{Backend, nemotron, sherpa};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tauri::{AppHandle, Emitter};
-use tauri_plugin_shell::ShellExt;
-use tauri_plugin_shell::process::CommandEvent;
 
 use crate::guard;
 use crate::models::{DownloadProgress, fetch, free_disk};
 
 const VERSION_FILE: &str = "version.txt";
-const CHECK_LIMIT: Duration = Duration::from_secs(30);
+#[cfg(desktop)]
+const CHECK_LIMIT: std::time::Duration = std::time::Duration::from_secs(30);
 
 pub struct Download {
     pub name: &'static str,
@@ -348,13 +346,17 @@ impl Detection {
     }
 }
 
-#[derive(Deserialize)]
+#[cfg(desktop)]
+#[derive(serde::Deserialize)]
 struct CheckAnswer {
     ok: bool,
     reason: Option<String>,
 }
 
+#[cfg(desktop)]
 async fn open_library(app: &AppHandle, backend: Backend, dir: &Path) -> Result<(), String> {
+    use tauri_plugin_shell::ShellExt;
+    use tauri_plugin_shell::process::CommandEvent;
     let command = app.shell().sidecar(crate::cpu::engine()).map_err(|error| error.to_string())?;
     let models = dir.to_string_lossy().into_owned();
     let (mut events, child) = command.args(["speakers-check", "--backend", backend.as_str(), "--models", &models]).spawn().map_err(|error| error.to_string())?;
@@ -378,6 +380,11 @@ async fn open_library(app: &AppHandle, backend: Backend, dir: &Path) -> Result<(
         Ok(CheckAnswer { reason, .. }) => Err(reason.unwrap_or_else(|| "unknown reason".into())),
         Err(_) => Err(format!("the check ended without an answer, exit code {}", code.map_or("unknown".into(), |c| c.to_string()))),
     }
+}
+
+#[cfg(mobile)]
+async fn open_library(_: &AppHandle, _: Backend, _: &Path) -> Result<(), String> {
+    Err("speaker detection does not run on phones yet".into())
 }
 
 /// Whether a file is missing or differs from its download. The unpacked library has no checksum of its own, so only its presence counts.

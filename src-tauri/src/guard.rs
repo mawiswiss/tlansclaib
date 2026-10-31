@@ -3,11 +3,20 @@ use engine::speakers::Backend;
 const GIB: u64 = 1 << 30;
 const MIB: u64 = 1 << 20;
 
-pub const RUN_HEADROOM: u64 = GIB;
+pub const RUN_HEADROOM: u64 = run_headroom(cfg!(target_os = "ios"));
 pub const DISK_MINIMUM: u64 = GIB;
 pub const DISK_RESERVE: u64 = 10 * GIB;
-pub const DEFAULT_MEMORY_FLOOR: u64 = 400 * MIB;
+pub const DEFAULT_MEMORY_FLOOR: u64 = default_memory_floor(cfg!(target_os = "ios"));
 pub const SWAP_GROWTH_LIMIT: u64 = 2 * GIB;
+
+/// iOS reports what this app alone may still allocate. On an iPhone XR, Universal Compact (1.3 GB) crashed and Universal Small (0.7 GB) ran.
+const fn run_headroom(ios: bool) -> u64 {
+    if ios { 512 * MIB } else { GIB }
+}
+
+const fn default_memory_floor(ios: bool) -> u64 {
+    if ios { 200 * MIB } else { 400 * MIB }
+}
 
 /// sherpa-onnx detection peaked at 1.3 GB on a 107-minute recording. It runs before the model loads.
 pub const SHERPA_DETECTION_RAM: u64 = 3 << 29;
@@ -113,6 +122,20 @@ pub fn can_download(free_disk: u64, size: u64) -> Result<(), String> {
     ))
 }
 
+/// Phones keep their own copy of a recording, which needs room like a download.
+#[cfg(any(mobile, test))]
+pub fn can_keep_recording(free_disk: u64, size: u64) -> Result<(), String> {
+    if size.checked_add(DISK_MINIMUM).is_some_and(|needed| free_disk >= needed) {
+        return Ok(());
+    }
+    Err(format!(
+        "Not enough storage: the recording needs {} plus {} to spare, and {} is free. Make room on the phone first.",
+        gb(size),
+        gb(DISK_MINIMUM),
+        gb(free_disk)
+    ))
+}
+
 pub fn can_update(free_disk: u64) -> Result<(), String> {
     if free_disk >= DISK_MINIMUM {
         return Ok(());
@@ -132,7 +155,8 @@ pub fn setup_download_bytes(models: &[u64], detection: Option<u64>) -> u64 {
 pub fn should_stop(free: u64, swap_used: u64, swap_at_start: u64, floor: u64) -> Option<String> {
     if free < floor {
         return Some(format!(
-            "Stopped before the computer ran out of memory: only {} was left.",
+            "Stopped before the {} ran out of memory: only {} was left.",
+            if cfg!(mobile) { "app" } else { "computer" },
             gb(free)
         ));
     }
@@ -271,6 +295,14 @@ mod tests {
     }
 
     #[test]
+    fn a_kept_recording_needs_one_gigabyte_to_spare() {
+        assert!(can_keep_recording(GIB + 300 * MIB, 300 * MIB).is_ok());
+        let refused = can_keep_recording(GIB + 300 * MIB - 1, 300 * MIB).unwrap_err();
+        assert!(refused.contains("the recording needs"), "{refused}");
+        assert!(can_keep_recording(u64::MAX, u64::MAX).is_err());
+    }
+
+    #[test]
     fn private_transcript_storage_needs_room_for_scratch_and_json() {
         let hour = 3600.0;
         let needed = DISK_MINIMUM + 3600 * TRANSCRIPT_BYTES_PER_SECOND * 2;
@@ -285,6 +317,19 @@ mod tests {
         assert!(should_stop(300 * MIB, 0, 0, DEFAULT_MEMORY_FLOOR).unwrap().contains("ran out of memory"));
         assert_eq!(should_stop(GIB, 3 * GIB, 2 * GIB, DEFAULT_MEMORY_FLOOR), None);
         assert!(should_stop(GIB, 5 * GIB, 2 * GIB, DEFAULT_MEMORY_FLOOR).unwrap().contains("swapping"));
+    }
+
+    #[test]
+    fn ios_starts_universal_small_and_refuses_compact_on_an_iphone_xr() {
+        assert_eq!(run_headroom(false), GIB);
+        assert_eq!(default_memory_floor(false), 400 * MIB);
+        assert!(default_memory_floor(true) < run_headroom(true));
+        let model = |gb: f64| (gb * GIB as f64) as u64;
+        let fits = |free: u64, gb: f64| model_run_ram(model(gb)).saturating_add(run_headroom(true)) <= free;
+        for free in [1670 * MIB, 1820 * MIB] {
+            assert!(fits(free, 0.7), "Universal Small with {free}");
+            assert!(!fits(free, 1.3), "Universal Compact with {free}");
+        }
     }
 
     #[test]

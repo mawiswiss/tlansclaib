@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AUTHOR, GITHUB, WEBSITE, YEAR } from "../lib/about";
-import { FEATURES } from "../lib/ipc";
+import { DEVICE, FEATURES } from "../lib/ipc";
 import type { UpdateState } from "../lib/update";
 import { Check, Close, Code, Globe, Heart, Lock, Logo, Monitor, User } from "./icons";
 import { UpdateSection } from "./UpdateSection";
@@ -30,6 +30,15 @@ const LIST = FEATURES.lite
       "A history of every transcript, kept in this browser",
       "Free, with no ads, no tracking and no subscription",
     ]
+  : FEATURES.mobile
+  ? [
+      "Runs on the phone's own chip, offline",
+      "About 100 languages, plus dedicated models",
+      "Timecodes on or off, copy the text when you want",
+      "A history of every transcript",
+      "Stops before the phone runs out of memory",
+      "Free, with no ads, no tracking and no subscription",
+    ]
   : [
   "Runs on the Apple GPU or the processor",
   "About 100 languages, plus dedicated models",
@@ -53,7 +62,7 @@ export function AboutDialog(props: Props) {
           <Logo size={44} />
           <div>
             <h2 id="about-title">{FEATURES.lite ? "tlansclaib Lite" : "tlansclaib"}</h2>
-            <p className="muted">{FEATURES.lite ? "The web version of the transcription app for Mac, Windows and Linux" : "Offline transcription for Mac, Windows and Linux"}</p>
+            <p className="muted">{FEATURES.lite ? "The web version of the transcription app for Mac, Windows and Linux" : FEATURES.mobile ? "Offline transcription on your phone" : "Offline transcription for Mac, Windows and Linux"}</p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
             <Close />
@@ -67,7 +76,7 @@ export function AboutDialog(props: Props) {
                 <Lock size={20} />
               </span>
               <div>
-                <strong>Your recordings never leave this computer</strong>
+                <strong>Your recordings never leave this {DEVICE}</strong>
                 <p>
                   {FEATURES.lite
                     ? "No uploads, no account, no cookies. The model downloads once and runs in this browser."

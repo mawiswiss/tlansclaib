@@ -27,6 +27,16 @@ export function ramFit(ramGb: number, totalMemory: number): Rating {
   return { level: "ok", tip: null };
 }
 
+/** A phone's memory check: what the guard lets a run use, from what the system gives this app. */
+export function budgetFit(ramGb: number, budget: number): Rating {
+  if (ramGb * GIB > budget) return { level: "high", tip: "Needs more memory than the phone gives the app." };
+  return { level: "ok", tip: null };
+}
+
+export function modelFit(ramGb: number, stats: Stats, phone: boolean): Rating {
+  return phone ? budgetFit(ramGb, stats.model_budget) : ramFit(ramGb, stats.memory_total);
+}
+
 export function failedFit(reason: string): Rating {
   return { level: "high", tip: `${reason} Automatic prefers other models until a transcription with it finishes.` };
 }
@@ -50,14 +60,21 @@ function chip(gpu: Gpu): { points: number; name: string } {
   return { points: 15, name: "the processor alone" };
 }
 
-/** Rates this computer for transcription from 0 to 100: by the speed of recent runs, or before any by its graphics chip and memory. */
-export function score(gpu: Gpu, memoryTotal: number, speed: number | null): Score {
-  const { points, name } = chip(gpu);
-  const raw = speed !== null ? 20 * (Math.log2(speed) + 1) : points + 40 * Math.min(1, Math.max(0, (memoryTotal / GIB - 4) / 12));
+const clamp = (n: number) => Math.min(1, Math.max(0, n));
+
+function estimate(gpu: Gpu, memoryTotal: number, phoneBudget: number | null): number {
+  if (phoneBudget !== null) return (gpu.usable ? 15 : 5) + 45 * clamp((phoneBudget / GIB - 0.5) / 4);
+  return chip(gpu).points + 40 * clamp((memoryTotal / GIB - 4) / 12);
+}
+
+/** Rates this computer for transcription from 0 to 100: by the speed of recent runs, or before any by its graphics chip and memory. A phone passes its model budget, since the system lets one app use far less than the phone has. */
+export function score(gpu: Gpu, memoryTotal: number, speed: number | null, phoneBudget: number | null = null): Score {
+  const raw = speed !== null ? 20 * (Math.log2(speed) + 1) : estimate(gpu, memoryTotal, phoneBudget);
   const percent = Math.round(Math.min(100, Math.max(0, raw)));
+  const memory = phoneBudget !== null ? "the memory the phone gives the app" : "the memory";
   const basis = speed !== null
     ? `Measured: recent transcriptions ran at ${speed >= 10 ? Math.round(speed) : speed.toFixed(1)} times the speed of the recording.`
-    : `Estimated from ${name} and the memory. A transcription of a minute or more replaces the estimate with a measurement.`;
+    : `Estimated from ${chip(gpu).name} and ${memory}. A transcription of a minute or more replaces the estimate with a measurement.`;
   return { percent, level: percent >= 50 ? "ok" : percent >= 20 ? "warn" : "high", ...tier(percent), speed, basis };
 }
 

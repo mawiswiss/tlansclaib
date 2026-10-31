@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/format";
 import { DETECTION } from "../lib/detection";
 import { differs } from "../lib/language";
@@ -51,6 +51,7 @@ const HISTORY = 100;
 
 /** A click on text plays only after this long, so a double click can edit instead. */
 const DOUBLE_CLICK_MS = 250;
+const LONG_PRESS_MS = 500;
 
 function flat(text: string): string {
   return text.replace(/\s*[\r\n]+\s*/g, " ");
@@ -499,10 +500,49 @@ export function ResultView(props: Props) {
   };
 
   const pendingPlay = useRef(0);
+  // A phone plays on the tap itself, since a press opens the editor there and a wait would break the tap gesture.
   const playSoon = useCallback((play: () => void) => {
     clearTimeout(pendingPlay.current);
-    pendingPlay.current = window.setTimeout(play, DOUBLE_CLICK_MS);
+    if (FEATURES.mobile) play();
+    else pendingPlay.current = window.setTimeout(play, DOUBLE_CLICK_MS);
   }, []);
+
+  const press = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const pressed = useRef(false);
+  const endPress = () => {
+    clearTimeout(press.current?.timer);
+    press.current = null;
+  };
+  const longPress = (open: () => void) =>
+    FEATURES.mobile
+      ? {
+          onPointerDown: (e: PointerEvent) => {
+            if (e.pointerType === "mouse") return;
+            endPress();
+            pressed.current = false;
+            const timer = window.setTimeout(() => {
+              press.current = null;
+              pressed.current = true;
+              open();
+            }, LONG_PRESS_MS);
+            press.current = { timer, x: e.clientX, y: e.clientY };
+          },
+          onPointerMove: (e: PointerEvent) => {
+            if (press.current && Math.hypot(e.clientX - press.current.x, e.clientY - press.current.y) > 10) endPress();
+          },
+          onPointerUp: endPress,
+          onPointerCancel: endPress,
+          onClickCapture: (e: MouseEvent) => {
+            if (!pressed.current) return;
+            pressed.current = false;
+            e.stopPropagation();
+            e.preventDefault();
+          },
+          onContextMenu: (e: MouseEvent) => e.preventDefault(),
+        }
+      : {};
+
+  useEffect(() => endPress, []);
 
   useEffect(() => () => clearTimeout(pendingPlay.current), []);
 
@@ -655,11 +695,12 @@ export function ResultView(props: Props) {
             <span className="another-glyph">
               <Plus size={30} strokeWidth={1.5} />
             </span>
+            <span className="another-label">New transcription</span>
           </button>
         </Tooltip>
       </div>
       {error && <p className="problem" role="alert">{error}</p>}
-      {exported && <p className="note" role="status">Saved to {exported}.</p>}
+      {exported && <p className="note" role="status">{FEATURES.mobile ? `Exported ${exported}.` : `Saved to ${exported}.`}</p>}
       {run.opened?.status === "incomplete" && <p className="note">This transcription was stopped early and holds the lines done until then.</p>}
       {run.check?.changed && <p className="note">This transcript was changed outside tlansclaib since it was saved.</p>}
       {spoken && run.language && (
@@ -695,6 +736,10 @@ export function ResultView(props: Props) {
               {FEATURES.revealFiles ? (
                 <>
                   <span className="problem-text">Recording not found</span> at {folderOf(run.audio)}.{" "}
+                </>
+              ) : FEATURES.mobile ? (
+                <>
+                  <span className="problem-text">The app's copy of this recording is gone.</span>{" "}
                 </>
               ) : (
                 <>The browser forgets recordings when the page reloads. </>
@@ -905,6 +950,7 @@ export function ResultView(props: Props) {
                   rows.current[i] = el;
                 }}
                 className={classes || undefined}
+                {...(isEditing ? {} : longPress(() => editLine(line, i)))}
                 onClick={
                   syncable && !isEditing
                     ? (e) => {

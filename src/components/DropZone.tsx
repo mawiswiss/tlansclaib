@@ -104,7 +104,7 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
       <span className="glyph">
         <Wave size={30} />
       </span>
-      <h2>Drop a recording here</h2>
+      <h2>{FEATURES.mobile ? "Choose a recording" : "Drop a recording here"}</h2>
       <p className="muted">m4a, mp3, wav, mp4, flac and most other audio files</p>
       <button
         type="button"

@@ -1,5 +1,5 @@
 import { DETECTION } from "../lib/detection";
-import { failedFit, FIT_LABEL, ramFit } from "../lib/fit";
+import { failedFit, FIT_LABEL, modelFit } from "../lib/fit";
 import { FEATURES } from "../lib/ipc";
 import type { LanguageOption } from "../lib/setup";
 import type { ModelStatus, SpeakerBackend, Stats } from "../lib/types";
@@ -34,7 +34,7 @@ type Props = {
 export function SettingsBar(props: Props) {
   const { models, modelId, model, onModel, languages, language, onLanguage, locked, backend, stats, busy } = props;
   const installed = models.filter((m) => m.installed);
-  const fit = model?.too_heavy ? failedFit(model.too_heavy) : model && stats ? ramFit(model.ram_gb, stats.memory_total) : null;
+  const fit = model?.too_heavy ? failedFit(model.too_heavy) : model && stats ? modelFit(model.ram_gb, stats, FEATURES.mobile) : null;
   const pill = fit && <span className={`fit ${fit.level}`}>{model?.too_heavy ? "Failed here" : FIT_LABEL[fit.level]}</span>;
   const pinned = installed.some((m) => m.id === modelId) ? modelId : "auto";
   const fix = props.speakerFix;
@@ -82,6 +82,7 @@ export function SettingsBar(props: Props) {
           />
         </label>
       )}
+      {!FEATURES.mobile && (
       <label className="setting" htmlFor="speakers-setting" title="Name who speaks in a recording with one audio track. A recording with several tracks gets one speaker per track anyway.">
         <span className="label">
           Speakers
@@ -121,6 +122,7 @@ export function SettingsBar(props: Props) {
           ]}
         />
       </label>
+      )}
     </section>
   );
 }

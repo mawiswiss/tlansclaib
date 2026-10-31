@@ -9,6 +9,8 @@ export type Unlisten = () => void;
 /** What this build offers. `vite --mode web` builds the browser version, which leaves out what only the desktop app has. */
 export type Features = {
   lite: boolean;
+  /** The app on iPhone or Android: no drag and drop, no files to show in a folder, one recording picked at a time. */
+  mobile: boolean;
   speakers: boolean;
   updates: boolean;
   modelCatalog: boolean;
@@ -20,11 +22,17 @@ export type Features = {
   largestFileBytes: number | null;
 };
 
-const FULL: Features = { lite: false, speakers: true, updates: true, modelCatalog: true, systemStats: true, revealFiles: true, limitSeconds: null, largestFileBytes: null };
+const FULL: Features = { lite: false, mobile: false, speakers: true, updates: true, modelCatalog: true, systemStats: true, revealFiles: true, limitSeconds: null, largestFileBytes: null };
 
-const LITE: Features = { lite: true, speakers: false, updates: false, modelCatalog: false, systemStats: false, revealFiles: false, limitSeconds: LIMIT_SECONDS, largestFileBytes: LARGEST_FILE_BYTES };
+const LITE: Features = { lite: true, mobile: false, speakers: false, updates: false, modelCatalog: false, systemStats: false, revealFiles: false, limitSeconds: LIMIT_SECONDS, largestFileBytes: LARGEST_FILE_BYTES };
 
-export const FEATURES = import.meta.env.MODE === "web" ? LITE : FULL;
+const MOBILE: Features = { ...FULL, mobile: true, speakers: false, updates: false, systemStats: false, revealFiles: false };
+
+const PLATFORM = import.meta.env.TAURI_ENV_PLATFORM;
+
+export const FEATURES = import.meta.env.MODE === "web" ? LITE : PLATFORM === "ios" || PLATFORM === "android" ? MOBILE : FULL;
+
+export const DEVICE = FEATURES.mobile ? "phone" : "computer";
 
 export type Backend = {
   listModels(): Promise<ModelStatus[]>;
@@ -61,6 +69,8 @@ export type Backend = {
   saveTranscript(file: string, expected: string, lines: Line[], timestamps: boolean, speakers: string[], colors: number[]): Promise<string>;
   transcriptHash(file: string): Promise<string>;
   exportTranscript(file: string, expected: string, destination: string, lines: Line[], timestamps: boolean, timed: boolean, speakers: string[]): Promise<void>;
+  /** Exports through a phone's save dialog and returns the file name, or null when cancelled. */
+  exportOnPhone?(name: string, format: ExportFormat, file: string, expected: string, lines: Line[], timestamps: boolean, timed: boolean, speakers: string[]): Promise<string | null>;
   renameTranscript(file: string, title: string): Promise<string>;
   openHistory(id: number): Promise<Opened>;
   checkCandidate(id: number, kind: FileKind, path: string): Promise<Match>;
@@ -172,8 +182,11 @@ async function tauriBackend(): Promise<Backend> {
     checkSetupDownloads: (modelIds, backend) => invoke("check_setup_downloads", { modelIds, backend }),
     autorun: () => invoke("autorun"),
     pickAudioFile: async () => {
-      const picked = await open({ multiple: false, filters: [{ name: "Audio", extensions: AUDIO }] });
-      return typeof picked === "string" ? picked : null;
+      // Given extensions, Android's picker greyed out an m4a file of type audio/mp4.
+      const extensions = PLATFORM === "android" ? ["audio/*", "video/*"] : AUDIO;
+      const picked = await open({ multiple: false, filters: [{ name: "Audio", extensions }] });
+      if (typeof picked !== "string") return null;
+      return FEATURES.mobile ? invoke<string>("keep_recording", { path: picked }) : picked;
     },
     pickModelFile: async () => {
       const picked = await open({ multiple: false, filters: [{ name: "whisper.cpp model", extensions: ["bin"] }] });
@@ -182,6 +195,24 @@ async function tauriBackend(): Promise<Backend> {
     pickTranscriptFile: async () => {
       const picked = await open({ multiple: false, filters: [{ name: "Transcript", extensions: ["txt"] }] });
       return typeof picked === "string" ? picked : null;
+    },
+    exportOnPhone: async (name, format, file, expected, lines, timestamps, timed, speakers) => {
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const target = `${name.replace(/[/\\:]/g, "-")}.${format}`;
+      const filters = [{ name: EXPORT_NAMES[format], extensions: [format] }];
+      const write = (to: string) => invoke<void>("export_on_phone", { target: to, format, file, expected, lines, timestamps, timed, speakers });
+      if (PLATFORM === "android") {
+        const picked = await save({ defaultPath: target, filters });
+        if (!picked) return null;
+        await write(picked);
+        return target;
+      }
+      await write(target);
+      try {
+        return (await save({ defaultPath: target, filters })) ? target : null;
+      } finally {
+        await invoke("discard_export", { target });
+      }
     },
     pickExportFile: async (name, format) => {
       const { save } = await import("@tauri-apps/plugin-dialog");

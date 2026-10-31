@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diskFit, downloadFit, downloadSeconds, level, memoryLevel, ramFit, score } from "./fit";
+import { budgetFit, diskFit, downloadFit, downloadSeconds, level, memoryLevel, ramFit, score } from "./fit";
 import type { Gpu, Stats } from "./types";
 
 const GIB = 2 ** 30;
@@ -37,6 +37,8 @@ describe("fit", () => {
     expect(ramFit(6, 8 * GIB).level).toBe("warn");
     expect(ramFit(7.5, 8 * GIB).level).toBe("high");
     expect(ramFit(20, 8 * GIB).tip).toBe("Needs more RAM than this computer has.");
+    expect(budgetFit(1.3, 0.6 * GIB)).toEqual({ level: "high", tip: "Needs more memory than the phone gives the app." });
+    expect(budgetFit(0.7, 0.7 * GIB)).toEqual({ level: "ok", tip: null });
   });
 
   it("rates disk space: red when the model does not fit, orange when less than 10 GB stay free", () => {
@@ -71,6 +73,13 @@ describe("score", () => {
     expect(score(chip(null, false), 8 * GIB, null)).toMatchObject({ percent: 28, level: "warn" });
     expect(score(chip(null, false), 4 * GIB, null)).toMatchObject({ percent: 15, level: "high" });
     expect(score(chip("metal", false), 8 * GIB, null).percent).toBe(28);
+  });
+
+  it("rates a phone by the memory it gives the app, not by a Mac's graphics chip", () => {
+    expect(score(chip("metal"), 3 * GIB, null, 0.6 * GIB)).toMatchObject({ word: "Slow", bars: 1 });
+    expect(score(chip("metal"), 8 * GIB, null, 4.5 * GIB)).toMatchObject({ percent: 60, word: "Fast" });
+    expect(score(chip("metal"), 3 * GIB, null, 0.6 * GIB).basis).toContain("the memory the phone gives the app");
+    expect(score(chip("metal"), 3 * GIB, 16, 0.6 * GIB).word).toBe("Very fast");
   });
 
   it("rates by measured speed once there is one", () => {

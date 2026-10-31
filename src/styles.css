@@ -140,6 +140,11 @@ body,
   margin: 0;
 }
 
+html,
+body {
+  overscroll-behavior: none;
+}
+
 body {
   background: var(--bg);
   user-select: none;
@@ -481,7 +486,8 @@ main {
 
 .settings {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -515,6 +521,33 @@ main {
 
 .setting:hover {
   background: var(--surface-2);
+}
+
+@media (max-width: 640px) {
+  .settings {
+    grid-auto-flow: row;
+  }
+
+  .setting {
+    padding: 10px 16px 11px;
+  }
+
+  .setting + .setting {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .setting:first-child {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .setting:last-child {
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  }
+
+  .setting:only-child {
+    border-radius: var(--radius-lg);
+  }
 }
 
 .select-trigger {
@@ -752,6 +785,17 @@ input.toggle:checked::after {
 
 .dropzone > * {
   flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .dropzone {
+    gap: 8px;
+    padding: 24px 16px;
+  }
+
+  .dropzone.staged button.go {
+    margin-top: 12px;
+  }
 }
 
 .dropzone:hover,
@@ -1068,6 +1112,21 @@ input.toggle:checked::after {
   }
 }
 
+@media (max-width: 640px) {
+  .steps {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .steps.many .long {
+    display: inline;
+  }
+
+  .steps.many .short {
+    display: none;
+  }
+}
+
 .steps li.done .title,
 .steps li.active .title {
   color: var(--text);
@@ -1133,6 +1192,15 @@ input.toggle:checked::after {
   font-weight: 650;
 }
 
+@media (max-width: 640px) {
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 16px;
+    white-space: normal;
+  }
+}
+
 .log,
 .transcript {
   flex: 1;
@@ -1168,9 +1236,23 @@ input.toggle:checked::after {
   opacity: 0;
 }
 
-.transcript p:hover .line-edit,
+/* iOS spends the first tap on a hover that reveals something, so touch screens get no hover reveal. */
+@media (hover: hover) {
+  .transcript p:hover .line-edit {
+    opacity: 1;
+  }
+}
+
 .line-edit:focus-visible {
   opacity: 1;
+}
+
+@media (hover: none) {
+  .transcript p:not(.editing) {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 .line-editor {
@@ -1225,6 +1307,12 @@ button.edit-action {
   color: var(--muted);
   font-family: inherit;
   font-size: 11px;
+}
+
+@media (pointer: coarse) {
+  .edit-action kbd {
+    display: none;
+  }
 }
 
 .edit-action.primary kbd {
@@ -1595,6 +1683,44 @@ button.speed {
   }
 }
 
+@media (max-width: 640px) {
+  .transcript-bar {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+
+  .speakers-note {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+  }
+
+  .speakers-group {
+    flex-basis: 100%;
+  }
+
+  .find {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+
+  .player {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  input.seek {
+    order: -1;
+    flex-basis: 100%;
+    margin: 6px 0 0;
+  }
+
+  .player button.speed {
+    margin-left: auto;
+  }
+}
+
 .find:focus-within {
   border-color: var(--accent);
 }
@@ -1686,6 +1812,40 @@ button.speed {
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   padding-top: 1px;
+}
+
+@media (max-width: 640px) {
+  .log p.timed,
+  .transcript p.timed {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0;
+  }
+
+  .log p.timed.voiced,
+  .transcript p.timed.voiced {
+    grid-template-columns: 8px minmax(0, 1fr);
+  }
+
+  .timed .time {
+    grid-column: 1 / -1;
+    padding-top: 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+
+  .transcript p.timed {
+    padding-right: 8px;
+  }
+
+  .transcript p.timed .line-edit {
+    top: -2px;
+  }
+}
+
+@media (hover: none) {
+  .transcript p.current .line-edit {
+    opacity: 1;
+  }
 }
 
 .result-head {
@@ -1791,6 +1951,45 @@ button.another:hover .another-glyph {
   color: var(--accent-hover);
 }
 
+.another-label {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .result-head {
+    flex-direction: column;
+  }
+
+  button.another {
+    width: 100%;
+    height: 44px;
+    gap: 6px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .another-glyph svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .another-label {
+    display: inline;
+  }
+
+  .result-card {
+    gap: 10px 12px;
+    padding: 14px 16px;
+  }
+
+  .result-card:has(.split-button) {
+    grid-template-areas:
+      "glyph title title"
+      "tools tools tools"
+      "details details details";
+  }
+}
+
 .titles h2.title-line {
   display: flex;
   align-items: center;
@@ -1810,9 +2009,20 @@ button.another:hover .another-glyph {
   opacity: 0;
 }
 
-.titles:hover .title-edit,
+@media (hover: hover) {
+  .titles:hover .title-edit {
+    opacity: 1;
+  }
+}
+
 .title-edit:focus-visible {
   opacity: 1;
+}
+
+@media (hover: none) {
+  .title-edit {
+    opacity: 1;
+  }
 }
 
 .title-editor {
@@ -1950,6 +2160,15 @@ button.original-file-link:hover:not(:disabled) {
   width: min(460px, calc(100vw - 32px));
 }
 
+@media (max-width: 640px) {
+  .notices {
+    left: 14px;
+    right: 14px;
+    bottom: 50px;
+    width: auto;
+  }
+}
+
 .notice-toast {
   display: flex;
   flex-direction: column;
@@ -2067,6 +2286,7 @@ button.inline-link:hover:not(:disabled) {
   margin: 0;
   font-size: 12.5px;
   flex: none;
+  overflow-wrap: anywhere;
 }
 
 div.entry-main {
@@ -2235,6 +2455,24 @@ button.credit:hover:not(:disabled) {
   gap: 10px;
   padding: 12px 20px 12px 26px;
   border-top: 1px solid var(--line);
+}
+
+@media (max-width: 640px) {
+  .overlay {
+    padding: 8px;
+  }
+
+  .modal .modal-head {
+    padding: 14px 10px 12px 16px;
+  }
+
+  .modal .modal-body {
+    padding: 12px 16px 16px;
+  }
+
+  .modal .modal-foot {
+    padding: 12px 16px;
+  }
 }
 
 .group-head {
@@ -2466,6 +2704,12 @@ button.icon-button.tiny {
   gap: 16px 18px;
   padding-top: 18px;
   padding-bottom: 20px;
+}
+
+@media (max-width: 640px) {
+  .rerun-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .rerun-form .note {
@@ -2807,6 +3051,13 @@ button.primary.destructive:hover:not(:disabled) {
   gap: 10px;
   padding: 30px 32px 26px;
   text-align: center;
+}
+
+@media (max-width: 640px) {
+  .modal.support,
+  .modal.compare {
+    padding: 24px 16px 20px;
+  }
 }
 
 .compare-close {

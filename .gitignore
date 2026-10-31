@@ -32,6 +32,12 @@ src-tauri/binaries
 # The private pro repository, checked out on its own
 /pro/
 
+# The phone projects and configs, linked in from pro/
+/src-tauri/gen/apple
+/src-tauri/gen/android
+/src-tauri/tauri.ios.conf.json
+/src-tauri/tauri.android.conf.json
+
 # Local model files and conversions
 /models
 /scratch

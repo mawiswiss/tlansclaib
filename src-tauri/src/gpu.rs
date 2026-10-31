@@ -1,11 +1,5 @@
-use std::time::Duration;
-
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
-use tauri_plugin_shell::ShellExt;
-use tauri_plugin_shell::process::CommandEvent;
-
-const PROBE_LIMIT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Gpu {
@@ -25,7 +19,11 @@ pub struct Device {
 }
 
 /// The GPU the engine sidecar starts, or None when it has none, fails or hangs.
+#[cfg(desktop)]
 pub async fn device(app: &AppHandle) -> Option<Device> {
+    use tauri_plugin_shell::ShellExt;
+    use tauri_plugin_shell::process::CommandEvent;
+    const PROBE_LIMIT: std::time::Duration = std::time::Duration::from_secs(10);
     if cfg!(any(windows, target_os = "linux")) && !crate::cpu::runs_vulkan_engine() {
         return None;
     }
@@ -52,13 +50,20 @@ pub async fn device(app: &AppHandle) -> Option<Device> {
     }
 }
 
+/// The GPU the engine would start inside the app.
+#[cfg(mobile)]
+pub async fn device(_: &AppHandle) -> Option<Device> {
+    let gpu = tauri::async_runtime::spawn_blocking(engine::transcribe::gpu).await.ok()??;
+    Some(Device { backend: gpu.backend, name: gpu.name, free_bytes: gpu.free_bytes })
+}
+
 #[cfg_attr(not(any(windows, target_os = "linux")), allow(unused_variables))]
 pub async fn probe(app: &AppHandle, ram_bytes: u64) -> Gpu {
     let device = device(app).await;
     #[cfg(any(windows, target_os = "linux"))]
     let usable = device.as_ref().is_some_and(|device| crate::guard::can_use_gpu(device.free_bytes, ram_bytes));
     #[cfg(not(any(windows, target_os = "linux")))]
-    let usable = device.is_some() && cfg!(all(target_os = "macos", target_arch = "aarch64"));
+    let usable = device.is_some() && cfg!(any(all(target_os = "macos", target_arch = "aarch64"), target_os = "ios"));
     #[cfg(any(windows, target_os = "linux"))]
     let model_budget = device.as_ref().map(|device| crate::guard::model_budget(device.free_bytes));
     #[cfg(not(any(windows, target_os = "linux")))]

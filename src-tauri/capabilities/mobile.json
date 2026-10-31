@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Capability for the main window on iOS and Android, which have no sidecar and no updater",
+  "windows": ["main"],
+  "platforms": ["iOS", "android"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-theme",
+    "dialog:default",
+    "log:default",
+    "opener:default"
+  ]
+}

@@ -1,4 +1,4 @@
-import { FEATURES } from "../lib/ipc";
+import { DEVICE, FEATURES } from "../lib/ipc";
 import type { Theme } from "../lib/settings";
 import { Clock, Cube, Download, Info, Lock, Logo, Monitor, Moon, Sun } from "./icons";
 
@@ -32,10 +32,10 @@ export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbo
             Lite
           </span>
         )}
-        <span className="tagline" title="Recordings and transcripts never leave this computer">
+        <span className="tagline" title={`Recordings and transcripts never leave this ${DEVICE}`}>
           <Lock size={13} />
           {FEATURES.lite ? "Web version" : "Offline processing"}
-          <span className="tagline-more"> · nothing leaves this computer</span>
+          <span className="tagline-more"> · nothing leaves this {DEVICE}</span>
         </span>
       </div>
       <span className="spacer" />

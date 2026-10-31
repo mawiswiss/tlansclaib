@@ -460,6 +460,10 @@ fn custom_entry(path: &Path, registry: &[ModelEntry]) -> Option<ModelStatus> {
 }
 
 pub fn free_disk(dir: &Path) -> u64 {
+    #[cfg(mobile)]
+    if let Some(free) = volume_free(dir) {
+        return free;
+    }
     let disks = sysinfo::Disks::new_with_refreshed_list();
     disks
         .iter()
@@ -469,10 +473,33 @@ pub fn free_disk(dir: &Path) -> u64 {
         .unwrap_or(u64::MAX)
 }
 
+/// On iOS no disk sysinfo lists holds the app's folder, so phones ask that folder's volume.
+#[cfg(mobile)]
+// statvfs field types differ between iOS and Android.
+#[allow(clippy::unnecessary_cast)]
+fn volume_free(dir: &Path) -> Option<u64> {
+    use std::os::unix::ffi::OsStrExt;
+    let path = std::ffi::CString::new(dir.as_os_str().as_bytes()).ok()?;
+    let mut stat = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+    if unsafe { libc::statvfs(path.as_ptr(), stat.as_mut_ptr()) } != 0 {
+        return None;
+    }
+    let stat = unsafe { stat.assume_init() };
+    Some(stat.f_bavail as u64 * stat.f_frsize as u64)
+}
+
 const SPEED_PROBE: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q8_0.bin";
 
+/// Android trusts the bundled Mozilla roots, because rustls-platform-verifier needs a JNI setup there that Tauri does not do.
+fn http() -> reqwest::ClientBuilder {
+    let builder = reqwest::Client::builder();
+    #[cfg(target_os = "android")]
+    let builder = builder.tls_certs_only(webpki_root_certs::TLS_SERVER_ROOT_CERTS.iter().filter_map(|cert| reqwest::Certificate::from_der(cert).ok()));
+    builder
+}
+
 pub async fn measure_speed() -> Result<f64> {
-    let client = reqwest::Client::builder().timeout(Duration::from_secs(12)).build()?;
+    let client = http().timeout(Duration::from_secs(12)).build()?;
     let response = client
         .get(SPEED_PROBE)
         .header(reqwest::header::RANGE, "bytes=0-33554431")
@@ -507,7 +534,10 @@ pub async fn fetch(
     cancel: &AtomicBool,
     mut progress: impl FnMut(u64, u64),
 ) -> Result<()> {
-    let response = reqwest::get(url)
+    let response = http()
+        .build()?
+        .get(url)
+        .send()
         .await
         .with_context(|| format!("cannot reach {url}"))?
         .error_for_status()

@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde::Serialize;
-use sysinfo::{MemoryRefreshKind, Pid, ProcessStatus, ProcessesToUpdate, System};
+use sysinfo::{MemoryRefreshKind, Pid, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter};
 
 use crate::stall::Usage;
@@ -24,7 +24,20 @@ pub struct Stats {
 
 // sysinfo's available memory on macOS also counts pages apps are using, so free is total minus used.
 fn free_memory(system: &System) -> u64 {
+    #[cfg(target_os = "ios")]
+    if let Some(free) = app_limit() {
+        return free;
+    }
     system.total_memory().saturating_sub(system.used_memory())
+}
+
+/// What iOS still lets this app allocate before it ends it, which is less than the phone has free.
+#[cfg(target_os = "ios")]
+fn app_limit() -> Option<u64> {
+    unsafe extern "C" {
+        fn os_proc_available_memory() -> usize;
+    }
+    Some(unsafe { os_proc_available_memory() } as u64).filter(|&free| free > 0)
 }
 
 pub struct Monitor {
@@ -44,11 +57,12 @@ impl Monitor {
         (free_memory(&system), system.used_swap())
     }
 
+    #[cfg(desktop)]
     pub fn is_running(&self, pid: u32) -> bool {
         let mut system = self.system.lock().unwrap();
         let pid = Pid::from_u32(pid);
         system.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
-        system.process(pid).is_some_and(|p| p.status() != ProcessStatus::Zombie)
+        system.process(pid).is_some_and(|p| p.status() != sysinfo::ProcessStatus::Zombie)
     }
 
     pub fn sample(&self, engine_pid: Option<u32>) -> Stats {

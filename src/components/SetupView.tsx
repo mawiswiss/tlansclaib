@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { downloadFit, downloadSeconds, VERY_FAST, type Score } from "../lib/fit";
-import { bytes, wholeGb } from "../lib/format";
+import { budgetFit, downloadFit, downloadSeconds, VERY_FAST, type Score } from "../lib/fit";
+import { bytes, gib, wholeGb } from "../lib/format";
+import { FEATURES } from "../lib/ipc";
 import { defaultModel, languageKey, missingBytes, MODE_DETECTION, MODE_NAMES, MODES, parseLanguage, recommend, SEVERAL, setupLanguages, wanted, withSelectedLanguage, type Mode, type Setup, type SetupLanguage } from "../lib/setup";
 import type { DiskSpace, Gpu, Language, ModelStatus, SpeakerDetection, Stats } from "../lib/types";
 import { ChevronDown } from "./icons";
@@ -30,11 +31,17 @@ type Props = {
   children: (selected: Setup | null) => ReactNode;
 };
 
-const PITCH: Record<Mode, string> = {
-  precise: "Most accurate results, with the biggest models.",
-  essential: "Mid-sized models for older computers or slower internet.",
-  minimal: "One small model and basic speaker detection. For when the others don't run.",
-};
+const PITCH: Record<Mode, string> = FEATURES.mobile
+  ? {
+      precise: "Most accurate results, with the biggest models.",
+      essential: "Mid-sized models for phones with less memory or slower internet.",
+      minimal: "One small model. For when the others don't run.",
+    }
+  : {
+      precise: "Most accurate results, with the biggest models.",
+      essential: "Mid-sized models for older computers or slower internet.",
+      minimal: "One small model and basic speaker detection. For when the others don't run.",
+    };
 
 const SPEAKERS: Record<Mode, string> = { precise: "Better detection", essential: "Better detection", minimal: "Basic detection" };
 
@@ -88,19 +95,20 @@ export function SetupView(props: Props) {
   const language = parseLanguage(languageValue);
   const sizes = Object.fromEntries(MODES.map((mode) => [mode, missingBytes(wanted(models, draft(mode, language, setup, props.score)), models, detections)])) as Record<Mode, number>;
   const precise = models.find((m) => (m.setups ?? []).includes("precise") && m.languages.includes("all"));
-  const badge = recommend({ speed, gpu, memoryTotal: stats?.memory_total ?? null, preciseBytes: sizes.precise, preciseRamGb: precise?.ram_gb ?? 0, preciseModel: defaultModel(models, draft("precise", language, setup, props.score)) });
+  const memory = (mode: Mode) => {
+    const ids = wanted(models, draft(mode, language, setup, props.score));
+    return Math.max(0, ...models.filter((m) => ids.includes(m.id)).map((m) => m.ram_gb));
+  };
+  const phoneBudget = FEATURES.mobile && stats ? stats.model_budget : null;
+  const badge = recommend({ speed, gpu, memoryTotal: stats?.memory_total ?? null, preciseBytes: sizes.precise, preciseRamGb: precise?.ram_gb ?? 0, preciseModel: defaultModel(models, draft("precise", language, setup, props.score)), phoneBudget, essentialRamGb: memory("essential") });
   const selected = clicked ?? setup?.mode ?? badge;
   const next = selected ? draft(selected, language, setup, props.score) : null;
   const unchanged = next !== null && next === setup;
   const offline = speed === "offline";
   const blocked = !next || props.busy || unchanged || (offline && sizes[next.mode] > 0);
-  const memory = (mode: Mode) => {
-    const ids = wanted(models, draft(mode, language, setup, props.score));
-    return Math.max(0, ...models.filter((m) => ids.includes(m.id)).map((m) => m.ram_gb));
-  };
   const computer = [
     { label: "Runs on", value: runsOn(gpu) },
-    { label: "Memory", value: stats ? wholeGb(stats.memory_total) : "Checking…" },
+    FEATURES.mobile ? { label: "Memory for the app", value: stats ? gib(stats.memory_free) : "Checking…" } : { label: "Memory", value: stats ? wholeGb(stats.memory_total) : "Checking…" },
     { label: "Free disk", value: props.disk ? wholeGb(props.disk.free) : "Checking…" },
     { label: "Connection", value: connection(speed) },
   ];
@@ -187,10 +195,17 @@ export function SetupView(props: Props) {
               </span>
               <span className="setup-pitch">{PITCH[mode]}</span>
               <span className="setup-facts">
-                <span>Speakers</span>
-                <span>{MODE_DETECTION[mode] ? SPEAKERS[mode] : <span className="faint">{SPEAKERS[mode]}</span>}</span>
+                {FEATURES.speakers && (
+                  <>
+                    <span>Speakers</span>
+                    <span>{MODE_DETECTION[mode] ? SPEAKERS[mode] : <span className="faint">{SPEAKERS[mode]}</span>}</span>
+                  </>
+                )}
                 <span>Memory</span>
-                <span>{ram > 0 ? `≈ ${ram.toFixed(1)} GB RAM` : "–"}</span>
+                <span>
+                  {ram > 0 ? `≈ ${ram.toFixed(1)} GB RAM` : "–"}
+                  {phoneBudget !== null && ram > 0 && budgetFit(ram, phoneBudget).level === "high" && <span className="problem-text">, more than this phone allows</span>}
+                </span>
                 <span>Download</span>
                 <span>{size === 0 ? "Installed" : [bytes(size), time].filter(Boolean).join(", ")}</span>
               </span>

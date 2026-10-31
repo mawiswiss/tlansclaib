@@ -201,6 +201,13 @@ describe("recommend", () => {
     expect(recommend(base)).toBe("precise");
   });
 
+  it("recommends by what a phone lets the app use", () => {
+    const phone = { ...base, memoryTotal: 3 * GIB, essentialRamGb: 1.3 };
+    expect(recommend({ ...phone, phoneBudget: 0.6 * GIB })).toBe("minimal");
+    expect(recommend({ ...phone, phoneBudget: 2 * GIB })).toBe("essential");
+    expect(recommend({ ...phone, memoryTotal: 12 * GIB, phoneBudget: 5 * GIB })).toBe("essential");
+  });
+
   it("keeps Precise on a 16 GB Windows PC and when the download takes under 30 minutes", () => {
     expect(recommend({ ...base, memoryTotal: 15.7 * GIB })).toBe("precise");
     expect(recommend({ ...base, speed: 2e6 })).toBe("precise");

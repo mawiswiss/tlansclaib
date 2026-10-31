@@ -57,17 +57,22 @@ pub fn export(file: &Path, expected: &str, destination: &Path, lines: &[Line], t
     if destination == file {
         return Err(anyhow!("Choose a different file for the export."));
     }
+    let extension = destination.extension().and_then(|value| value.to_str()).unwrap_or("").to_ascii_lowercase();
+    let text = export_text(file, expected, &extension, lines, timestamps, timed, speakers)?;
+    std::fs::write(destination, text).with_context(|| format!("cannot write {}", destination.display()))
+}
+
+/// The export in `format`: txt, srt or vtt.
+pub fn export_text(file: &Path, expected: &str, format: &str, lines: &[Line], timestamps: bool, timed: bool, speakers: &[String]) -> Result<String> {
     if crate::fingerprint::transcript(file)? != expected {
         return Err(anyhow!("This transcript changed since it was opened. Open it again before exporting."));
     }
-    let extension = destination.extension().and_then(|value| value.to_str()).unwrap_or("").to_ascii_lowercase();
-    let text = match extension.as_str() {
-        "txt" => rendered(lines, timestamps, speakers),
-        "srt" | "vtt" if timed => subtitles(lines, speakers, extension == "vtt"),
-        "srt" | "vtt" => return Err(anyhow!("This transcript has no line timing for subtitles.")),
-        _ => return Err(anyhow!("Choose a .txt, .srt, or .vtt file.")),
-    };
-    std::fs::write(destination, text).with_context(|| format!("cannot write {}", destination.display()))
+    match format {
+        "txt" => Ok(rendered(lines, timestamps, speakers)),
+        "srt" | "vtt" if timed => Ok(subtitles(lines, speakers, format == "vtt")),
+        "srt" | "vtt" => Err(anyhow!("This transcript has no line timing for subtitles.")),
+        _ => Err(anyhow!("Choose a .txt, .srt, or .vtt file.")),
+    }
 }
 
 fn subtitles(lines: &[Line], speakers: &[String], vtt: bool) -> String {

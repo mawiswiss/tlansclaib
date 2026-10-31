@@ -71,6 +71,8 @@ const webHead = {
 export default defineConfig(({ mode }) => ({
   plugins: mode === "web" ? [react(), dropOrtWasm, webHead] : [react()],
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  // The Tauri CLI sets TAURI_ENV_PLATFORM to ios or android for a phone build.
+  envPrefix: ["VITE_", "TAURI_ENV_"],
   worker: { format: "es" as const },
   ...(mode === "web"
     ? {
