@@ -1,76 +1,72 @@
 # Mobile app
 
-A native tlansclaib for iPhone and Android is feasible and belongs to Free.
-The engine runs inside the app, whisper.cpp on the phone's own chip, and the
-models download as on the desktop. Nothing is built yet. This file is the plan
-and what is still unknown.
+The same app runs on iPhone and Android, and its features belong to Free.
+It transcribes on the iOS Simulator and the Android emulator: pick a
+recording, press GO, get a timed transcript in the history. On a real iPhone
+it opens to the setup screen, and no transcription has run there yet. Nothing
+is on a store.
+
+This page describes how the shared code behaves on phones. The phone
+projects, their build and the store releases live in the private Pro
+repository, so building this repository gives the desktop app and the
+browser version only.
 
 The browser version is no route to phones: its model peaked at 4.2 GB, which
-a mobile tab does not get (`docs/browser.md`). The native engine needs about
-1.3 GB for a turbo q8_0 model.
+a mobile tab does not get (`docs/browser.md`).
 
-## What carries over
+## How it differs from the desktop
 
-- **The engine crate.** whisper-rs, symphonia and rubato have no system
-  dependencies and build for `aarch64-apple-ios` and `aarch64-linux-android`.
-  whisper.cpp uses Metal on iPhone and the CPU on Android, Vulkan where a
-  driver holds up.
-- **The guards.** The checks in `src-tauri/src/guard.rs` take free memory and
-  free disk as arguments, so they stay as they are. Only the numbers fed in
-  change.
-- **The frontend.** Tauri 2 builds iOS and Android from the same React app.
-
-## What changes
-
-1. **The engine runs in the app, not as a sidecar.** iOS does not let an app
-   start another process, and Tauri's shell plugin has no sidecars on mobile.
-   The run loop lives in `engine/src/main.rs` (`run`), so it moves into the
-   library and sends the same `protocol.rs` events through a callback instead
-   of stdout. The desktop keeps the sidecar, which a crash cannot take down
-   with it. On mobile an engine crash ends the app.
-2. **Stopping a run.** The desktop kills the sidecar when memory gets tight.
-   In-process, the run has to stop itself: whisper.cpp's abort callback,
-   checked against `should_stop` between lines.
-3. **Memory numbers per platform.** `os_proc_available_memory` on iOS, which
-   is what the system lets this app use, not what the phone has free.
-   `ActivityManager.getMemoryInfo` on Android. The model list hides models
-   the phone cannot run, as on the desktop.
-4. **Speaker detection is bundled.** `engine/src/speakers/mod.rs` loads
-   sherpa-onnx and parakeet.cpp with `libloading` from a downloaded folder.
-   The App Store forbids running downloaded code, so on iOS both are linked
-   into the app. Model files stay downloads. Android may keep loading them,
-   but bundling is simpler to ship the same way.
-5. **Long runs off screen.** iOS suspends an app shortly after it leaves the
-   screen. iOS 26's `BGContinuedProcessingTask` is meant for long work the user
-   started, with progress shown by the system. GPU use there needs its own
-   entitlement. Android needs a foreground service with a notification.
-6. **Opening a recording.** Files come from the share sheet, the Files app or
-   the Android document picker, not drag and drop.
-
-## Traps
-
-- **iOS ends an app over its memory limit without warning.** The limit is
-  below the phone's memory and differs per iPhone model. The entitlement
-  `com.apple.developer.kernel.increased-memory-limit` raises it. Thai Best,
-  at 2.4 GB peak, is likely too much for many iPhones.
-- **Android GPUs vary.** ggml's Vulkan backend is fast on some Adreno and
-  Mali chips and wrong or slow on others. Plan for the CPU and allow the GPU
-  per device, as the desktop does with the Vulkan sidecar.
-- **Heat.** A phone throttles after a few minutes of full load, so the time
-  estimate has to learn from the run, not from the first minute.
-- **Downloads of 0.3 to 1.6 GB** on mobile data. Ask before downloading
-  outside Wi-Fi.
+- **The engine is a thread of the app.** iOS starts no other process.
+  `engine/src/run.rs` holds the run loop the binary and the app share, and
+  `src-tauri/src/worker.rs` starts it as a sidecar on the desktop or as a
+  thread on a phone. Cancel, restart and the memory guard set a stop flag that
+  the run checks between steps and lines, and whisper.cpp checks through its
+  abort callback. Reading the audio and loading the model have no check, so a
+  new run waits up to 30 s for a stopped engine to end. An engine crash ends
+  the app. The stall watch is off, because it reads the engine's own CPU time.
+  On the emulator a cancel during transcription ended the engine within two
+  seconds. Restart and the memory guard's stop have not run on a phone.
+- **Memory.** iOS reports `os_proc_available_memory`, what the system still
+  lets this app allocate. Android reports `MemAvailable` through sysinfo, not
+  `ActivityManager.getMemoryInfo` as first planned. Free disk comes from
+  `statvfs`. The guards are the desktop's, so a 2 GB emulator is refused a run
+  that needs 1.9 GB, and "Try anyway" works as on the desktop. iOS keeps
+  512 MB free at the start instead of 1 GB, and stops a run under 200 MB
+  instead of 400 MB, because the figure is already this app's own share: an
+  iPhone XR with 3 GB lets the app use about 1.8 GB. There Universal Small
+  (0.7 GB) runs, and Universal Compact (1.3 GB) crashed and is now refused.
+  The setup screen shows that share, and on phones rates speed and model fit
+  by what the guard lets a run use, not by the phone's RAM.
+- **Recordings.** iOS hands over a temporary copy and Android a `content://`
+  URI. `src-tauri/src/recordings.rs` keeps a copy in
+  `recordings/<id>/<name>` in the app data, deletes it with its history entry,
+  and at start deletes copies no entry uses. iOS moves the app data folder on
+  a reinstall, which leaves old absolute paths in the history, so at start the
+  app points entries back at their copies by the `<id>` folder.
+- **Export** goes through the save dialog, which on a phone points where the
+  app cannot write (`src-tauri/src/phone_export.rs`). iOS's dialog copies a
+  file of the chosen name out of the app's Documents folder, so the app
+  writes the export there first and deletes it once the dialog closes.
+  Android's dialog returns a `content://` address, which the fs plugin opens.
+- **Touch.** A tap on a word or line plays at once. A long-press or a double
+  tap opens the line's editor. Nothing is revealed on hover, because iOS
+  spends the first tap on a hover that changes what is shown.
+- **Left out on phones** (`FEATURES.mobile` in `src/lib/ipc.ts`): speaker
+  detection, updates, the CPU and RAM footer, adding model files and showing
+  folders.
+- **The iOS Simulator runs on the CPU.** Its Metal driver ends the app when
+  whisper.cpp uploads a model (`IOS_SIMULATOR` in `engine/src/transcribe.rs`).
+  A real iPhone uses Metal.
+- **Downloads on Android** trust Mozilla's root certificates bundled in the
+  app (`webpki-root-certs`), because reqwest's platform verifier needs a JNI
+  setup there that Tauri does not do.
 
 ## Not known yet
 
-- Speed and memory on a real iPhone and a real mid-range Android phone. The
-  iOS Simulator runs on the Mac's GPU and memory and shows neither.
-- Whether `BGContinuedProcessingTask` keeps a 30-minute transcription alive.
+- Speed and peak memory on real phones. The simulator and emulator use the
+  Mac's chip and say nothing about phones.
+- Whether iOS 26's `BGContinuedProcessingTask` keeps a 30-minute
+  transcription alive. Until then a locked screen suspends a run.
+- Whether ggml's Vulkan backend is worth allowing per Android device, as the
+  desktop does with the Vulkan sidecar.
 - Whether the Core ML encoder is worth adding on iPhone.
-
-## First step
-
-A spike before any app work: build the engine for `aarch64-apple-ios` and
-`aarch64-linux-android`, transcribe a synthetic fixture with Universal Small
-and Universal Compact on one real phone of each kind, and record the time
-and the peak memory here.

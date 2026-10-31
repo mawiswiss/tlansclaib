@@ -45,8 +45,15 @@ A browser version, tlansclaib Lite, builds the same window with
 minutes, and leaves out speakers, updates and system statistics. See
 `docs/browser.md`.
 
+The same app builds for iPhone and Android, where the engine runs as a thread
+of the app instead of a sidecar. See `docs/mobile.md`.
+
 ## The engine
 
+- `run.rs` holds the run loop of `tlansclaib-engine transcribe`, which the
+  phone app runs inside its own process. It reports each event through a
+  callback. Once its stop flag is set, it ends between steps and lines, and
+  whisper.cpp ends the line it works on through its abort callback.
 - `audio.rs` decodes any supported file with symphonia (AAC-LC in MP4 or
   M4A, MP3, WAV, FLAC, ALAC, Vorbis), downmixes to mono and resamples to
   16 kHz. HE-AAC is not supported and fails with a clear error. Every audio
@@ -226,16 +233,20 @@ because progress reporting and other work are outside those stages.
 - `validate.rs`: no model file is accepted unvalidated. Every file passes the
   header check. A file for a list entry must also match the entry's size and
   SHA-256. See `models.md`.
-- `run.rs`: starts the sidecar, forwards each event to the window, holds the
-  child for cancel and keeps the machine awake for the duration. The engine
+- `run.rs`: starts the engine through `worker.rs`, forwards each event to the
+  window, holds the engine for cancel and keeps the machine awake for the
+  duration. A run's id is its start in microseconds, which the window's
+  JavaScript numbers hold exactly. The engine
   writes scratch text in app data. On completion or cancellation, the app saves
   the lines and run metadata to `transcripts/<id>.json` and removes the scratch
   file. A rerun replaces its history entry only after the new record is saved.
   A run's event loop acts only while the run state still holds that run's id,
   so late events of a cancelled or restarted engine go nowhere. A restart in
   another language kills the engine, drops its lines without a history entry,
-  waits up to 3 s for the process to end so the memory check sees its memory
-  free, and starts again with the same settings. Each step logs the seconds
+  and starts again with the same settings. Every start first waits for a
+  stopped engine to end, so the memory check sees its memory free: up to 3 s
+  for a sidecar, then it starts anyway, and up to 30 s on a phone, which then
+  refuses, so two engines never share the app. Each step logs the seconds
   since the start, so a stuck run shows where it stopped.
   A model that fails while loading or transcribing, through a crash, a stall,
   the memory guard or an engine error before the language check, is marked too
@@ -245,6 +256,10 @@ because progress reporting and other work are outside those stages.
   neither does an engine error in the language check or a failure while
   reading the audio or finding the speakers, which depend on the recording. A run with
   the model that finishes clears the mark.
+- `worker.rs`: the engine of a run, as the sidecar on the desktop or as a
+  thread of the app on phones, with its output as the events `run.rs` reads.
+- `recordings.rs`: on phones, the app's own copy of each picked recording,
+  see `docs/mobile.md`.
 - `stall.rs`: decides from the engine's events, CPU time and disk reads
   whether it is stuck, as a pure function with tests. The guard tick feeds it.
 - `history.rs`: every finished run, and every stopped run with at least one
@@ -282,7 +297,8 @@ because progress reporting and other work are outside those stages.
   memory checks only, never the disk check or the stop during a run.
 - `system.rs`: CPU, memory, swap and the engine's memory, CPU time and disk
   reads, once a second, for the footer, the guard and the stall check. Free
-  memory is total minus used. On macOS sysinfo's own "available" also counts
+  memory is total minus used, and on iOS what the system still lets the app
+  allocate. On macOS sysinfo's own "available" also counts
   pages apps are using.
 
 ## The window

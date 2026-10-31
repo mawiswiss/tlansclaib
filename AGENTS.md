@@ -10,7 +10,8 @@ topic, no date prefixes, no generated trees.
 - `engine/`: Rust crate. Library plus the `tlansclaib-engine` binary, which the
   app runs as a sidecar and which also works from a terminal.
 - `src-tauri/`: the Tauri 2 app in Rust. Model list and downloads, run
-  supervision, memory guard, system statistics.
+  supervision, memory guard, system statistics. It also runs on iPhone and
+  Android, see `docs/mobile.md`.
 - `src/`: the React and TypeScript frontend, built with Vite.
 - `scripts/`: tooling that is not shipped, such as the model conversion script.
 - `web/engine-wasm/`: the engine's line cutting compiled to wasm for the
