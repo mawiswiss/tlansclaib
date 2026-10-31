@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { clock } from "../lib/format";
 import { Pause, Play } from "./icons";
 
-export type PlayerHandle = { seek: (seconds: number, play?: boolean) => void };
+export type PlayerHandle = { seek: (seconds: number, play?: boolean) => void; toggle: () => void };
 
 type Props = {
   src: string;
@@ -40,6 +40,13 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
     void audio.current?.play().then(() => onPlaybackError(null)).catch((error) => onPlaybackError(`Could not play the recording: ${String(error)}`));
   };
 
+  const toggle = () => {
+    const a = audio.current;
+    if (!a) return;
+    if (a.paused) play();
+    else a.pause();
+  };
+
   useImperativeHandle(ref, () => ({
     seek(seconds: number, andPlay = true) {
       const a = audio.current;
@@ -49,14 +56,8 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
       if (andPlay) play();
       else a.pause();
     },
+    toggle,
   }));
-
-  const toggle = () => {
-    const a = audio.current;
-    if (!a) return;
-    if (a.paused) play();
-    else a.pause();
-  };
 
   const nextSpeed = () => {
     const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];

@@ -258,6 +258,19 @@ export function ResultView(props: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, button, a, [role=combobox], [contenteditable], dialog, [role=dialog]")) return;
+      if (!player.current) return;
+      e.preventDefault();
+      player.current.toggle();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
       const key = e.key.toLowerCase();
       const back = key === "z" && !e.shiftKey;
