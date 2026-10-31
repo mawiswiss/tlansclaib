@@ -1,3 +1,4 @@
+import { onPhone } from "../desktop";
 import type { Backend } from "../ipc";
 import type { Line } from "../run";
 import type { EngineEvent, HistoryEntry, ModelStatus } from "../types";
@@ -16,7 +17,7 @@ const RATE = 16_000;
 
 /** Why this browser cannot run the lite version, or null when it can. */
 export async function unsupported(): Promise<string | null> {
-  if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) return "The browser version runs on a computer, not on a phone or tablet.";
+  if (onPhone(navigator.userAgent)) return "The browser version runs on a computer, not on a phone or tablet.";
   if (typeof navigator.storage?.getDirectory !== "function" || typeof FileSystemFileHandle === "undefined" || !("createWritable" in FileSystemFileHandle.prototype))
     return "This browser cannot store the model on this computer.";
   if (!("gpu" in navigator)) return "This browser has no WebGPU, which the browser version needs to run the model on the graphics chip.";

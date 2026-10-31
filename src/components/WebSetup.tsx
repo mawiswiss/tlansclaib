@@ -1,3 +1,4 @@
+import { onPhone } from "../lib/desktop";
 import { bytes } from "../lib/format";
 import type { DownloadProgress, ModelStatus } from "../lib/types";
 import { Alert, Check, Close, Download, Lock, Monitor, Trash } from "./icons";
@@ -30,6 +31,21 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
       <Monitor size={15} /> Get the desktop app
     </button>
   );
+  if (problem && onPhone(navigator.userAgent)) {
+    return (
+      <section className="notice">
+        <div className="notice-card">
+          <span className="glyph">
+            <Monitor size={28} />
+          </span>
+          <h2>Open tlansclaib on your computer</h2>
+          <p>tlansclaib transcribes audio and video to text or subtitles on your own computer, in about 100 languages, and never uploads the recording.</p>
+          <p>It does not run on a phone or tablet. Open this page in a browser on your computer, or download the free desktop app for Mac and Windows.</p>
+          <div className="actions">{desktop(true)}</div>
+        </div>
+      </section>
+    );
+  }
   if (problem) {
     return (
       <section className="notice">

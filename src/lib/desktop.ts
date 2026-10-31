@@ -7,6 +7,10 @@ export const INSTALLERS: Record<Platform, { name: string; file: string; url: str
   windows: { name: "Windows", file: "tlansclaib-windows-setup.exe", url: `${RELEASES}/latest/download/tlansclaib-windows-setup.exe`, requires: "Windows 10 or 11" },
 };
 
+export function onPhone(userAgent: string): boolean {
+  return /Android|iPhone|iPad|Mobile/i.test(userAgent);
+}
+
 type Nav = { userAgentData?: { platform?: string }; platform?: string; maxTouchPoints?: number };
 
 export function desktopPlatform(nav: Nav): Platform | null {
