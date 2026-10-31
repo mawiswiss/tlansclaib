@@ -69,7 +69,7 @@ export function AboutDialog(props: Props) {
                 <strong>Your recordings never leave this computer</strong>
                 <p>
                   {FEATURES.lite
-                    ? "No uploads, no analytics, no account. The model downloads once and runs in this browser."
+                    ? "No uploads, no account, no cookies. The model downloads once and runs in this browser."
                     : "No uploads, no analytics, no account. Once a model is installed, no internet is needed."}
                 </p>
               </div>

@@ -18,7 +18,9 @@ pnpm wasm         # src/lib/web/engine.wasm alone, needs the wasm32-unknown-unkn
 `dist-web/` is a static site, deployed by hand to Cloudflare Pages at
 https://tlansclaib.marcwieland.name. `public-web/_headers` makes the page
 cross-origin isolated there, as the dev server does, so it runs as tested.
-Cloudflare Pages refuses files over 25 MiB.
+Cloudflare Pages refuses files over 25 MiB. Its Web Analytics is on, which
+counts visits without cookies. About in Lite promises no cookies, so keep it
+that way.
 
 The title, description, canonical URL, social tags and JSON-LD come from the
 `webHead` plugin in `vite.config.ts`, so the desktop build carries none of
