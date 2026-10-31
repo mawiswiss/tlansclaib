@@ -27,13 +27,14 @@
   --tip-text: #111318;
   --tip-border: #bfc5cf;
   --mark: rgba(255, 205, 64, 0.55);
+  /* Ordered for new speakers: the first five stay apart for colour-blind readers in any pair. */
   --speaker-0: #5b75d2;
   --speaker-1: #854919;
   --speaker-2: #22a19d;
   --speaker-3: #999011;
-  --speaker-4: #f055bf;
+  --speaker-4: #7a05b7;
   --speaker-5: #2d760a;
-  --speaker-6: #7a05b7;
+  --speaker-6: #f055bf;
   --speaker-7: #e71840;
   --radius-sm: 8px;
   --radius: 12px;
@@ -80,9 +81,9 @@
     --speaker-1: #95592a;
     --speaker-2: #179c97;
     --speaker-3: #9d951b;
-    --speaker-4: #be1d92;
+    --speaker-4: #b65bfa;
     --speaker-5: #2e770c;
-    --speaker-6: #b65bfa;
+    --speaker-6: #be1d92;
     --speaker-7: #fc3751;
     color-scheme: dark;
   }
@@ -122,9 +123,9 @@
   --speaker-1: #95592a;
   --speaker-2: #179c97;
   --speaker-3: #9d951b;
-  --speaker-4: #be1d92;
+  --speaker-4: #b65bfa;
   --speaker-5: #2e770c;
-  --speaker-6: #b65bfa;
+  --speaker-6: #be1d92;
   --speaker-7: #fc3751;
 }
 
