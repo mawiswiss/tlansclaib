@@ -4,6 +4,42 @@ All notable changes to tlansclaib. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-11-01
+
+### Added
+
+- Run on Linux as an AppImage that updates itself, on Ubuntu 22.04, Debian 12, Fedora 36 or newer, with the same engines, GPU support and speaker detection as on Windows (linux, 7c8273a)
+- Add a browser version that needs no install: it transcribes the first 10 minutes on WebGPU, uploads nothing, points phones to a computer and downloads the desktop app from its comparison (browser, e2dacbd, f8685bf, 11c4551, 8a6e844, dc22ae6, e48d88c, 7de7b9b, 6cffeb6, 36b37f6)
+- Merge and split lines from a toolbar under the line being edited, with the key for each action (editor, a5d9281)
+- Remove a speaker with the × on its chip or by clearing its name, and keep their lines as Unassigned (speakers, a5843e2)
+- Toggle playback with the space bar (player, 704c14a)
+- Add a dedicated model for Persian, with about a third of the word errors of the model for all languages (models, 12f7fed)
+- Add English Turbo for computers that are not very fast, chosen by Precise below a speed score of 80 (models, 84460f9, 2e83fca)
+- Link to the author's website in the support dialog (ui, 0dcfec7)
+
+### Changed
+
+- Undo and redo every correction with the buttons in the transcript bar or with ⌘Z, not only the last one for eight seconds (editor, 52a16b4)
+- The language menus list every Whisper language, with "Any language (detected)" first, and a language without its own model uses the model for all languages (languages, a02a49f, b68081f)
+- Each speaker keeps its colour when another one is removed, and a new speaker takes the first free colour (speakers, 8033330)
+- A line's dot gets a ring on hover and a tooltip saying a click changes its speaker (speakers, 8b7fa9c)
+
+### Removed
+
+- The French models, which were never compared against the models for all languages and were slower than the turbo they replaced (models, fe9403d)
+
+### Fixed
+
+- Speech recorded at low gain no longer ends up as an empty transcript, because silence is measured against the recording's own level (transcription, 81c03e4)
+- A failed app start, a failed speed test and a download that cannot write to disk say what went wrong next to Try again (ui, 3e2e623)
+- Opening a line for editing pauses at its first word instead of playing it (editor, 5f99da6)
+- Search and Timecodes stay at the top of the transcript bar when the speakers wrap onto several rows (editor, aa6d09f)
+- Any two of the first five speaker colours can be told apart, with colour blindness too (speakers, 7822163)
+- The connection speed shows in Mbit/s (setup, 349e321)
+- The GitHub link in About opens the tlansclaib repository (about, 094e06a)
+- Notice titles break evenly and have more line spacing (ui, cb82b26)
+- A browser tooltip no longer shows over the app's own hint (ui, 3d230d7)
+
 ## [0.3.3] - 2026-10-29
 
 ### Fixed
@@ -118,6 +154,7 @@ All notable changes to tlansclaib. The format follows
 - Play, search and correct transcripts in a redesigned window (ui, be70525)
 - App icon (app, 0c9a0c4)
 
+[0.4.0]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.0...v0.3.1
