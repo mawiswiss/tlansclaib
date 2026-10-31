@@ -100,7 +100,7 @@ impl Engine {
             .to_str()
             .ok_or_else(|| anyhow!("the model path is not valid UTF-8"))?;
         let mut params = WhisperContextParameters::default();
-        #[cfg(all(target_os = "windows", feature = "vulkan"))]
+        #[cfg(feature = "vulkan")]
         let use_gpu = use_gpu && gpu().is_some();
         params.use_gpu(use_gpu);
         match crate::model_file::inspect(model) {
@@ -135,7 +135,7 @@ impl Engine {
             "cpu"
         } else if cfg!(target_os = "macos") {
             "metal"
-        } else if cfg!(all(target_os = "windows", feature = "vulkan")) {
+        } else if cfg!(feature = "vulkan") {
             "vulkan"
         } else {
             "cpu"

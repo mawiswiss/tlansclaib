@@ -14,7 +14,7 @@ pub enum Level {
     Sse,
 }
 
-/// The instruction set the Windows engines were built for: the main and Vulkan engines need all of Avx2.
+/// The instruction set the Windows and Linux engines were built for: the main and Vulkan engines need all of Avx2.
 pub fn level(features: Features) -> Level {
     if features.avx2 && features.fma && features.f16c && features.bmi2 {
         Level::Avx2
@@ -59,7 +59,7 @@ fn vulkan_loader() -> bool {
 
 /// The engine sidecar for work on the CPU.
 pub fn engine() -> &'static str {
-    if !cfg!(windows) {
+    if cfg!(target_os = "macos") {
         return "tlansclaib-engine";
     }
     match level(detect()) {

@@ -263,7 +263,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
             args.extend(["--speaker-precision".into(), "fast".into()]);
         }
     }
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     let engine_name = {
         if crate::gpu::device(app).await.is_some_and(|gpu| guard::can_use_gpu(gpu.free_bytes, entry.ram_bytes())) {
             "tlansclaib-engine-vulkan"
@@ -271,7 +271,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
             crate::cpu::engine()
         }
     };
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     let engine_name = crate::cpu::engine();
     let mut retry_args = args.clone();
     #[cfg(target_os = "macos")]

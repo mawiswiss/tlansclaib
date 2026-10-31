@@ -2,8 +2,8 @@
 name: release
 description: Use when releasing a new version of the tlansclaib app. Picks the
   next version from the commits, writes the CHANGELOG.md entry and the release
-  notes, bumps the version, tags it, has GitHub Actions build the Mac and
-  Windows installers, and publishes the draft release. Trigger on "release",
+  notes, bumps the version, tags it, has GitHub Actions build the Mac,
+  Windows and Linux installers, and publishes the draft release. Trigger on "release",
   "new version", "publish a release", "cut 0.4.0", "ship it", "build the
   installers on GitHub", "write the changelog", "release notes". Not for the
   model releases (`models-vN`), see docs/release.md for those.
@@ -152,7 +152,8 @@ gh run watch <run-id> --exit-status --interval 60
 ```
 
 Run the watch once, in the background. The jobs `build (macos-latest …)`,
-`build (windows-2022 …)` and `updater` must all pass. When `updater` fails
+`build (windows-2022 …)`, `build (ubuntu-22.04 …)` and `updater` must all
+pass. When `updater` fails
 because a platform is missing in `latest.json`, re-run that platform's build
 job.
 
@@ -165,10 +166,11 @@ gh release edit v0.4.0 --notes-file <notes file>
 gh release view v0.4.0 --json body -q .body
 ```
 
-The draft holds these six files: `latest.json`, `tlansclaib-mac.dmg`,
+The draft holds these eight files: `latest.json`, `tlansclaib-mac.dmg`,
 `tlansclaib-mac.app.tar.gz` and its `.sig`, `tlansclaib-windows-setup.exe` and
-its `.sig`. `latest.json` names the new version, with `darwin-aarch64`,
-`darwin-x86_64` and `windows-x86_64` among the platforms. The body must show
+its `.sig`, `tlansclaib-linux.AppImage` and its `.sig`. `latest.json` names the
+new version, with `darwin-aarch64`, `darwin-x86_64`, `windows-x86_64` and
+`linux-x86_64` among the platforms. The body must show
 the notes from step 4.
 
 ## 12. Publish

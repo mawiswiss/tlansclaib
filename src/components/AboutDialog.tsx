@@ -53,7 +53,7 @@ export function AboutDialog(props: Props) {
           <Logo size={44} />
           <div>
             <h2 id="about-title">{FEATURES.lite ? "tlansclaib Lite" : "tlansclaib"}</h2>
-            <p className="muted">{FEATURES.lite ? "The web version of the transcription app for Mac and Windows" : "Offline transcription for Mac and Windows"}</p>
+            <p className="muted">{FEATURES.lite ? "The web version of the transcription app for Mac, Windows and Linux" : "Offline transcription for Mac, Windows and Linux"}</p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
             <Close />
@@ -117,8 +117,8 @@ export function AboutDialog(props: Props) {
                 <Monitor size={18} />
               </span>
               <div>
-                <strong>For macOS and Windows</strong>
-                <p>macOS 13 or newer on Apple silicon or Intel, Windows 10 and 11.</p>
+                <strong>For macOS, Windows and Linux</strong>
+                <p>macOS 13 or newer on Apple silicon or Intel, Windows 10 and 11, 64-bit Linux such as Ubuntu 22.04, Debian 12, Fedora 36 or newer.</p>
                 {FEATURES.lite && (
                   <div className="actions">
                     <button type="button" className="primary small" onClick={onDesktop}>

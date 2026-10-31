@@ -46,7 +46,14 @@ const SHERPA_RUNTIME: Option<Download> = Some(Download {
     size: 7_536_080,
     sha256: "a1253e665c4f236119c443c8932a8acfca32a546c78c05962d483c9a0eae21b7",
 });
-#[cfg(not(any(all(target_os = "macos", any(target_arch = "aarch64", target_arch = "x86_64")), all(target_os = "windows", target_arch = "x86_64"))))]
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const SHERPA_RUNTIME: Option<Download> = Some(Download {
+    name: "sherpa-onnx-v1.13.8-linux-x64-shared-no-tts-lib.tar.bz2",
+    url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-v1.13.8-linux-x64-shared-no-tts-lib.tar.bz2",
+    size: 9_249_201,
+    sha256: "bf2d998c8b07012cd5098f3b92673bc1333fd9b927767d7cb664be8190d8bc0b",
+});
+#[cfg(not(any(all(target_os = "macos", any(target_arch = "aarch64", target_arch = "x86_64")), all(any(target_os = "windows", target_os = "linux"), target_arch = "x86_64"))))]
 const SHERPA_RUNTIME: Option<Download> = None;
 
 const SEGMENTATION: Download = Download {
@@ -84,7 +91,14 @@ const PARAKEET_RUNTIME: Option<Download> = Some(Download {
     size: 1_169_291,
     sha256: "95b41515efeab246094d1793a1c0a12d727bc1cc01e4c28fe37a16a994b26774",
 });
-#[cfg(not(any(all(target_os = "macos", any(target_arch = "aarch64", target_arch = "x86_64")), all(target_os = "windows", target_arch = "x86_64"))))]
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const PARAKEET_RUNTIME: Option<Download> = Some(Download {
+    name: "parakeet-v0.6.1-lib-linux-cpu-x64.tar.gz",
+    url: "https://github.com/mudler/parakeet.cpp/releases/download/v0.6.1/parakeet-v0.6.1-lib-linux-cpu-x64.tar.gz",
+    size: 1_490_872,
+    sha256: "5a2b439e83d1b6ab66c55bcfc48751ee48e53727d5b3ea33a6bc0e8626f1397c",
+});
+#[cfg(not(any(all(target_os = "macos", any(target_arch = "aarch64", target_arch = "x86_64")), all(any(target_os = "windows", target_os = "linux"), target_arch = "x86_64"))))]
 const PARAKEET_RUNTIME: Option<Download> = None;
 
 const NEMOTRON_MODEL: Download = Download {

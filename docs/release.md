@@ -10,27 +10,29 @@ Installers are built by GitHub Actions, never by hand. The `release` skill in
    `src-tauri/tauri.conf.json`, `package.json` and the workspace `Cargo.toml`.
 3. Commit, then tag `vX.Y.Z` and push the tag.
 4. `.github/workflows/release.yml` builds the Mac disk image, signed with the
-   Developer ID and notarised by Apple, and the Windows installer, and
-   attaches both to a draft GitHub release.
+   Developer ID and notarised by Apple, the Windows installer and the Linux
+   AppImage, and attaches them to a draft GitHub release.
 5. Replace the draft's text with the release notes, a plain list of what
    changed for users followed by the install text. Check the draft, then
    publish it as the latest release:
    `gh release edit vX.Y.Z --draft=false --latest`. From then on the app
    offers it as an update.
 
-The files keep the same names in every version, `tlansclaib-mac.dmg` and
-`tlansclaib-windows-setup.exe`, so these addresses always lead to the newest
-published release:
+The files keep the same names in every version, `tlansclaib-mac.dmg`,
+`tlansclaib-windows-setup.exe` and `tlansclaib-linux.AppImage`, so these
+addresses always lead to the newest published release:
 
 - https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-mac.dmg
 - https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-windows-setup.exe
+- https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-linux.AppImage
 
 The browser version's desktop buttons download from them too. They break
 when another release is marked as the latest, which is why the model releases
 never are.
 
 `check.yml` runs on every push: Rust and frontend tests, clippy, and the
-engine on the English fixture with the tiny model, on macOS and Windows. It
+engine on the English fixture with the tiny model, on macOS, Windows and
+Ubuntu 22.04. It
 builds the frontend and puts an empty stand-in for the engine sidecar in
 place first, because tauri-build refuses to compile the app without either.
 
@@ -41,11 +43,11 @@ place first, because tauri-build refuses to compile the app without either.
   For `universal-apple-darwin` it builds both Apple slices, keeps each one,
   since tauri-build checks for them while it compiles the app per slice, and
   joins them with `lipo` for the bundle.
-- `GGML_NATIVE=OFF` keeps whisper.cpp at an AVX2 baseline on Windows. Without
+- `GGML_NATIVE=OFF` keeps whisper.cpp at an AVX2 baseline on Windows and Linux. Without
   it the build optimises for the CI machine, which may have AVX-512, and the
   binary then crashes on laptops without it. On MSVC that baseline also needs
   FMA, F16C and BMI2, so Haswell from 2013 or newer.
-- The engine uses Metal on macOS. Windows bundles four sidecars: the main CPU
+- The engine uses Metal on macOS. Windows and Linux bundle four sidecars: the main CPU
   engine, the Vulkan engine, `tlansclaib-engine-avx` for CPUs with AVX but not
   the full AVX2 set (Sandy Bridge, Ivy Bridge), and `tlansclaib-engine-sse`,
   plain SSE2, for CPUs without AVX (Celeron, Pentium Silver, Core 2, Athlon
@@ -68,7 +70,15 @@ place first, because tauri-build refuses to compile the app without either.
   sherpa-onnx's archive is the static `-MT` build and needs none. The engine
   loads a detection library with its own folder and then the engine's folder
   on the search path.
-- tauri-action names the files after `assetNamePattern`. Next to the two
+- Linux ships one AppImage, the only Linux format Tauri's updater can
+  replace. It is built on Ubuntu 22.04, so it needs glibc 2.35 or newer.
+  It carries WebKitGTK and GStreamer's base and good plugins for the audio
+  player. Which formats play has not been tested. The release job unpacks
+  it and checks with `ldd` in a bare Ubuntu 22.04 container that the engines
+  find every library except the Vulkan loader, which the graphics driver
+  brings. parakeet.cpp's library, downloaded later, needs `libgomp.so.1`
+  from the system, or the better speaker detection reports itself broken.
+- tauri-action names the files after `assetNamePattern`. Next to the three
   installers, the release holds the update files, see Updates.
 
 ## Signing
@@ -101,10 +111,11 @@ platform, and tauri-action lists them in `latest.json`:
 - macOS: `tlansclaib-mac.app.tar.gz`, the notarised universal app.
 - Windows: `tlansclaib-windows-setup.exe`, the installer, which the app runs
   in passive mode.
+- Linux: `tlansclaib-linux.AppImage`, which replaces the running AppImage.
 
 Each has a `.sig` next to it. The app checks it against the public key in
 `src-tauri/tauri.conf.json` and refuses an update without a valid one, or
-one signed for another version than `latest.json` announces. The two
+one signed for another version than `latest.json` announces. The three
 build jobs write `latest.json` in turn, so the `updater` job fails when a
 platform is missing. Re-run that platform's build job before publishing.
 

@@ -2,8 +2,8 @@
 
 ## Goal
 
-A desktop app for macOS and Windows that transcribes a recording on the
-user's own computer. The user picks a setup once, drops a recording on the
+A desktop app for macOS, Windows and Linux that transcribes a recording on
+the user's own computer. The user picks a setup once, drops a recording on the
 window, checks the recording language, watches the steps and the time estimate, and gets a
 result in the app's private history. Text or subtitles are exported on request.
 It runs on modest laptops, never takes the
@@ -20,10 +20,10 @@ scripts/     model conversion and the sidecar build, not shipped
 ```
 
 whisper.cpp runs inside `tlansclaib-engine`, bundled as a Tauri sidecar. On
-Windows, a second sidecar has the Vulkan backend, and two more run on
+Windows and Linux, a second sidecar has the Vulkan backend, and two more run on
 processors older than AVX2, see `docs/release.md`. The app checks its free GPU
 memory before each run and chooses the CPU sidecar when it cannot use Vulkan.
-Without `vulkan-1.dll` in System32, which a graphics driver installs, the app
+On Windows, without `vulkan-1.dll` in System32, which a graphics driver installs, the app
 never starts the Vulkan sidecar, because Windows refuses it with a dialog of its
 own. The app also sets its error mode at start, which the sidecars inherit, so
 a DLL missing in an engine ends it with an error code instead of a dialog. It
@@ -192,7 +192,7 @@ because progress reporting and other work are outside those stages.
   `too-heavy.json` in the models folder keeps, per model id, why a model
   failed on this computer. Deleting or unlinking the model removes the entry.
 - `detection.rs`: two speaker detections, each a download pinned by size and
-  SHA-256, for Apple silicon, Intel Mac or Windows x64. Each stages in
+  SHA-256, for Apple silicon, Intel Mac, Windows x64 or Linux x64. Each stages in
   `<folder>.part` and is renamed once complete, and a `version.txt` ties it
   to the engine's version of it.
   - Basic, in `models/speaker-detection`, the folder of older versions: the
@@ -213,16 +213,16 @@ because progress reporting and other work are outside those stages.
     checksums, and the library must be there and not empty (`damaged`). A
     damaged detection counts as broken until it is downloaded again or the
     app restarts. The unpacked library has no checksum of its own.
-- `cpu.rs`: which CPU engine the processor can run on Windows: the main one
+- `cpu.rs`: which CPU engine the processor can run on Windows and Linux: the main one
   with AVX2, FMA, F16C and BMI2, the AVX one, or the SSE one. Every CPU run
   and helper call goes through it.
 - `gpu.rs`: whether the computer can run the Precise model on its graphics
   chip, for the setup's recommendation. `tlansclaib-engine probe` starts the
   GPU whisper.cpp would pick and prints its backend, name and free memory, or
-  null. On Windows the Vulkan sidecar answers, as before a run. A probe that
+  null. On Windows and Linux the Vulkan sidecar answers, as before a run. A probe that
   hangs is killed after 10 seconds and counts as no GPU. Apple silicon is
-  usable when Metal starts, an Intel Mac never, Windows when the model fits
-  in the free memory.
+  usable when Metal starts, an Intel Mac never, Windows and Linux when the
+  model fits in the free memory.
 - `validate.rs`: no model file is accepted unvalidated. Every file passes the
   header check. A file for a list entry must also match the entry's size and
   SHA-256. See `models.md`.
@@ -325,7 +325,7 @@ top bar picks one.
   one for all languages (`modelFor` in `lib/setup.ts`). It steps up to an
   installed catalog model of the same kind with a higher `quality` when that
   model fits the free RAM right now (`guard::model_budget`, sent with the
-  system stats), the GPU is usable, and on Windows the model fits the GPU
+  system stats), the GPU is usable, and on Windows and Linux the model fits the GPU
   memory. A language's own model is never traded for one for all languages.
   The choice can change while other programs come and go. If the start check
   refuses the model for memory, see "Not enough memory" under "A run". When a better catalog model would fit but is not installed, a note
@@ -656,8 +656,8 @@ asks for support. "Support my work" opens the Stripe donation page, "No,
 thanks" closes it, and it asks again after every 25 more. One click on
 "Support my work", here or in the About dialog, stops it for good. The counts
 live in the settings and start from the finished transcripts already in the
-history (`lib/support.ts`). ⌘⇧S on macOS or Ctrl+Shift+S on Windows opens it
-at any time, for testing.
+history (`lib/support.ts`). ⌘⇧S on macOS or Ctrl+Shift+S on Windows and
+Linux opens it at any time, for testing.
 
 ## Later
 

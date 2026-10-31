@@ -1,15 +1,15 @@
 # tlansclaib
 
-Transcribe recordings on your own computer, for macOS and Windows. Nothing is
-uploaded.
+Transcribe recordings on your own computer, for macOS, Windows and Linux.
+Nothing is uploaded.
 
 Drop a recording on the window, check the model and the language, press GO.
 The transcript stays in the app's private history until you export it as text
 or subtitles. The window shows it line by line, with the recording to play along.
 [whisper.cpp](https://github.com/ggml-org/whisper.cpp) does the work, on the
-GPU of a Mac, on a compatible Windows Vulkan GPU with enough free memory, or on
-the processor otherwise. On my Mac it runs about 20 times faster than the
-recording plays.
+GPU of a Mac, on a compatible Vulkan GPU with enough free memory on Windows and
+Linux, or on the processor otherwise. On my Mac it runs about 20 times faster
+than the recording plays.
 
 ## Download
 
@@ -17,10 +17,13 @@ recording plays.
   macOS 13 or newer, Apple silicon and Intel
 - [tlansclaib for Windows](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-windows-setup.exe),
   Windows 10 or 11
+- [tlansclaib for Linux](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-linux.AppImage),
+  64-bit Intel or AMD, Ubuntu 22.04, Debian 12, Fedora 36 or newer
 
 On a Mac, open the disk image and drag tlansclaib into Applications. On
 Windows, run the installer. SmartScreen asks once, because the installer is
-not signed. Click "More info", then "Run anyway".
+not signed. Click "More info", then "Run anyway". On Linux, make the AppImage
+executable with `chmod +x tlansclaib-linux.AppImage` and start it.
 
 The app comes without a speech model. On the first start it asks for the
 language you mostly transcribe and one of three setups, Precise, Essential or
@@ -38,6 +41,9 @@ with one click.
 - Windows: Windows 10 or 11, 64-bit. A graphics card with Vulkan support and
   enough free memory does the work, otherwise the processor. Older and
   low-end processors run on engines of their own, more slowly.
+- Linux: 64-bit Intel or AMD, with glibc 2.35 or newer, so Ubuntu 22.04,
+  Debian 12, Fedora 36 or newer. The graphics card and older processors work
+  as on Windows.
 - Memory: 8 GB, and 16 GB with a graphics chip for Precise. With less, the
   memory check stops many runs before they start.
 - Disk: about 2 GB free for Minimal, 5 GB for Precise.

@@ -96,7 +96,7 @@ pub fn run_model_budget(free: u64) -> u64 {
     model_budget(free).saturating_sub(WORD_TIMING_RAM)
 }
 
-#[cfg(any(windows, test))]
+#[cfg(any(windows, target_os = "linux", test))]
 pub fn can_use_gpu(free: u64, needed: u64) -> bool {
     needed.checked_add(RUN_HEADROOM).is_some_and(|minimum| free >= minimum)
 }

@@ -13,7 +13,7 @@ pub struct Gpu {
     pub name: Option<String>,
     pub free_bytes: Option<u64>,
     pub usable: bool,
-    /// On Windows, the largest model that runs on the GPU. A larger one runs on the CPU.
+    /// On Windows and Linux, the largest model that runs on the GPU. A larger one runs on the CPU.
     pub model_budget: Option<u64>,
 }
 
@@ -26,10 +26,10 @@ pub struct Device {
 
 /// The GPU the engine sidecar starts, or None when it has none, fails or hangs.
 pub async fn device(app: &AppHandle) -> Option<Device> {
-    if cfg!(windows) && !crate::cpu::runs_vulkan_engine() {
+    if cfg!(any(windows, target_os = "linux")) && !crate::cpu::runs_vulkan_engine() {
         return None;
     }
-    let sidecar = if cfg!(windows) { "tlansclaib-engine-vulkan" } else { "tlansclaib-engine" };
+    let sidecar = if cfg!(any(windows, target_os = "linux")) { "tlansclaib-engine-vulkan" } else { "tlansclaib-engine" };
     let (mut events, child) = app.shell().sidecar(sidecar).ok()?.arg("probe").spawn().ok()?;
     let read = async {
         let mut stdout = Vec::new();
@@ -52,16 +52,16 @@ pub async fn device(app: &AppHandle) -> Option<Device> {
     }
 }
 
-#[cfg_attr(not(windows), allow(unused_variables))]
+#[cfg_attr(not(any(windows, target_os = "linux")), allow(unused_variables))]
 pub async fn probe(app: &AppHandle, ram_bytes: u64) -> Gpu {
     let device = device(app).await;
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     let usable = device.as_ref().is_some_and(|device| crate::guard::can_use_gpu(device.free_bytes, ram_bytes));
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     let usable = device.is_some() && cfg!(all(target_os = "macos", target_arch = "aarch64"));
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     let model_budget = device.as_ref().map(|device| crate::guard::model_budget(device.free_bytes));
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     let model_budget = None;
     Gpu {
         backend: device.as_ref().map(|d| d.backend.clone()),

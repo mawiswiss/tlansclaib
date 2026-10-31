@@ -9,6 +9,7 @@ own ONNX or GGUF files. Every model file is checked before use, see below.
 
 - macOS: `~/Library/Application Support/tlansclaib/models`
 - Windows: `%APPDATA%\tlansclaib\models`
+- Linux: `~/.local/share/tlansclaib/models`
 
 "Show models folder" in the models panel opens it.
 

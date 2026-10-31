@@ -12,7 +12,7 @@ export function DesktopPromo({ transcribed, full, onDesktop }: Props) {
         <strong>{trimmed ? `This is the first ${duration(transcribed)} of ${duration(full)}` : "Like the result?"}</strong>
         <p className="muted">
           {trimmed ? "The desktop app transcribes the whole recording. " : "The desktop app transcribes recordings of any length. "}
-          It also names the speakers and covers about 100 languages, plus dedicated models. Free for Mac and Windows.
+          It also names the speakers and covers about 100 languages, plus dedicated models. Free for Mac, Windows and Linux.
         </p>
       </div>
       <button type="button" className="primary small" onClick={onDesktop}>

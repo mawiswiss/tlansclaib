@@ -1,6 +1,7 @@
 // Builds the engine in release mode and places it where Tauri expects a sidecar:
 // src-tauri/binaries/tlansclaib-engine-<target triple>[.exe]
 // A universal macOS build compiles both Apple targets and joins them with lipo.
+// On Windows and Linux it also builds the Vulkan engine and the engines for older CPUs.
 // On Windows it also copies the Microsoft C++ runtime into src-tauri/binaries/msvc, which the installer puts beside the engines.
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
@@ -64,10 +65,10 @@ if (process.argv[2] === "older-cpus") {
   execFileSync("lipo", ["-create", "-output", join(dir, "tlansclaib-engine-universal-apple-darwin"), ...slices], { stdio: "inherit" });
 } else {
   place(build(triple), triple);
-  if (triple.includes("windows")) {
+  if (triple.includes("windows") || triple.includes("linux")) {
     place(build(triple, ["vulkan"]), triple, "tlansclaib-engine-vulkan");
     buildOlderCpus();
-    placeMsvcRuntime();
   }
+  if (triple.includes("windows")) placeMsvcRuntime();
 }
 console.log(`sidecar ready for ${triple}`);

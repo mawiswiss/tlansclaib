@@ -1,7 +1,7 @@
 # Working in this repository
 
-tlansclaib is a desktop app for Mac and Windows that transcribes an audio file
-on the user's own computer with whisper.cpp. Read `docs/design.md` before
+tlansclaib is a desktop app for Mac, Windows and Linux that transcribes an
+audio file on the user's own computer with whisper.cpp. Read `docs/design.md` before
 changing anything structural. `docs/` is flat: one kebab-case Markdown file per
 topic, no date prefixes, no generated trees.
 

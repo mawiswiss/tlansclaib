@@ -19,6 +19,9 @@ jobs:
           - os: windows-2022
             args: ""
             assets: tlansclaib-windows[setup][ext]
+          - os: ubuntu-22.04
+            args: ""
+            assets: tlansclaib-linux[ext]
     runs-on: ${{ matrix.os }}
     env:
       GGML_NATIVE: "OFF"
@@ -27,8 +30,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - name: Install the Linux build libraries
+        if: matrix.os == 'ubuntu-22.04'
+        # GStreamer's good plugins go into the AppImage, so the audio player can play more than WAV.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev patchelf libvulkan-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
       - name: Install Vulkan SDK
-        if: matrix.os == 'windows-2022'
+        if: matrix.os != 'macos-latest'
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           vulkan_version: 1.4.341.1
@@ -99,9 +108,19 @@ jobs:
 
             Windows 10 or 11: download `tlansclaib-windows-setup.exe` and run it. SmartScreen asks once: click "More info", then "Run anyway".
 
+            Linux, 64-bit Intel or AMD, Ubuntu 22.04, Debian 12, Fedora 36 or newer: download `tlansclaib-linux.AppImage`, make it executable with `chmod +x tlansclaib-linux.AppImage` and start it.
+
             On the first start, open Models and download one for your language.
           assetNamePattern: ${{ matrix.assets }}
           args: ${{ matrix.args }} ${{ env.UPDATER_ARGS }}
+      - name: Check that the AppImage carries every library its engines need
+        if: matrix.os == 'ubuntu-22.04'
+        # A bare Ubuntu 22.04, the oldest supported system. The Vulkan loader comes with the graphics driver.
+        run: |
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE"/target/release/bundle/appimage/*.AppImage --appimage-extract > /dev/null
+          docker run --rm -v "$PWD/squashfs-root:/app:ro" ubuntu:22.04 sh -c 'ldd /app/usr/bin/tlansclaib-engine*' | tee ldd.txt
+          if grep "not found" ldd.txt | grep -v libvulkan; then exit 1; fi
       - name: Notarise the disk image too, and check both with Gatekeeper
         if: matrix.os == 'macos-latest' && env.APPLE_CERTIFICATE != ''
         shell: bash
@@ -126,10 +145,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        # Both build jobs merge their platform into latest.json, so a close finish can drop one.
+        # Every build job merges its platform into latest.json, so a close finish can drop one.
         run: |
           if [ -z "$KEY" ]; then
             exit 0
           fi
           gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern latest.json
-          jq -e '.platforms | has("darwin-aarch64") and has("darwin-x86_64") and has("windows-x86_64")' latest.json
+          jq -e '.platforms | has("darwin-aarch64") and has("darwin-x86_64") and has("windows-x86_64") and has("linux-x86_64")' latest.json

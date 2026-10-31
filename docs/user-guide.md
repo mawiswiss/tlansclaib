@@ -12,6 +12,11 @@ Download the installer for your system:
   [tlansclaib-windows-setup.exe](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-windows-setup.exe).
   Run it. SmartScreen shows "Windows protected your PC" once. Click "More
   info", then "Run anyway".
+- Linux, 64-bit, Ubuntu 22.04, Debian 12, Fedora 36 or newer:
+  [tlansclaib-linux.AppImage](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-linux.AppImage).
+  Make it executable with `chmod +x tlansclaib-linux.AppImage`, or under
+  Properties in the file manager, and start it. Some distributions need the
+  `libfuse2` package first.
 
 ## Update
 
@@ -283,5 +288,6 @@ The computer stays usable in the meantime.
   names what the file is instead.
 - A file that is not an audio file, or whose codec is not supported:
   convert the recording to MP3 or WAV with any audio tool and try again.
-- The log file lives in `~/Library/Logs/tlansclaib/` on macOS and in
-  `%LOCALAPPDATA%\tlansclaib\logs\` on Windows.
+- The log file lives in `~/Library/Logs/tlansclaib/` on macOS, in
+  `%LOCALAPPDATA%\tlansclaib\logs\` on Windows and in
+  `~/.local/share/tlansclaib/logs/` on Linux.

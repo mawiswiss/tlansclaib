@@ -55,7 +55,7 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
           </span>
           <h2>This browser cannot run tlansclaib&nbsp;Lite</h2>
           <p>tlansclaib Lite transcribes audio and video to text or subtitles on your own computer, in about 100 languages, and never uploads the recording.</p>
-          <p role="alert">{problem} The desktop app for Mac and Windows runs on any recent computer.</p>
+          <p role="alert">{problem} The desktop app for Mac, Windows and Linux runs on any recent computer.</p>
           <div className="actions">{desktop(true)}</div>
         </div>
       </section>

@@ -11,7 +11,7 @@ const ROWS: { label: string; lite: Cell; desktop: Cell }[] = [
   { label: "Speaker detection", lite: false, desktop: true },
   { label: "Languages", lite: "About 100, one model", desktop: "About 100, plus dedicated models" },
   { label: "Stays on this computer", lite: true, desktop: true },
-  { label: "Install", lite: "Nothing to install", desktop: "Mac and Windows" },
+  { label: "Install", lite: "Nothing to install", desktop: "Mac, Windows and Linux" },
   { label: "Price", lite: "Free", desktop: "Free" },
 ];
 
