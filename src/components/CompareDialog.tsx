@@ -1,7 +1,6 @@
-import { DESKTOP } from "../lib/about";
-import { Check, Close, Monitor } from "./icons";
+import { Check, Close, Download, Monitor } from "./icons";
 
-type Props = { onOpenUrl: (url: string) => void; onClose: () => void };
+type Props = { onDownload: () => void; onClose: () => void };
 
 type Cell = string | boolean;
 
@@ -22,7 +21,7 @@ function cell(value: Cell) {
   return value;
 }
 
-export function CompareDialog({ onOpenUrl, onClose }: Props) {
+export function CompareDialog({ onDownload, onClose }: Props) {
   return (
     <div className="overlay" onClick={onClose}>
       <section className="modal compare" role="dialog" aria-modal="true" aria-labelledby="compare-title" onClick={(e) => e.stopPropagation()}>
@@ -55,8 +54,8 @@ export function CompareDialog({ onOpenUrl, onClose }: Props) {
           </tbody>
         </table>
         <div className="actions">
-          <button type="button" className="primary" onClick={() => onOpenUrl(DESKTOP)}>
-            <Monitor size={15} /> Get the desktop app
+          <button type="button" className="primary" onClick={onDownload}>
+            <Download size={15} /> Download the desktop app
           </button>
           <button type="button" onClick={onClose}>
             Keep using Lite

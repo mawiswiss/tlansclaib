@@ -25,8 +25,9 @@ published release:
 - https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-mac.dmg
 - https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-windows-setup.exe
 
-They break when another release is marked as the latest, which is why the
-model releases never are.
+The browser version's desktop buttons download from them too. They break
+when another release is marked as the latest, which is why the model releases
+never are.
 
 `check.yml` runs on every push: Rust and frontend tests, clippy, and the
 engine on the English fixture with the tiny model, on macOS and Windows. It

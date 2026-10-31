@@ -17,11 +17,13 @@ import { SetupView } from "./components/SetupView";
 import { SystemBar } from "./components/SystemBar";
 import { TopBar } from "./components/TopBar";
 import { DesktopPromo } from "./components/DesktopPromo";
+import { DownloadDialog } from "./components/DownloadDialog";
 import { WebSetup } from "./components/WebSetup";
 import { bytes, capitalize, duration, gib, titleOf, wholeGb } from "./lib/format";
 import { FEATURES, getBackend, type Backend } from "./lib/ipc";
 import { idle, reduce, startError, type StartError } from "./lib/run";
-import { DESKTOP, DONATE } from "./lib/about";
+import { DONATE } from "./lib/about";
+import { desktopPlatform, INSTALLERS, type Platform } from "./lib/desktop";
 import { DETECTION } from "./lib/detection";
 import { score } from "./lib/fit";
 import { measuredSpeed } from "./lib/pace";
@@ -83,7 +85,8 @@ export default function App() {
   const settingsAtStart = useRef(settings);
   const [notices, setNotices] = useState<Notice[]>(settingsLoadError ? [{ id: 0, kind: "error", text: settingsLoadError }] : []);
   const noticeId = useRef(1);
-  const [panel, setPanel] = useState<"models" | "about" | "support" | "compare" | null>(null);
+  const [panel, setPanel] = useState<"models" | "about" | "support" | "compare" | "download" | null>(null);
+  const [installer, setInstaller] = useState<Platform | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [disk, setDisk] = useState<DiskSpace | null>(null);
@@ -252,6 +255,20 @@ export default function App() {
 
   const openUrl = (url: string) => {
     void Promise.resolve().then(() => requireBackend().openUrl(url)).catch((error) => reportError("Could not open the link", error));
+  };
+  const downloadDesktop = (platform: Platform) => {
+    openUrl(INSTALLERS[platform].url);
+    setInstaller(platform);
+    setPanel("download");
+  };
+  const compareDesktop = () => setPanel("compare");
+  const getDesktop = () => {
+    const platform = desktopPlatform(navigator);
+    if (platform) downloadDesktop(platform);
+    else {
+      setInstaller(null);
+      setPanel("download");
+    }
   };
   const version = useCallback(() => backend.current?.appVersion() ?? Promise.reject(new Error("The app is still starting.")), []);
 
@@ -1339,7 +1356,7 @@ export default function App() {
             onClose={() => dispatch({ type: "reset" })}
             onAnother={() => dispatch({ type: "reset" })}
           >
-            {FEATURES.lite && !run.opened && <DesktopPromo transcribed={run.audioSeconds} full={run.fullSeconds} onOpenUrl={openUrl} />}
+            {FEATURES.lite && !run.opened && <DesktopPromo transcribed={run.audioSeconds} full={run.fullSeconds} onDesktop={compareDesktop} />}
           </ResultView>
         );
       case "error":
@@ -1471,7 +1488,7 @@ export default function App() {
             if (yes) void remove(webModel.id);
           });
       }}
-      onOpenUrl={openUrl}
+      onDesktop={compareDesktop}
       onCompare={() => setPanel("compare")}
     />
   );
@@ -1520,7 +1537,7 @@ export default function App() {
           setPanel("about");
         }}
         update={topBarLabel(update)}
-        onDesktop={() => openUrl(DESKTOP)}
+        onDesktop={compareDesktop}
         onUpdate={() => {
           setAboutFocus("update");
           setPanel("about");
@@ -1544,7 +1561,7 @@ export default function App() {
           speakerPrecision={settings.speakerPrecision}
           onSpeakerPrecision={(value) => setSettings((s) => ({ ...s, speakerPrecision: value }))}
           speakerFix={speakerFix}
-          onFixSpeakers={() => (FEATURES.speakers ? fixTarget && void fixSpeakers(fixTarget.backend) : openUrl(DESKTOP))}
+          onFixSpeakers={() => (FEATURES.speakers ? fixTarget && void fixSpeakers(fixTarget.backend) : compareDesktop())}
           stats={stats}
           busy={running}
         />
@@ -1665,11 +1682,13 @@ export default function App() {
           onUpdate={(v) => void startUpdate(v)}
           onInstallUpdate={(v) => void installUpdate(v)}
           onOpenUrl={openUrl}
+          onDesktop={compareDesktop}
           onSupport={support}
           onClose={closePanel}
         />
       )}
-      {panel === "compare" && <CompareDialog onOpenUrl={openUrl} onClose={closePanel} />}
+      {panel === "compare" && <CompareDialog onDownload={getDesktop} onClose={closePanel} />}
+      {panel === "download" && <DownloadDialog platform={installer} onDownload={downloadDesktop} onClose={closePanel} />}
       {panel === "support" && (
         <SupportDialog
           onSupport={() => {

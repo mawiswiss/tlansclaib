@@ -1,10 +1,9 @@
-import { DESKTOP } from "../lib/about";
 import { duration } from "../lib/format";
 import { Monitor } from "./icons";
 
-type Props = { transcribed: number | null; full: number | null; onOpenUrl: (url: string) => void };
+type Props = { transcribed: number | null; full: number | null; onDesktop: () => void };
 
-export function DesktopPromo({ transcribed, full, onOpenUrl }: Props) {
+export function DesktopPromo({ transcribed, full, onDesktop }: Props) {
   const trimmed = transcribed !== null && full !== null && full > transcribed + 1;
   return (
     <aside className="desktop-promo">
@@ -16,7 +15,7 @@ export function DesktopPromo({ transcribed, full, onOpenUrl }: Props) {
           It also names the speakers and covers about 100 languages, plus dedicated models. Free for Mac and Windows.
         </p>
       </div>
-      <button type="button" className="primary small" onClick={() => onOpenUrl(DESKTOP)}>
+      <button type="button" className="primary small" onClick={onDesktop}>
         Get the desktop app
       </button>
     </aside>

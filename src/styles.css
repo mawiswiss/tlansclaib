@@ -2734,6 +2734,38 @@ button.primary.destructive:hover:not(:disabled) {
   margin-top: 10px;
 }
 
+.modal.download {
+  width: min(460px, 100%);
+}
+
+.modal.download p {
+  margin: 0;
+}
+
+.download-steps {
+  margin: 6px 0 4px;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.download-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.download-choices > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
 .modal.support h2 {
   margin-top: 6px;
 }

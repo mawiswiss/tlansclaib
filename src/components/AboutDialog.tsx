@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AUTHOR, DESKTOP, GITHUB, WEBSITE, YEAR } from "../lib/about";
+import { AUTHOR, GITHUB, WEBSITE, YEAR } from "../lib/about";
 import { FEATURES } from "../lib/ipc";
 import type { UpdateState } from "../lib/update";
 import { Check, Close, Code, Globe, Heart, Lock, Logo, Monitor, User } from "./icons";
@@ -16,6 +16,7 @@ type Props = {
   onUpdate: (version: string) => void;
   onInstallUpdate: (version: string) => void;
   onOpenUrl: (url: string) => void;
+  onDesktop: () => void;
   onSupport: () => void;
   onClose: () => void;
 };
@@ -39,7 +40,7 @@ const LIST = FEATURES.lite
 ];
 
 export function AboutDialog(props: Props) {
-  const { version, onOpenUrl, onSupport, onClose } = props;
+  const { version, onOpenUrl, onDesktop, onSupport, onClose } = props;
   const [v, setV] = useState("");
   const [versionError, setVersionError] = useState<string | null>(null);
   useEffect(() => {
@@ -120,7 +121,7 @@ export function AboutDialog(props: Props) {
                 <p>macOS 13 or newer on Apple silicon or Intel, Windows 10 and 11.</p>
                 {FEATURES.lite && (
                   <div className="actions">
-                    <button type="button" className="primary small" onClick={() => onOpenUrl(DESKTOP)}>
+                    <button type="button" className="primary small" onClick={onDesktop}>
                       <Monitor size={15} /> Get the desktop app
                     </button>
                   </div>

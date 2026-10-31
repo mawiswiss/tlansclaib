@@ -1,4 +1,3 @@
-import { DESKTOP } from "../lib/about";
 import { bytes } from "../lib/format";
 import type { DownloadProgress, ModelStatus } from "../lib/types";
 import { Alert, Check, Close, Download, Lock, Monitor, Trash } from "./icons";
@@ -13,7 +12,7 @@ type Props = {
   onDownload: () => void;
   onCancel: () => void;
   onDelete: () => void;
-  onOpenUrl: (url: string) => void;
+  onDesktop: () => void;
   onCompare: () => void;
 };
 
@@ -25,9 +24,9 @@ const LIMITS = [
 
 const DESKTOP_PITCH = "Lite uses a lightweight model, ideal for trying the app. For full-length recordings with several speakers, use the desktop app.";
 
-export function WebSetup({ variant, model, progress, error, problem, busy, onDownload, onCancel, onDelete, onOpenUrl, onCompare }: Props) {
+export function WebSetup({ variant, model, progress, error, problem, busy, onDownload, onCancel, onDelete, onDesktop, onCompare }: Props) {
   const desktop = (primary: boolean) => (
-    <button type="button" className={primary ? "primary" : undefined} onClick={() => onOpenUrl(DESKTOP)}>
+    <button type="button" className={primary ? "primary" : undefined} onClick={onDesktop}>
       <Monitor size={15} /> Get the desktop app
     </button>
   );
@@ -108,13 +107,13 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
           <div>
             <strong>More in the desktop app</strong>
             <p className="muted">
-              Full recordings, speaker names and dedicated language models.{" "}
+              Full recordings, speaker names and dedicated language models. Free for Mac and Windows.{" "}
               <button type="button" className="inline-link" onClick={onCompare}>
                 Compare with Lite
               </button>
             </p>
           </div>
-          <button type="button" className="primary small" onClick={() => onOpenUrl(DESKTOP)}>
+          <button type="button" className="primary small" onClick={onDesktop}>
             Get the desktop app
           </button>
         </aside>
