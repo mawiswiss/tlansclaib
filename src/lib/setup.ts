@@ -1,4 +1,5 @@
 import { downloadSeconds, ramFit } from "./fit";
+import { FEATURES } from "./ipc";
 import type { Gpu, Language, ModelStatus, SpeakerBackend, SpeakerDetection } from "./types";
 
 export type Mode = "precise" | "essential" | "minimal";
@@ -7,7 +8,8 @@ export const MODES: Mode[] = ["precise", "essential", "minimal"];
 
 export const MODE_NAMES: Record<Mode, string> = { precise: "Precise", essential: "Essential", minimal: "Minimal" };
 
-export const MODE_DETECTION: Record<Mode, SpeakerBackend | null> = { precise: "nemotron", essential: "nemotron", minimal: "sherpa" };
+// Phones carry only parakeet.cpp, see docs/mobile.md.
+export const MODE_DETECTION: Record<Mode, SpeakerBackend | null> = FEATURES.mobile ? { precise: "nemotron", essential: "nemotron", minimal: "nemotron" } : { precise: "nemotron", essential: "nemotron", minimal: "sherpa" };
 
 export const DETECTION_IDS: Record<SpeakerBackend, string> = { sherpa: "speaker-detection", nemotron: "speaker-detection-nemotron" };
 

@@ -168,6 +168,11 @@ impl Detection {
         Detection { backend, dir: models_dir.join(id(backend)), cancel: Mutex::new(None), problem: Mutex::new(None) }
     }
 
+    /// The phone app carries parakeet.cpp itself, see `nemotron::library_path`.
+    fn bundled(&self) -> bool {
+        cfg!(mobile) && self.backend == Backend::Nemotron
+    }
+
     fn runtime(&self) -> Option<&'static Download> {
         match self.backend {
             Backend::Sherpa => SHERPA_RUNTIME.as_ref(),
@@ -206,7 +211,7 @@ impl Detection {
                 sherpa::library_path(&self.dir).is_file() && self.dir.join(sherpa::SEGMENTATION_FILE).is_file() && self.dir.join(sherpa::EMBEDDING_FILE).is_file()
             }
             Backend::Nemotron => {
-                nemotron::library_path(&self.dir).is_file()
+                (self.bundled() || nemotron::library_path(&self.dir).is_file())
                     && std::fs::metadata(self.dir.join(nemotron::MODEL_FILE)).is_ok_and(|m| m.len() == nemotron::MODEL_SIZE)
             }
         };
@@ -218,7 +223,7 @@ impl Detection {
         let problem = if installed { self.problem.lock().unwrap().clone() } else { None };
         Status {
             backend: self.backend.as_str(),
-            available: self.runtime().is_some(),
+            available: self.runtime().is_some() || self.bundled(),
             installed,
             downloading: self.cancel.lock().unwrap().is_some(),
             download_bytes: self.download_bytes(),
@@ -242,8 +247,8 @@ impl Detection {
         let installed = self.installed();
         let reason = if installed { open_library(app, self.backend, &self.dir).await.err() } else { None };
         let damaged = if installed && (hash || reason.is_some()) {
-            let (dir, models, library) = (self.dir.clone(), self.models(), self.library());
-            tauri::async_runtime::spawn_blocking(move || damaged(&dir, models, &library)).await.unwrap_or(true)
+            let (dir, models, library) = (self.dir.clone(), self.models(), (!self.bundled()).then(|| self.library()));
+            tauri::async_runtime::spawn_blocking(move || damaged(&dir, models, library.as_deref())).await.unwrap_or(true)
         } else {
             false
         };
@@ -262,7 +267,10 @@ impl Detection {
     }
 
     pub async fn download(&self, app: &AppHandle) -> Result<()> {
-        let runtime = self.runtime().ok_or_else(|| anyhow!("Speaker detection is not available on this kind of computer."))?;
+        let runtime = self.runtime();
+        if runtime.is_none() && !self.bundled() {
+            return Err(anyhow!("Speaker detection is not available on this kind of computer."));
+        }
         let total = self.download_bytes();
         let parent = self.dir.parent().unwrap_or(&self.dir).to_path_buf();
         std::fs::create_dir_all(&parent).with_context(|| format!("cannot create {}", parent.display()))?;
@@ -296,7 +304,7 @@ impl Detection {
         }
     }
 
-    async fn fetch_all(&self, app: &AppHandle, runtime: &Download, staging: &Path, cancel: &AtomicBool, total: u64) -> Result<()> {
+    async fn fetch_all(&self, app: &AppHandle, runtime: Option<&Download>, staging: &Path, cancel: &AtomicBool, total: u64) -> Result<()> {
         let cannot_write = || format!("cannot write {}", staging.display());
         if staging.exists() {
             std::fs::remove_dir_all(staging).with_context(cannot_write)?;
@@ -304,7 +312,7 @@ impl Detection {
         std::fs::create_dir_all(staging).with_context(cannot_write)?;
         let progress_id = id(self.backend);
         let mut done = 0u64;
-        for item in std::iter::once(runtime).chain(self.models()) {
+        for item in runtime.into_iter().chain(self.models()) {
             let target = staging.join(item.name);
             fetch(item.name, item.url, &target, item.size, Some(item.sha256), cancel, |bytes, _| {
                 let _ = app.emit("download-progress", DownloadProgress { id: progress_id.into(), bytes: done + bytes, total });
@@ -312,11 +320,14 @@ impl Detection {
             .await?;
             done += item.size;
         }
-        let archive = staging.join(runtime.name);
-        match self.backend {
-            Backend::Sherpa => unpack_sherpa(&archive, &staging.join("lib"))?,
-            Backend::Nemotron => {
-                unpack_parakeet(&archive, &staging.join("lib"), nemotron::LIBRARY_FILE)?;
+        let archive = runtime.map(|r| staging.join(r.name));
+        match (self.backend, &archive) {
+            (Backend::Sherpa, Some(archive)) => unpack_sherpa(archive, &staging.join("lib"))?,
+            (Backend::Sherpa, None) => {}
+            (Backend::Nemotron, archive) => {
+                if let Some(archive) = archive {
+                    unpack_parakeet(archive, &staging.join("lib"), nemotron::LIBRARY_FILE)?;
+                }
                 std::fs::write(staging.join("OpenMDW-1.1.txt"), include_str!("../resources/openmdw-1.1.txt")).with_context(cannot_write)?;
                 std::fs::write(
                     staging.join("NOTICE.txt"),
@@ -325,7 +336,9 @@ impl Detection {
                 .with_context(cannot_write)?;
             }
         }
-        std::fs::remove_file(&archive).with_context(cannot_write)?;
+        if let Some(archive) = archive {
+            std::fs::remove_file(archive).with_context(cannot_write)?;
+        }
         std::fs::write(staging.join(VERSION_FILE), self.version()).with_context(cannot_write)?;
         Ok(())
     }
@@ -383,13 +396,16 @@ async fn open_library(app: &AppHandle, backend: Backend, dir: &Path) -> Result<(
 }
 
 #[cfg(mobile)]
-async fn open_library(_: &AppHandle, _: Backend, _: &Path) -> Result<(), String> {
-    Err("speaker detection does not run on phones yet".into())
+async fn open_library(_: &AppHandle, backend: Backend, dir: &Path) -> Result<(), String> {
+    let dir = dir.to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || engine::speakers::check(backend, &dir).map_err(|error| format!("{error:#}")))
+        .await
+        .map_err(|error| error.to_string())?
 }
 
 /// Whether a file is missing or differs from its download. The unpacked library has no checksum of its own, so only its presence counts.
-fn damaged(dir: &Path, models: &[Download], library: &Path) -> bool {
-    !std::fs::metadata(library).is_ok_and(|m| m.len() > 0)
+fn damaged(dir: &Path, models: &[Download], library: Option<&Path>) -> bool {
+    library.is_some_and(|library| !std::fs::metadata(library).is_ok_and(|m| m.len() > 0))
         || models.iter().any(|m| !crate::validate::sha256(&dir.join(m.name)).is_ok_and(|digest| digest == m.sha256))
 }
 
@@ -583,16 +599,17 @@ mod tests {
         std::fs::write(&library, b"lib").unwrap();
         std::fs::write(dir.join("model.onnx"), b"model").unwrap();
         let models = [Download { name: "model.onnx", url: "", size: 5, sha256: "9372c470eeadd5ecd9c3c74c2b3cb633f8e2f2fad799250a0f70d652b6b825e4" }];
-        assert!(!damaged(&dir, &models, &library));
+        assert!(!damaged(&dir, &models, Some(&library)));
 
         std::fs::write(dir.join("model.onnx"), b"modem").unwrap();
-        assert!(damaged(&dir, &models, &library));
+        assert!(damaged(&dir, &models, Some(&library)));
         std::fs::remove_file(dir.join("model.onnx")).unwrap();
-        assert!(damaged(&dir, &models, &library));
+        assert!(damaged(&dir, &models, Some(&library)));
 
         std::fs::write(dir.join("model.onnx"), b"model").unwrap();
         std::fs::write(&library, b"").unwrap();
-        assert!(damaged(&dir, &models, &library));
+        assert!(damaged(&dir, &models, Some(&library)));
+        assert!(!damaged(&dir, &models, None), "a library inside the app is never damaged");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

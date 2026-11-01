@@ -26,7 +26,7 @@ const FULL: Features = { lite: false, mobile: false, speakers: true, updates: tr
 
 const LITE: Features = { lite: true, mobile: false, speakers: false, updates: false, modelCatalog: false, systemStats: false, revealFiles: false, limitSeconds: LIMIT_SECONDS, largestFileBytes: LARGEST_FILE_BYTES };
 
-const MOBILE: Features = { ...FULL, mobile: true, speakers: false, updates: false, systemStats: false, revealFiles: false };
+const MOBILE: Features = { ...FULL, mobile: true, updates: false, systemStats: false, revealFiles: false };
 
 const PLATFORM = import.meta.env.TAURI_ENV_PLATFORM;
 

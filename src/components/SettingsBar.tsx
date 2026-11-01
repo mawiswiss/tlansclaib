@@ -82,7 +82,7 @@ export function SettingsBar(props: Props) {
           />
         </label>
       )}
-      {!FEATURES.mobile && (
+      {FEATURES.speakers && (
       <label className="setting" htmlFor="speakers-setting" title="Name who speaks in a recording with one audio track. A recording with several tracks gets one speaker per track anyway.">
         <span className="label">
           Speakers

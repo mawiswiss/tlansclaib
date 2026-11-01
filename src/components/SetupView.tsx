@@ -43,7 +43,7 @@ const PITCH: Record<Mode, string> = FEATURES.mobile
       minimal: "One small model and basic speaker detection. For when the others don't run.",
     };
 
-const SPEAKERS: Record<Mode, string> = { precise: "Better detection", essential: "Better detection", minimal: "Basic detection" };
+const SPEAKERS: Record<Mode, string> = FEATURES.mobile ? { precise: "Detected", essential: "Detected", minimal: "Detected" } : { precise: "Better detection", essential: "Better detection", minimal: "Basic detection" };
 
 const BARS: Record<Mode, number> = { precise: 30, essential: 16, minimal: 8 };
 

@@ -43,6 +43,13 @@ a mobile tab does not get (`docs/browser.md`).
   and at start deletes copies no entry uses. iOS moves the app data folder on
   a reinstall, which leaves old absolute paths in the history, so at start the
   app points entries back at their copies by the `<id>` folder.
+- **Speaker detection** is Nemotron alone, on every setup. Phones load no
+  downloaded code, so the app carries parakeet.cpp v0.6.1, without its sound
+  tagging and speaker identification, and only the 200 MB model downloads.
+  The engine opens it from the app's `Frameworks` folder on iOS and by name on
+  Android (`nemotron::library_path`). sherpa-onnx is left out: its 1.5 GB
+  never fits what iOS gives the app on a 3 GB phone, and it has no iOS build
+  to download. Detection has not yet run on a phone.
 - **Export** goes through the save dialog, which on a phone points where the
   app cannot write (`src-tauri/src/phone_export.rs`). iOS's dialog copies a
   file of the chosen name out of the app's Documents folder, so the app
@@ -51,9 +58,8 @@ a mobile tab does not get (`docs/browser.md`).
 - **Touch.** A tap on a word or line plays at once. A long-press or a double
   tap opens the line's editor. Nothing is revealed on hover, because iOS
   spends the first tap on a hover that changes what is shown.
-- **Left out on phones** (`FEATURES.mobile` in `src/lib/ipc.ts`): speaker
-  detection, updates, the CPU and RAM footer, adding model files and showing
-  folders.
+- **Left out on phones** (`FEATURES.mobile` in `src/lib/ipc.ts`): updates,
+  the CPU and RAM footer, adding model files and showing folders.
 - **The iOS Simulator runs on the CPU.** Its Metal driver ends the app when
   whisper.cpp uploads a model (`IOS_SIMULATOR` in `engine/src/transcribe.rs`).
   A real iPhone uses Metal.

@@ -51,8 +51,22 @@ struct Segment {
     speaker: usize,
 }
 
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub fn library_path(folder: &Path) -> PathBuf {
     folder.join("lib").join(LIBRARY_FILE)
+}
+
+/// Phones load no downloaded code, so the app carries the library and only the model downloads.
+#[cfg(target_os = "ios")]
+pub fn library_path(_: &Path) -> PathBuf {
+    let app = std::env::current_exe().ok().and_then(|exe| exe.parent().map(Path::to_path_buf)).unwrap_or_default();
+    app.join("Frameworks").join("parakeet.framework").join("parakeet")
+}
+
+/// A bare name, which Android looks up among the app's own libraries.
+#[cfg(target_os = "android")]
+pub fn library_path(_: &Path) -> PathBuf {
+    PathBuf::from(LIBRARY_FILE)
 }
 
 #[cfg(feature = "whisper")]
