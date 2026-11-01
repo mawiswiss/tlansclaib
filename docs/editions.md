@@ -28,6 +28,7 @@ Pro.
 | Text, SRT and WebVTT export | An installer with preset models and settings for organisations |
 | Converting a Hugging Face model, a remote model list | |
 | The mobile app for iPhone and Android, see `docs/mobile.md` | |
+| Sending a recording from the phone to the desktop, see `docs/handover.md` | |
 
 ## In this repository
 

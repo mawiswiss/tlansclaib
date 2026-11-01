@@ -11,6 +11,9 @@ projects, their build and the store releases live in the private Pro
 repository, so building this repository gives the desktop app and the
 browser version only.
 
+Sending a recording and its transcript to the desktop app is planned in
+`docs/handover.md`.
+
 The browser version is no route to phones: its model peaked at 4.2 GB, which
 a mobile tab does not get (`docs/browser.md`).
 
