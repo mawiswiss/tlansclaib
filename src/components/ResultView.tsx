@@ -3,7 +3,7 @@ import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/
 import { DETECTION } from "../lib/detection";
 import { differs } from "../lib/language";
 import type { RunState, Word } from "../lib/run";
-import { addSpeaker, assignSpeaker, colorOf, EXPORT_NAMES, MAX_SPEAKERS, findMatches, hasUnassigned, joinLine, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
+import { addSpeaker, assignSpeaker, colorOf, EXPORT_NAMES, MAX_SPEAKERS, findMatches, hasUnassigned, joinLine, mergeSpeakers, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
 import type { ExportFormat } from "../lib/types";
 import { FEATURES } from "../lib/ipc";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
@@ -340,7 +340,12 @@ export function ResultView(props: Props) {
       return;
     }
     speakerBusy.current = true;
-    const saved = await save((t) => (name ? { ...t, speakers: t.speakers.map((s, i) => (i === track ? name : s)) } : removeUnusedSpeakers(removeSpeaker(t, track))));
+    const saved = await save((t) => {
+      if (!name) return removeUnusedSpeakers(removeSpeaker(t, track));
+      const into = t.speakers.findIndex((s, i) => i !== track && s.toLowerCase() === name.toLowerCase());
+      if (into >= 0) return removeUnusedSpeakers(mergeSpeakers(t, track, into));
+      return { ...t, speakers: t.speakers.map((s, i) => (i === track ? name : s)) };
+    });
     speakerBusy.current = false;
     if (saved || !fromEnter) closeSpeakerRename();
   };
@@ -791,7 +796,7 @@ export function ResultView(props: Props) {
                   Wrong number?
                 </button>
               )}
-              <Tooltip content="Click the dot in front of a line to change its speaker. Remove a speaker with its ×, or by clearing its name, and its lines become Unassigned. Speakers come from the audio tracks of the recording, or from speaker detection.">
+              <Tooltip content="Click the dot in front of a line to change its speaker. Remove a speaker with its ×, or by clearing its name, and its lines become Unassigned. Give a speaker another speaker's name to merge them. Speakers come from the audio tracks of the recording, or from speaker detection.">
                 <span className="meta-info" tabIndex={0} aria-label="About speakers">
                   <Info size={14} />
                 </span>

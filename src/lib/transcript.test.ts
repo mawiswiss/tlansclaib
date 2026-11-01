@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { transcriptText } from "./format";
-import { addSpeaker, assignSpeaker, findMatches, hasUnassigned, joinLine, lineAt, nextSpeaker, parseTranscript, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, withTimes, wordAt } from "./transcript";
+import { addSpeaker, assignSpeaker, findMatches, hasUnassigned, joinLine, lineAt, mergeSpeakers, nextSpeaker, parseTranscript, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, withTimes, wordAt } from "./transcript";
 
 describe("parseTranscript", () => {
   it("reads a file with timecodes back into lines", () => {
@@ -174,6 +174,29 @@ describe("speaker corrections", () => {
       speakers: ["Host", "Caller"],
       colors: [0, 2],
       lines: three.map((line) => ({ ...line, speaker: line.speaker === 1 ? undefined : line.speaker === 2 ? 1 : line.speaker })),
+    });
+  });
+
+  it("merges a speaker into an earlier or a later one, which keeps its name and colour", () => {
+    const four = [...lines, { start: 30, end: 31, text: "Third", speaker: 2 }, { start: 31, end: 32, text: "Noise", speaker: undefined }];
+    const speakers = ["Host", "Guest", "Caller"];
+    expect(mergeSpeakers({ speakers, colors: [5, 3, 7], lines: four }, 2, 0)).toEqual({
+      speakers: ["Host", "Guest"],
+      colors: [5, 3],
+      lines: four.map((line) => ({ ...line, speaker: line.speaker === 2 ? 0 : line.speaker })),
+    });
+    expect(mergeSpeakers({ speakers, colors: [5, 3, 7], lines: four }, 0, 2)).toEqual({
+      speakers: ["Guest", "Caller"],
+      colors: [3, 7],
+      lines: four.map((line) => ({ ...line, speaker: line.speaker === undefined ? undefined : line.speaker === 1 ? 0 : 1 })),
+    });
+  });
+
+  it("merges the last two speakers into one", () => {
+    expect(mergeSpeakers({ speakers: ["Host", "Guest"], lines }, 1, 0)).toEqual({
+      speakers: ["Host"],
+      colors: [0],
+      lines: lines.map((line) => ({ ...line, speaker: 0 })),
     });
   });
 

@@ -495,7 +495,9 @@ top bar picks one.
   front of each of that speaker's lines, through the fingerprint check. The
   names live in the history entry (`speakers`), which is how a reopened file
   is read back: a line belongs to a speaker when it starts with that name and
-  a colon. A name cannot be empty, hold a colon or be used twice. Every line
+  a colon. A name cannot hold a colon. An empty name removes the speaker, and
+  another speaker's name, in any case, merges the two: the lines go to that
+  speaker, which keeps its name and colour (`mergeSpeakers`). Every line
   carries its speaker's dot at the height of its first line, which names the
   speaker when pointed at.
 - With one speaker, the row says so, or "1 person detected" after detection.

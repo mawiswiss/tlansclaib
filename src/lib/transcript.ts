@@ -178,6 +178,12 @@ export function removeSpeaker(transcript: Transcript, track: number): Transcript
   };
 }
 
+/** `from`'s lines go to `into`, which keeps its name and colour. */
+export function mergeSpeakers(transcript: Transcript, from: number, into: number): Transcript {
+  const lines = transcript.lines.map((line) => (line.speaker === from ? { ...line, speaker: into } : line));
+  return removeSpeaker({ ...transcript, lines }, from);
+}
+
 /** Lines without a speaker show as Unassigned, unless no line has one, which is a transcript without speakers. */
 export function hasUnassigned(transcript: Transcript): boolean {
   const spoken = transcript.lines.filter((line) => line.text.trim());

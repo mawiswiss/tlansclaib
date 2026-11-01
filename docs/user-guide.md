@@ -202,7 +202,9 @@ and close the result. The plus to the right starts the next recording.
 - Timecodes: the switch next to the search shows or hides times and controls
   whether text exports include them. The app retains the line timing.
 - Speakers: with several speakers, their names sit above the text. Click a
-  name to change it. History saves the new name at once. A coloured dot on
+  name to change it. History saves the new name at once. When detection split
+  one person into two, give one of them the other's name, and their lines
+  merge under that name. A coloured dot on
   each line names its speaker when pointed at. Click the dot to give the line
   another speaker, or "New speaker" for a person detection missed. With one
   speaker, "Add a speaker" next to it does the same.
