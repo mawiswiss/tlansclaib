@@ -7,6 +7,9 @@ mod history;
 mod models;
 #[cfg(mobile)]
 mod phone_export;
+#[cfg(feature = "pro")]
+#[path = "../../pro/app/mod.rs"]
+mod pro;
 #[cfg(any(mobile, test))]
 mod recordings;
 mod run;
@@ -559,6 +562,8 @@ pub fn run() {
             update_blocker,
             gpu_info,
             check_setup_downloads,
+            #[cfg(feature = "pro")]
+            pro::pro_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

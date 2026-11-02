@@ -37,7 +37,9 @@ topic, no date prefixes, no generated trees.
   before adding a feature that uses more memory.
 - No model file is accepted without validation, see `validate.rs` and
   `docs/models.md`.
-- Pro features are not built in this repository. `docs/editions.md` draws the
+- Pro features are not built in this repository. Public code reaches the
+  private module only through the `pro` Cargo feature, and never with
+  `--all-features`, which turns it on. `docs/editions.md` draws the
   line between Free and Pro. Ask before building anything on the Pro side,
   listed or not.
 - Nothing personal in the repository, in logs or in fixtures: no home paths, no
