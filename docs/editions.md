@@ -3,7 +3,10 @@
 tlansclaib is one app with two editions. Free is this repository, open source
 under MIT. Pro is a private module, planned for app version 1.0. The official
 installer will contain it, locked, and a licence key unlocks it in place,
-offline. Building this repository gives the free app.
+offline. Building this repository gives the free app. The iPhone and Android
+apps exist only as official builds for the stores. A store lets a phone app
+unlock features through its own in-app purchase alone, so Pro stays off on
+phones until it can be bought that way.
 
 ## The line
 
