@@ -1,10 +1,8 @@
 # Mobile app
 
 The same app runs on iPhone and Android, and its features belong to Free.
-It transcribes on the iOS Simulator and the Android emulator: pick a
-recording, press GO, get a timed transcript in the history. On a real iPhone
-it opens to the setup screen, and no transcription has run there yet. Nothing
-is on a store.
+It transcribes on iPhone and Android devices: pick a recording, press GO,
+get a timed transcript in the history. Nothing is on a store yet.
 
 This page describes how the shared code behaves on phones. The phone
 projects, their build and the store releases live in the private Pro
