@@ -48,6 +48,7 @@ src-tauri/binaries
 # Editor and agent settings, except the project skills
 .claude/*
 !.claude/skills/
+/.claude/skills/brand
 
 # The browser version
 dist-web

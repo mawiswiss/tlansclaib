@@ -53,3 +53,16 @@ topic, no date prefixes, no generated trees.
   time zone.
 - Prose in English, without em-dashes. Code comments are rare and explain only
   what the code cannot show.
+
+## Brand
+
+- When `pro/brand/` exists, it is the source of truth for colors, type, icons,
+  logos and user-facing copy. Read `pro/brand/guide.md` before changing
+  `src/styles.css`, `src/components/icons.tsx`, app icons or text users see.
+- The app keeps the name tlansclaib in its code, identifiers and text until a
+  rename is decided. Take the voice from the brand, not its name.
+- A value the app needs and the brand lacks goes into `pro/brand/` first, then
+  into the app. Change the brand with the `brand` skill in
+  `pro/.claude/skills/brand/`. It opens a pull request in the pro repo for
+  review and never commits in this one.
+- Without `pro/`, keep the existing tokens.
