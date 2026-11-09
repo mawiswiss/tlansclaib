@@ -275,6 +275,15 @@ because progress reporting and other work are outside those stages.
   A finished entry also keeps the device and the seconds of each step, which
   the run view compares a running step with.
   At the 500-entry limit there is no query workload that calls for SQLite.
+- `settings.rs`: the window keeps its settings in the webview's `localStorage`
+  (`lib/settings.ts`), which a new bundle identifier leaves behind. WKWebView
+  on macOS keeps it under `~/Library/WebKit/<identifier>`, and on Windows and
+  Linux Tauri puts the webview's data in the local app data folder, which is
+  named after the identifier and on Linux is the app data folder itself. So
+  every save also writes `settings.json` to the app data folder, through a
+  `.part` file and a rename. With no settings in storage at start, the window
+  fills it from that file before the first render. The window saves at every
+  start, so one start of a version with the mirror writes the file.
 - `transcript.rs`: saves corrections, title changes and the timecodes display
   preference in private records. Exports text, SRT and WebVTT to a path chosen
   in the save dialog. Legacy text files keep their existing edit checks.

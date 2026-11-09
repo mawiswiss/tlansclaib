@@ -1,14 +1,19 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { loadSettings } from "./lib/settings";
+import { loadSettings, restoreSettings, settingsMissing } from "./lib/settings";
 import { applyTheme } from "./lib/theme";
 import "./styles.css";
 
-void applyTheme(loadSettings().theme).catch(() => {});
+function start() {
+  void applyTheme(loadSettings().theme).catch(() => {});
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
+}
+
+if (settingsMissing()) void restoreSettings().finally(start);
+else start();

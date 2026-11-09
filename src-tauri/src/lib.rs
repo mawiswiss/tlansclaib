@@ -13,6 +13,7 @@ mod pro;
 #[cfg(any(mobile, test))]
 mod recordings;
 mod run;
+mod settings;
 mod stall;
 mod system;
 mod transcript;
@@ -421,6 +422,18 @@ async fn restart_run(app: AppHandle, language: String) -> Result<(), run::StartE
 }
 
 #[tauri::command]
+fn mirror_settings(app: AppHandle, settings: serde_json::Value) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    settings::write(&dir, &settings).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+fn mirrored_settings(app: AppHandle) -> Result<Option<serde_json::Value>, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    settings::read(&dir).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
 fn update_blocker() -> Option<String> {
     let exe = std::env::current_exe().ok()?;
     if let Some(problem) = misplaced(&exe) {
@@ -560,6 +573,8 @@ pub fn run() {
             disk_space,
             measure_speed,
             update_blocker,
+            mirror_settings,
+            mirrored_settings,
             gpu_info,
             check_setup_downloads,
             #[cfg(feature = "pro")]

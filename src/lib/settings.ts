@@ -1,3 +1,4 @@
+import { isTauri } from "./ipc";
 import type { Setup } from "./setup";
 
 export type Theme = "system" | "light" | "dark";
@@ -52,4 +53,30 @@ export function loadSettings(): Settings {
 
 export function saveSettings(settings: Settings) {
   localStorage.setItem(STORAGE, JSON.stringify(settings));
+  if (isTauri) {
+    import("@tauri-apps/api/core")
+      .then(({ invoke }) => invoke("mirror_settings", { settings }))
+      .catch((error) => warn(`could not mirror the settings to the app data folder: ${String(error)}`));
+  }
+}
+
+export function settingsMissing(): boolean {
+  return isTauri && localStorage.getItem(STORAGE) === null;
+}
+
+/** Fills empty storage from the app data folder, which survives a new bundle identifier when the webview's storage does not. */
+export async function restoreSettings() {
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const saved = await invoke<unknown>("mirrored_settings");
+    if (saved && typeof saved === "object" && !Array.isArray(saved) && localStorage.getItem(STORAGE) === null) {
+      localStorage.setItem(STORAGE, JSON.stringify(saved));
+    }
+  } catch (error) {
+    warn(`could not restore the settings from the app data folder: ${String(error)}`);
+  }
+}
+
+function warn(message: string) {
+  import("@tauri-apps/plugin-log").then((log) => log.warn(message)).catch(() => {});
 }
