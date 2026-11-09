@@ -24,6 +24,17 @@ git status -sb
 Work on `main` with a clean tree. Main must not be behind `origin/main`. Being
 ahead is fine: those commits go out with the release.
 
+The official build includes the private Pro module, so check `pro/` the same
+way:
+
+```bash
+git -C pro fetch origin
+git -C pro status -sb
+```
+
+It must be on `main`, clean and not behind `origin/main`. Without `pro/` on
+disk, stop: the release job fails without Pro, see `docs/release.md`.
+
 ## 2. Pick the version
 
 ```bash
@@ -134,15 +145,25 @@ git cat-file -t v0.4.0
 
 `git cat-file` must print `tag`: an annotated, signed tag.
 
-## 9. Push
-
-Ask first. Then push main and the tag together:
+Tag Pro at the same version, so the build checks out the Pro code that
+matches this commit:
 
 ```bash
+TZ=UTC git -C pro tag -s v0.4.0 -m v0.4.0
+git -C pro cat-file -t v0.4.0
+```
+
+## 9. Push
+
+Ask first. Push the Pro tag before the public one, because the public tag
+starts the build, which checks out Pro at that tag:
+
+```bash
+git -C pro push origin v0.4.0
 git push origin main v0.4.0
 ```
 
-The tag starts `release`, and both pushes start `check`.
+The public tag starts `release`, and both public pushes start `check`.
 
 ## 10. Wait for the build
 

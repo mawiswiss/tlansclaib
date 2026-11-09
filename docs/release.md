@@ -81,6 +81,26 @@ place first, because tauri-build refuses to compile the app without either.
 - tauri-action names the files after `assetNamePattern`. Next to the three
   installers, the release holds the update files, see Updates.
 
+## The Pro module
+
+The official installers include the private Pro module, locked until a
+licence key unlocks it (`docs/editions.md`).
+
+- The release job checks out `mawiswiss/tlansclaib-pro` into `pro/` at the
+  same tag, with the read-only deploy key in the secret `PRO_DEPLOY_KEY`, and
+  builds with `--features pro`. The `release` skill tags both repositories.
+- In a repository owned by `mawiswiss`, a missing key fails the job, so no
+  release ships without Pro under the same download names. A fork without the
+  key builds the free app.
+- The log is public. Cargo prints short messages, which name file and line
+  without the code. The Rust cache is not saved on tags, and every action in
+  the job is pinned to a commit. Vite prints a code frame on a syntax error,
+  so check Pro locally before tagging.
+- To set up the key once, run `ssh-keygen -t ed25519 -N "" -f pro-deploy`.
+  Then add `pro-deploy.pub` as a read-only deploy key on the Pro repository,
+  add the private key as the secret `PRO_DEPLOY_KEY` here, and delete both
+  files.
+
 ## Signing
 
 The release workflow signs the Mac app with a Developer ID and has Apple

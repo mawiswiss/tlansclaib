@@ -25,10 +25,36 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       GGML_NATIVE: "OFF"
+    # Actions are pinned to commits, because they can read pro/ and the signing secrets.
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Check for the Pro deploy key
+        id: pro
+        shell: bash
+        env:
+          KEY: ${{ secrets.PRO_DEPLOY_KEY }}
+        # A fork builds the free app. The official repository never ships a release without Pro under the same download names.
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "key=yes" >> "$GITHUB_OUTPUT"
+            echo "PRO_ARGS=--features pro" >> "$GITHUB_ENV"
+          elif [ "$GITHUB_REPOSITORY_OWNER" = mawiswiss ]; then
+            echo "PRO_DEPLOY_KEY is not set, so this release would ship without Pro."
+            exit 1
+          else
+            echo "No Pro deploy key, building the free app."
+          fi
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        if: steps.pro.outputs.key == 'yes'
         with:
+          repository: mawiswiss/tlansclaib-pro
+          ref: ${{ github.ref_name }}
+          path: pro
+          ssh-key: ${{ secrets.PRO_DEPLOY_KEY }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
           targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - name: Install the Linux build libraries
         if: matrix.os == 'ubuntu-22.04'
@@ -38,7 +64,7 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev patchelf libvulkan-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
       - name: Install Vulkan SDK
         if: matrix.os != 'macos-latest'
-        uses: jakoch/install-vulkan-sdk-action@v1
+        uses: jakoch/install-vulkan-sdk-action@7fe84289ddbf750f7eff9f8e4588e600e1dd06c8 # v1
         with:
           vulkan_version: 1.4.341.1
       - name: Keep build paths under the Windows limit
@@ -46,13 +72,15 @@ jobs:
         shell: pwsh
         # MSBuild's file tracker fails on paths of 260 characters and more, which the Vulkan shader build of whisper.cpp reaches.
         run: Add-Content $env:GITHUB_ENV "CARGO_TARGET_DIR=$(Join-Path (Split-Path (Split-Path $env:GITHUB_WORKSPACE)) t)"
-      - uses: Swatinem/rust-cache@v2
+      # A cache saved on a tag is never restored on another, and it would hold Pro's build.
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: ${{ matrix.os == 'windows-2022' && '. -> ../../t' || '.' }}
-      - uses: pnpm/action-setup@v4
+          save-if: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 11
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
           cache: pnpm
@@ -96,7 +124,7 @@ jobs:
             echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$KEY_PASSWORD"
             echo "UPDATER_ARGS=--config src-tauri/tauri.updater.conf.json"
           } >> "$GITHUB_ENV"
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -112,7 +140,8 @@ jobs:
 
             On the first start, open Models and download one for your language.
           assetNamePattern: ${{ matrix.assets }}
-          args: ${{ matrix.args }} ${{ env.UPDATER_ARGS }}
+          # Short messages name file and line without printing Pro's source into the public log.
+          args: ${{ matrix.args }} ${{ env.UPDATER_ARGS }} ${{ env.PRO_ARGS }} -- --message-format short
       - name: Check that the AppImage carries every library its engines need
         if: matrix.os == 'ubuntu-22.04'
         # A bare Ubuntu 22.04, the oldest supported system. The Vulkan loader comes with the graphics driver.
