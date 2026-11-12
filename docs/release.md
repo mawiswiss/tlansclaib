@@ -175,12 +175,19 @@ the list.
 `pnpm tauri build` needs Rust, CMake, Node 22 and pnpm. The app and the disk
 image land under `target/release/bundle/`, signed ad hoc, without an update.
 
-## Icon
+## Brand files
 
-`src-tauri/icons/icon.svg` is the source. After changing it, regenerate the
-platform files into a scratch folder and copy over the ones in
-`src-tauri/icons/`. The Android and iOS sets the tool also writes are not used.
+The tokens, fonts, logos and icons come from the private brand folder,
+`pro/brand`. `scripts/brand-sync.mjs` copies them in and commits nothing:
+`src/styles/tokens.css`, `src/assets/fonts/`, `src/assets/brand/`, the desktop
+icons in `src-tauri/icons/` and the browser version's favicons and
+apple-touch-icon in `public-web/`. Never edit those files by hand. Run it after
+the brand changes, on a Mac, because it builds `icon.icns` with `iconutil`:
 
 ```bash
-pnpm tauri icon src-tauri/icons/icon.svg -o /tmp/tlansclaib-icons
+node scripts/brand-sync.mjs
 ```
+
+The desktop icons come from `app-icon.svg`, except the 16 and 32 px images
+inside `icon.ico` and `icon.icns` and `32x32.png`, which come from
+`mark-small.svg`, as the brand guide asks.

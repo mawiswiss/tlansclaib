@@ -1,0 +1,6 @@
+The wavetyper name, logo and icons in this folder, in src-tauri/icons and in
+public-web are not covered by the MIT licence of this repository. You may not
+use them for a build or a product of your own without permission.
+
+The fonts in src/assets/fonts are under the SIL Open Font License, see
+src/assets/fonts/LICENSE.txt.

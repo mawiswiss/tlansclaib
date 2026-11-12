@@ -24,6 +24,9 @@ topic, no date prefixes, no generated trees.
 - `pnpm typecheck`, `pnpm test`.
 - `pnpm dev:web` and `pnpm build:web` for the browser version. They need the
   `wasm32-unknown-unknown` Rust target.
+- `node scripts/brand-sync.mjs` copies tokens, fonts, logos and icons from
+  `pro/brand` into the app. Never edit the files it writes by hand, see
+  `docs/release.md`.
 - Cmd/Ctrl+Shift+E in a dev build opens a panel that fires every toast and
   error screen. The mock backend takes query flags, see `docs/development.md`.
 - `pnpm tauri build` for installers. Release builds come from GitHub Actions on
