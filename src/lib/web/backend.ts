@@ -12,6 +12,7 @@ import * as store from "./store";
 import type { Reply, Request } from "./worker";
 
 const MODEL = "universal-turbo-web";
+// Keeps the app's former name, so stored data survives the rename.
 const HEAVY = "tlansclaib.too-heavy";
 const RATE = 16_000;
 

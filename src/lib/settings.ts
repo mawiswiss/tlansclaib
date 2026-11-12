@@ -20,6 +20,7 @@ export type Settings = {
   dismissed: string[];
 };
 
+// Keeps the app's former name, so stored data survives the rename.
 const STORAGE = "tlansclaib.settings";
 export let settingsLoadError: string | null = null;
 

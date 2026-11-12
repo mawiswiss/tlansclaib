@@ -30,7 +30,7 @@ mod tests {
     use super::*;
 
     fn folder(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-settings-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-settings-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         dir
     }

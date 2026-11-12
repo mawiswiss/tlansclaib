@@ -1,6 +1,6 @@
 ---
 name: release
-description: Use when releasing a new version of the tlansclaib app. Picks the
+description: Use when releasing a new version of the wavetyper app. Picks the
   next version from the commits, writes the CHANGELOG.md entry and the release
   notes, bumps the version, tags it, has GitHub Actions build the Mac,
   Windows and Linux installers, and publishes the draft release. Trigger on "release",
@@ -187,9 +187,9 @@ gh release edit v0.4.0 --notes-file <notes file>
 gh release view v0.4.0 --json body -q .body
 ```
 
-The draft holds these eight files: `latest.json`, `tlansclaib-mac.dmg`,
-`tlansclaib-mac.app.tar.gz` and its `.sig`, `tlansclaib-windows-setup.exe` and
-its `.sig`, `tlansclaib-linux.AppImage` and its `.sig`. `latest.json` names the
+The draft holds these eight files: `latest.json`, `wavetyper-mac.dmg`,
+`wavetyper-mac.app.tar.gz` and its `.sig`, `wavetyper-windows-setup.exe` and
+its `.sig`, `wavetyper-linux.AppImage` and its `.sig`. `latest.json` names the
 new version, with `darwin-aarch64`, `darwin-x86_64`, `windows-x86_64` and
 `linux-x86_64` among the platforms. The body must show
 the notes from step 4.
@@ -205,3 +205,10 @@ curl -sL https://github.com/mawiswiss/tlansclaib/releases/latest/download/latest
 ```
 
 The second command must print the new version.
+
+## 13. Deploy the browser version
+
+Its desktop buttons download from `releases/latest/download/`. The first
+wavetyper release renames those files, so deploy the browser version right
+after publishing it: `pnpm build:web`, then upload `dist-web/` to Cloudflare
+Pages, see `docs/browser.md`. Later releases keep the names and need no deploy.

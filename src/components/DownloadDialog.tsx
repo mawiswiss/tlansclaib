@@ -4,13 +4,13 @@ import { Close, Download, Monitor } from "./icons";
 type Props = { platform: Platform | null; onDownload: (platform: Platform) => void; onClose: () => void };
 
 const STEPS: Record<Platform, string[]> = {
-  mac: ["Open tlansclaib-mac.dmg from your Downloads.", "Drag tlansclaib into Applications and start it from there."],
+  mac: ["Open wavetyper-mac.dmg from your Downloads.", "Drag wavetyper into Applications and start it from there."],
   windows: [
-    "Run tlansclaib-windows-setup.exe from your Downloads.",
+    "Run wavetyper-windows-setup.exe from your Downloads.",
     "Windows may say “Windows protected your PC”, because the installer is not signed yet. Click “More info”, then “Run anyway”.",
   ],
   linux: [
-    "Make tlansclaib-linux.AppImage in your Downloads executable, under Properties in the file manager or with chmod +x.",
+    "Make wavetyper-linux.AppImage in your Downloads executable, under Properties in the file manager or with chmod +x.",
     "Start it. Some distributions need the libfuse2 package first.",
   ],
 };
@@ -31,7 +31,7 @@ export function DownloadDialog({ platform, onDownload, onClose }: Props) {
         {platform ? (
           <>
             <h2 id="download-title">Your download has started</h2>
-            <p className="muted">tlansclaib for {INSTALLERS[platform].name}, {INSTALLERS[platform].requires}.</p>
+            <p className="muted">wavetyper for {INSTALLERS[platform].name}, {INSTALLERS[platform].requires}.</p>
             <ol className="download-steps">
               {STEPS[platform].map((step) => (
                 <li key={step}>{step}</li>
@@ -63,7 +63,7 @@ export function DownloadDialog({ platform, onDownload, onClose }: Props) {
           </>
         ) : (
           <>
-            <h2 id="download-title">Download tlansclaib for your computer</h2>
+            <h2 id="download-title">Download wavetyper for your computer</h2>
             <p className="muted">The desktop app is free. Download it on the computer you want to transcribe on. It runs on Mac, Windows and Linux.</p>
             <div className="download-choices">
               {PLATFORMS.map((p) => (

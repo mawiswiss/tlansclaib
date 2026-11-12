@@ -25,7 +25,7 @@ pub struct Language {
 
 pub use imp::{Worker, audio_seconds, languages, peaks};
 
-/// Starts `tlansclaib-engine` with the arguments of one of its commands, the command first.
+/// Starts `wavetyper-engine` with the arguments of one of its commands, the command first.
 pub fn spawn(app: &AppHandle, engine_name: &str, args: Vec<String>) -> Result<(UnboundedReceiver<Output>, Worker)> {
     imp::spawn(app, engine_name, args)
 }

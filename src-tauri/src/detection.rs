@@ -510,7 +510,7 @@ mod tests {
     use std::io::Write;
 
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-{name}-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }

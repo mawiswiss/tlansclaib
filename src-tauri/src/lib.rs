@@ -13,6 +13,8 @@ mod phone_export;
 mod pro;
 #[cfg(any(mobile, test))]
 mod recordings;
+#[cfg(desktop)]
+mod rename;
 mod run;
 mod settings;
 mod stall;
@@ -462,14 +464,14 @@ fn update_blocker() -> Option<String> {
 fn misplaced(exe: &Path) -> Option<&'static str> {
     let path = exe.to_string_lossy();
     (path.starts_with("/Volumes/") || path.contains("/AppTranslocation/"))
-        .then_some("Move tlansclaib to the Applications folder and start it from there, then update.")
+        .then_some("Move wavetyper to the Applications folder and start it from there, then update.")
 }
 
-/// A development build started with TLANSCLAIB_AUTORUN=<audio file> transcribes it at once.
+/// A development build started with WAVETYPER_AUTORUN=<audio file> transcribes it at once.
 #[tauri::command]
 fn autorun() -> Option<String> {
     if cfg!(debug_assertions) {
-        std::env::var("TLANSCLAIB_AUTORUN").ok()
+        std::env::var("WAVETYPER_AUTORUN").ok()
     } else {
         None
     }
@@ -495,6 +497,9 @@ fn without_home(text: &str, home: Option<&str>) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let context = tauri::generate_context!();
+    #[cfg(desktop)]
+    let renamed = rename::migrate(&context.config().identifier);
     let builder = tauri::Builder::default();
     #[cfg(desktop)]
     let builder = builder
@@ -518,7 +523,11 @@ pub fn run() {
                 .build(),
         )
         .manage(run::RunState::default())
-        .setup(|app| {
+        .setup(move |app| {
+            #[cfg(desktop)]
+            for note in &renamed {
+                log::info!("{note}");
+            }
             // Engine processes inherit it: a missing DLL then ends them with an error code instead of a Windows dialog.
             #[cfg(windows)]
             unsafe {
@@ -597,8 +606,25 @@ pub fn run() {
             #[cfg(feature = "pro")]
             pro::pro_status,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(context)
+        .expect("error while building tauri application")
+        .run({
+            #[cfg(target_os = "macos")]
+            let mut restarting = false;
+            move |_app, _event| {
+                #[cfg(target_os = "macos")]
+                match _event {
+                    // A restart relaunches from the bundle's current path after the exit event, so only a plain quit renames it.
+                    tauri::RunEvent::ExitRequested { code: Some(tauri::RESTART_EXIT_CODE), .. } => restarting = true,
+                    tauri::RunEvent::Exit if !restarting => {
+                        if let Some(note) = rename::rename_bundle(&_app.package_info().name) {
+                            log::info!("{note}");
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        });
 }
 
 #[cfg(test)]
@@ -617,9 +643,9 @@ mod tests {
 
     #[test]
     fn an_app_run_from_the_disk_image_or_a_translocated_copy_cannot_update() {
-        assert!(misplaced(Path::new("/Volumes/tlansclaib/tlansclaib.app/Contents/MacOS/tlansclaib")).is_some());
-        assert!(misplaced(Path::new("/private/var/folders/x/T/AppTranslocation/ABC/d/tlansclaib.app/Contents/MacOS/tlansclaib")).is_some());
-        assert!(misplaced(Path::new("/Applications/tlansclaib.app/Contents/MacOS/tlansclaib")).is_none());
-        assert!(misplaced(Path::new(r"C:\Users\someone\AppData\Local\tlansclaib\tlansclaib.exe")).is_none());
+        assert!(misplaced(Path::new("/Volumes/wavetyper/wavetyper.app/Contents/MacOS/wavetyper")).is_some());
+        assert!(misplaced(Path::new("/private/var/folders/x/T/AppTranslocation/ABC/d/wavetyper.app/Contents/MacOS/wavetyper")).is_some());
+        assert!(misplaced(Path::new("/Applications/wavetyper.app/Contents/MacOS/wavetyper")).is_none());
+        assert!(misplaced(Path::new(r"C:\Users\someone\AppData\Local\wavetyper\wavetyper.exe")).is_none());
     }
 }

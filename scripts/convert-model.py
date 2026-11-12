@@ -74,7 +74,7 @@ def main():
     parser.add_argument("--quant", nargs="*", default=["q8_0", "q5_0"], help="quantizations to write")
     parser.add_argument("--keep-f16", action="store_true", help="also keep the unquantized f16 file")
     parser.add_argument("--out", type=Path, default=Path(__file__).resolve().parent.parent / "models")
-    parser.add_argument("--cache", type=Path, default=Path.home() / ".cache" / "tlansclaib-convert")
+    parser.add_argument("--cache", type=Path, default=Path.home() / ".cache" / "wavetyper-convert")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     args.cache.mkdir(parents=True, exist_ok=True)

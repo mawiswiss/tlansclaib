@@ -1,6 +1,6 @@
 # Editions
 
-tlansclaib is one app with two editions. Free is this repository, open source
+wavetyper is one app with two editions. Free is this repository, open source
 under MIT. Pro is a private module, planned for app version 1.0. The official
 installer will contain it, locked, and a licence key unlocks it in place,
 offline. Building this repository gives the free app. The iPhone and Android

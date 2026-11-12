@@ -38,8 +38,8 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
           <span className="glyph">
             <Monitor size={24} />
           </span>
-          <h2>Open tlansclaib on your computer</h2>
-          <p>tlansclaib transcribes audio and video to text or subtitles on your own computer, in about 100 languages, and never uploads the recording.</p>
+          <h2>Open wavetyper on your computer</h2>
+          <p>wavetyper transcribes audio and video to text or subtitles on your own computer, in about 100 languages, and never uploads the recording.</p>
           <p>It does not run on a phone or tablet. Open this page in a browser on your computer, or download the free desktop app for Mac, Windows and Linux.</p>
           <div className="actions">{desktop(true)}</div>
         </div>
@@ -53,8 +53,8 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
           <span className="glyph">
             <Alert size={24} />
           </span>
-          <h2>tlansclaib&nbsp;Lite does not run in this browser</h2>
-          <p>tlansclaib Lite transcribes audio and video to text or subtitles on your own computer, in about 100 languages, and never uploads the recording.</p>
+          <h2>wavetyper&nbsp;Lite does not run in this browser</h2>
+          <p>wavetyper Lite transcribes audio and video to text or subtitles on your own computer, in about 100 languages, and never uploads the recording.</p>
           <p role="alert">{problem} The desktop app for Mac, Windows and Linux runs on any recent computer.</p>
           <div className="actions">{desktop(true)}</div>
         </div>
@@ -147,7 +147,7 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
         <span className="glyph">
           <Check size={24} />
         </span>
-        <h2>Try tlansclaib Lite in your browser</h2>
+        <h2>Try wavetyper Lite in your browser</h2>
         <p>The model downloads once ({bytes(model?.size_bytes ?? 0)}) and stays in this browser. Recordings are transcribed on this computer and never uploaded.</p>
         {limits}
         {problemText}

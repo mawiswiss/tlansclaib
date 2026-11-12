@@ -446,7 +446,7 @@ mod tests {
         wav.extend(b"data");
         wav.extend((data.len() as u32).to_le_bytes());
         wav.extend(data);
-        let path = std::env::temp_dir().join(format!("tlansclaib-peaks-{}.wav", std::process::id()));
+        let path = std::env::temp_dir().join(format!("wavetyper-peaks-{}.wav", std::process::id()));
         std::fs::write(&path, wav).unwrap();
         let result = peaks(&path, 40);
         let _ = std::fs::remove_file(&path);

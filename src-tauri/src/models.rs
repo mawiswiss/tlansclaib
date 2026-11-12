@@ -588,7 +588,7 @@ mod tests {
 
     #[test]
     fn links_a_model_file_where_it_lies_and_unlinks_it_without_deleting() {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-links-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-links-{}", std::process::id()));
         let elsewhere = dir.join("elsewhere");
         std::fs::create_dir_all(&elsewhere).unwrap();
         let file = elsewhere.join("ggml-my-thai-q8_0.bin");
@@ -648,11 +648,11 @@ mod tests {
         assert!(bundled.iter().any(|e| e.url.as_deref() == Some(SPEED_PROBE)));
     }
 
-    // Needs the network: cargo test -p tlansclaib -- --ignored
+    // Needs the network: cargo test -p wavetyper -- --ignored
     #[test]
     #[ignore]
     fn downloads_and_validates_the_minimal_model() {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-download-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-download-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let bundled: Vec<ModelEntry> = serde_json::from_str(BUNDLED).unwrap();
         let entry = bundled.into_iter().find(|e| e.id == "small-q8_0").unwrap();
@@ -732,7 +732,7 @@ mod tests {
 
     #[test]
     fn a_models_folder_lists_entries_and_custom_files() {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-models-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-models-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let header = |words: [u32; 12]| -> Vec<u8> { words.iter().flat_map(|w| w.to_le_bytes()).collect() };
         let small = header([0x67676d6c, 51865, 1500, 768, 12, 12, 448, 768, 12, 12, 80, 1007]);
@@ -754,7 +754,7 @@ mod tests {
 
     #[test]
     fn a_model_marked_too_heavy_lists_its_reason_until_cleared_or_deleted() {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-too-heavy-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-too-heavy-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let header: Vec<u8> = [0x67676d6cu32, 51866, 1500, 1280, 20, 32, 448, 1280, 20, 4, 128, 1007].iter().flat_map(|w| w.to_le_bytes()).collect();
         std::fs::write(dir.join("ggml-large-v3-turbo-q8_0.bin"), &header).unwrap();
@@ -777,7 +777,7 @@ mod tests {
 
     #[test]
     fn damaged_model_metadata_is_reported_without_replacing_it() {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-model-errors-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-model-errors-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let links = dir.join(LINKS);
         std::fs::write(&links, "not json").unwrap();

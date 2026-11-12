@@ -91,7 +91,7 @@ mod tests {
     fn write(timestamps: bool) -> String {
         static RUNS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let run = RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!("tlansclaib-output-{}-{run}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-output-{}-{run}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("meeting_transcript.txt");
         let mut writer = Writer::create(&path, timestamps).unwrap();

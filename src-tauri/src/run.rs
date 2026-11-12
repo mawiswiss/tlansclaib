@@ -269,7 +269,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
     #[cfg(any(windows, target_os = "linux"))]
     let engine_name = {
         if crate::gpu::device(app).await.is_some_and(|gpu| guard::can_use_gpu(gpu.free_bytes, entry.ram_bytes())) {
-            "tlansclaib-engine-vulkan"
+            "wavetyper-engine-vulkan"
         } else {
             crate::cpu::engine()
         }
@@ -282,7 +282,7 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         retry_args.push("--cpu".into());
     }
     retry_args.push("--fit-encoder".into());
-    let mut gpu_attempt = metal || engine_name == "tlansclaib-engine-vulkan";
+    let mut gpu_attempt = metal || engine_name == "wavetyper-engine-vulkan";
     if !gpu_attempt {
         args.push("--fit-encoder".into());
     }
@@ -293,8 +293,8 @@ pub async fn start(app: &AppHandle, request: Request<'_>) -> Result<()> {
         .idle(true)
         .sleep(true)
         .reason("Transcribing a recording")
-        .app_name("tlansclaib")
-        .app_reverse_domain("tlansclaib")
+        .app_name("wavetyper")
+        .app_reverse_domain("name.marcwieland.wavetyper")
         .create()
         .map_err(|error| {
             log::warn!("could not prevent sleep during transcription");

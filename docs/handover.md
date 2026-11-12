@@ -1,14 +1,14 @@
 # Handover from phone to desktop
 
 The phone app sends a recording, with the transcript and corrections made on
-the phone, to tlansclaib on a computer. The computer runs the detailed
+the phone, to wavetyper on a computer. The computer runs the detailed
 transcription, and its editor finishes the document. The handover belongs to
 Free: no licence, no account, no server, and the phone app sells nothing.
 Nothing is built yet. This file is the plan and what is still unknown.
 
 ## What it does
 
-- A send goes to any computer with tlansclaib installed, the way AirDrop
+- A send goes to any computer with wavetyper installed, the way AirDrop
   works. Nothing migrates the history between devices.
 - It carries the recording and, when the phone has transcribed it, the
   phone's record: lines, title, language, model and corrections.
@@ -52,7 +52,7 @@ devices with "Forget", for a lost phone.
 
 ## Finding the computer
 
-The desktop listens on TCP and advertises `_tlansclaib._tcp` by DNS-SD
+The desktop listens on TCP and advertises `_wavetyper._tcp` by DNS-SD
 whenever the app runs with a paired phone, and a switch "Receive from phones"
 turns both off. It binds the port it used last and picks a new one only when
 that one is taken, so saved addresses keep working. The instance name and the
@@ -72,7 +72,7 @@ A transfer under way when the app leaves the screen finishes in iOS's
 background task time (`beginBackgroundTask`).
 
 - iOS browses with `NWBrowser` in a small Swift plugin, with
-  `_tlansclaib._tcp` in `NSBonjourServices` and a
+  `_wavetyper._tcp` in `NSBonjourServices` and a
   `NSLocalNetworkUsageDescription`. Apple ties the restricted multicast
   entitlement to raw multicast and arbitrary service types, so a declared
   type through `NWBrowser` should not need it.
@@ -160,14 +160,14 @@ comes first when the desktop reports one.
 
 ## Share
 
-Share hands out ordinary files that work without tlansclaib: the recording as
+Share hands out ordinary files that work without wavetyper: the recording as
 it is, the transcript as text, or as SRT and WebVTT on request, and "Data to
 continue on the desktop", which is on when the phone has a transcript. A line
 in the share sheet says the files are not encrypted and should travel a way
 the user trusts. Protecting a cloud drive the user picks is not the app's
 job.
 
-The data file is `<name>.tlansclaib.json`: a format version, the recording's
+The data file is `<name>.wavetyper.json`: a format version, the recording's
 file name, size and SHA-256, and the record without any path. This file will
 document the format, so other tools can read it, and the desktop keeps
 reading every older version.

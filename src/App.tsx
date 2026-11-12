@@ -299,7 +299,7 @@ export default function App() {
       else if (!quiet) setUpdate({ status: "current" });
       if (found && quiet && announced.current !== found) {
         announced.current = found;
-        notify("info", `Version ${found} of tlansclaib is available. Models, history and settings stay as they are.`, [
+        notify("info", `Version ${found} of wavetyper is available. Models, history and settings stay as they are.`, [
           { label: "Update and restart", tone: "primary", run: () => startUpdateLatest.current(found) },
           { label: "What's new", run: () => void b.openUrl(releasePage(found)).catch(() => {}) },
         ]);
@@ -1286,7 +1286,7 @@ export default function App() {
       const question =
         kind === "audio"
           ? "This recording is not the one that was transcribed: its content is different. Use it anyway?"
-          : "This file is not the transcript tlansclaib saved: its content is different. It may have been edited, or it is another transcript. Use it anyway?";
+          : "This file is not the transcript wavetyper saved: its content is different. It may have been edited, or it is another transcript. Use it anyway?";
       if (!(await b.confirm(question, "Use it anyway"))) return null;
     }
     await b.relocateHistory(entry.id, kind, path);

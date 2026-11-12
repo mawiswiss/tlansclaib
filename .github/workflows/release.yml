@@ -15,13 +15,13 @@ jobs:
         include:
           - os: macos-latest
             args: --target universal-apple-darwin
-            assets: tlansclaib-mac[ext]
+            assets: wavetyper-mac[ext]
           - os: windows-2022
             args: ""
-            assets: tlansclaib-windows[setup][ext]
+            assets: wavetyper-windows[setup][ext]
           - os: ubuntu-22.04
             args: ""
-            assets: tlansclaib-linux[ext]
+            assets: wavetyper-linux[ext]
     runs-on: ${{ matrix.os }}
     env:
       GGML_NATIVE: "OFF"
@@ -129,14 +129,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: tlansclaib ${{ github.ref_name }}
+          releaseName: wavetyper ${{ github.ref_name }}
           releaseDraft: true
           releaseBody: |
-            Mac, macOS 13 or newer, Apple silicon and Intel: download `tlansclaib-mac.dmg`, open it and drag tlansclaib into Applications.
+            Mac, macOS 13 or newer, Apple silicon and Intel: download `wavetyper-mac.dmg`, open it and drag wavetyper into Applications.
 
-            Windows 10 or 11: download `tlansclaib-windows-setup.exe` and run it. SmartScreen asks once: click "More info", then "Run anyway".
+            Windows 10 or 11: download `wavetyper-windows-setup.exe` and run it. SmartScreen asks once: click "More info", then "Run anyway".
 
-            Linux, 64-bit Intel or AMD, Ubuntu 22.04, Debian 12, Fedora 36 or newer: download `tlansclaib-linux.AppImage`, make it executable with `chmod +x tlansclaib-linux.AppImage` and start it.
+            Linux, 64-bit Intel or AMD, Ubuntu 22.04, Debian 12, Fedora 36 or newer: download `wavetyper-linux.AppImage`, make it executable with `chmod +x wavetyper-linux.AppImage` and start it.
 
             On the first start, open Models and download one for your language.
           assetNamePattern: ${{ matrix.assets }}
@@ -148,7 +148,7 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           "$GITHUB_WORKSPACE"/target/release/bundle/appimage/*.AppImage --appimage-extract > /dev/null
-          docker run --rm -v "$PWD/squashfs-root:/app:ro" ubuntu:22.04 sh -c 'ldd /app/usr/bin/tlansclaib-engine*' | tee ldd.txt
+          docker run --rm -v "$PWD/squashfs-root:/app:ro" ubuntu:22.04 sh -c 'ldd /app/usr/bin/wavetyper-engine*' | tee ldd.txt
           if grep "not found" ldd.txt | grep -v libvulkan; then exit 1; fi
       - name: Notarise the disk image too, and check both with Gatekeeper
         if: matrix.os == 'macos-latest' && env.APPLE_CERTIFICATE != ''
@@ -161,10 +161,10 @@ jobs:
           dmg=$(ls "$bundle"/dmg/*.dmg)
           xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
           xcrun stapler staple "$dmg"
-          spctl --assess --type execute -vv "$bundle/macos/tlansclaib.app"
+          spctl --assess --type execute -vv "$bundle/macos/wavetyper.app"
           spctl --assess --type open --context context:primary-signature -vv "$dmg"
-          cp "$dmg" tlansclaib-mac.dmg
-          gh release upload "$GITHUB_REF_NAME" tlansclaib-mac.dmg --clobber
+          cp "$dmg" wavetyper-mac.dmg
+          gh release upload "$GITHUB_REF_NAME" wavetyper-mac.dmg --clobber
 
   updater:
     needs: build

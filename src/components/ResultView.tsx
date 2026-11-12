@@ -712,7 +712,7 @@ export function ResultView(props: Props) {
       {error && <Note level="high" role="alert">{error}</Note>}
       {exported && <Note role="status">{FEATURES.mobile ? `Exported ${exported}.` : `Saved to ${exported}.`}</Note>}
       {run.opened?.status === "incomplete" && <Note>This transcription stopped early. It holds the lines finished until then.</Note>}
-      {run.check?.changed && <Note>This transcript was changed outside tlansclaib after it was saved.</Note>}
+      {run.check?.changed && <Note>This transcript was changed outside wavetyper after it was saved.</Note>}
       {spoken && run.language && (
         <Note
           actions={

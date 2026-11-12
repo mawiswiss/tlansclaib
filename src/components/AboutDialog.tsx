@@ -61,7 +61,7 @@ export function AboutDialog(props: Props) {
         <header className="modal-head about-head">
           <Mark />
           <div>
-            <h2 id="about-title">{FEATURES.lite ? "tlansclaib Lite" : "tlansclaib"}</h2>
+            <h2 id="about-title">{FEATURES.lite ? "wavetyper Lite" : "wavetyper"}</h2>
             <p className="muted">{FEATURES.lite ? "Private transcription in your browser" : FEATURES.mobile ? "Private transcription that works offline, on your phone" : "Private transcription that works offline"}</p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
@@ -96,7 +96,7 @@ export function AboutDialog(props: Props) {
               </span>
               <div>
                 <strong>Made by an indie developer</strong>
-                <p>{AUTHOR} builds and maintains tlansclaib independently.</p>
+                <p>{AUTHOR} builds and maintains wavetyper independently.</p>
                 <div className="actions">
                   <button type="button" className="small" onClick={() => onOpenUrl(WEBSITE)}>
                     <Globe size={16} /> Website
@@ -137,7 +137,7 @@ export function AboutDialog(props: Props) {
                 <Heart size={20} />
               </span>
               <div>
-                <strong>Support tlansclaib</strong>
+                <strong>Support wavetyper</strong>
                 <p>If it saves you time, a contribution helps me keep it maintained.</p>
                 <div className="actions">
                   <button type="button" className="small" onClick={onSupport}>

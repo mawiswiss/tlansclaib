@@ -110,7 +110,7 @@ because billing runs per account and not per validation.
   {
     "bundle": {
       "windows": {
-        "signCommand": "artifact-signing-cli -e <endpoint> -a <account> -c <profile> -d tlansclaib %1"
+        "signCommand": "artifact-signing-cli -e <endpoint> -a <account> -c <profile> -d wavetyper %1"
       }
     }
   }

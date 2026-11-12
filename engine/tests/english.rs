@@ -1,18 +1,18 @@
 // Runs the built engine on a synthesized English clip. Needs a tiny model:
-// TLANSCLAIB_TINY_MODEL=/path/to/ggml-tiny.bin cargo test -p tlansclaib-engine --test english
+// WAVETYPER_TINY_MODEL=/path/to/ggml-tiny.bin cargo test -p wavetyper-engine --test english
 use std::path::PathBuf;
 use std::process::Command;
 
 #[test]
 fn transcribes_the_english_fixture_with_the_tiny_model() {
-    let Ok(model) = std::env::var("TLANSCLAIB_TINY_MODEL") else {
-        eprintln!("skipped: set TLANSCLAIB_TINY_MODEL to a ggml-tiny.bin");
+    let Ok(model) = std::env::var("WAVETYPER_TINY_MODEL") else {
+        eprintln!("skipped: set WAVETYPER_TINY_MODEL to a ggml-tiny.bin");
         return;
     };
     let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/english.wav");
-    let out = std::env::temp_dir().join(format!("tlansclaib-english-{}.txt", std::process::id()));
+    let out = std::env::temp_dir().join(format!("wavetyper-english-{}.txt", std::process::id()));
     let transcribe = |language: &str, extra: &[&str]| {
-        let output = Command::new(env!("CARGO_BIN_EXE_tlansclaib-engine"))
+        let output = Command::new(env!("CARGO_BIN_EXE_wavetyper-engine"))
             .args(["transcribe", "--model", &model, "--language", language, "--cpu"])
             .args(extra)
             .arg("--audio")

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    tlansclaib_lib::run()
+    wavetyper_lib::run()
 }

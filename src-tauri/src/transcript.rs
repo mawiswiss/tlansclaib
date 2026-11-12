@@ -146,7 +146,7 @@ pub fn save(file: &Path, expected: &str, lines: &[Line], timestamps: bool, speak
     let current = crate::fingerprint::transcript(file).with_context(|| format!("cannot read {}", file.display()))?;
     if current != expected {
         return Err(anyhow!(
-            "{} was changed outside tlansclaib since it was opened, so the edit was not saved. Open it again from History to see the current text.",
+            "{} was changed outside wavetyper since it was opened, so the edit was not saved. Open it again from History to see the current text.",
             file.display()
         ));
     }
@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn switches_the_file_between_both_forms_and_leaves_edited_files_alone() {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-transcript-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-transcript-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("meeting_transcript.txt");
         std::fs::write(&file, "[00:00:00.00 --> 00:00:12.75] first\n[00:00:24.35 --> 00:00:39.25] second\n").unwrap();
@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn names_each_line_after_its_speaker_and_renames_speakers_through_a_save() {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-speakers-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-speakers-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("call_transcript.txt");
         std::fs::write(&file, "[00:00:00.00 --> 00:00:04.00] Speaker 1: Hello\n[00:00:04.50 --> 00:00:09.00] Speaker 2: Hi\n").unwrap();
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn renames_the_file_after_the_title_and_refuses_bad_names_and_overwrites() {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-rename-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-rename-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("team call_transcript.txt");
         std::fs::write(&file, "text\n").unwrap();
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn saves_an_edit_only_over_the_version_it_started_from() {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-save-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-save-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("meeting_transcript.txt");
         std::fs::write(&file, "[00:00:00.00 --> 00:00:12.75] first\n[00:00:24.35 --> 00:00:39.25] second\n").unwrap();

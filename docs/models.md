@@ -7,9 +7,9 @@ own ONNX or GGUF files. Every model file is checked before use, see below.
 
 ## Where models live
 
-- macOS: `~/Library/Application Support/tlansclaib/models`
-- Windows: `%APPDATA%\tlansclaib\models`
-- Linux: `~/.local/share/tlansclaib/models`
+- macOS: `~/Library/Application Support/wavetyper/models`
+- Windows: `%APPDATA%\wavetyper\models`
+- Linux: `~/.local/share/wavetyper/models`
 
 "Show models folder" in the models panel opens it.
 
@@ -184,7 +184,7 @@ scripts/convert-model.py biodatlab/distill-whisper-th-large-v3 thai-fast
 ```
 
 Downloads the model into the Hugging Face cache, clones whisper.cpp into
-`~/.cache/tlansclaib-convert`, builds its quantize tool, writes
+`~/.cache/wavetyper-convert`, builds its quantize tool, writes
 `models/ggml-thai-fast-q8_0.bin` and `models/ggml-thai-fast-q5_0.bin`, and
 prints each file's size and SHA-256 as a `models.json` snippet. `--keep-f16`
 also keeps the unquantized file, `--quant q8_0` limits the output.
@@ -194,7 +194,7 @@ of the size and audibly worse on difficult audio. Pick by running the
 engine on a known recording:
 
 ```bash
-target/release/tlansclaib-engine transcribe --model models/ggml-thai-fast-q8_0.bin \
+target/release/wavetyper-engine transcribe --model models/ggml-thai-fast-q8_0.bin \
   --audio recording.m4a --output /tmp/check.txt --language th
 ```
 
@@ -255,7 +255,7 @@ meeting:
 | at pauses, 5 to 18 s | 2.8 | 625 | 10.3 s | 409 s | 8 |
 | at pauses or breaths, 5 to 15 s (default) | 2.8 | 676 | 8.9 s | 435 s | 7 |
 
-Why each line of that meeting ends, from `tlansclaib-engine split`:
+Why each line of that meeting ends, from `wavetyper-engine split`:
 
 | line length | lines | at a pause | at a breath | forced |
 |---|---|---|---|---|

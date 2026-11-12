@@ -1,5 +1,5 @@
 [package]
-name = "tlansclaib-engine"
+name = "wavetyper-engine"
 description = "Transcribes an audio file with whisper.cpp and reports progress as JSON lines"
 version.workspace = true
 edition.workspace = true
@@ -12,7 +12,7 @@ name = "engine"
 path = "src/lib.rs"
 
 [[bin]]
-name = "tlansclaib-engine"
+name = "wavetyper-engine"
 path = "src/main.rs"
 required-features = ["whisper"]
 

@@ -61,12 +61,12 @@ fn vulkan_loader() -> bool {
 /// The engine sidecar for work on the CPU.
 pub fn engine() -> &'static str {
     if cfg!(target_os = "macos") {
-        return "tlansclaib-engine";
+        return "wavetyper-engine";
     }
     match level(detect()) {
-        Level::Avx2 => "tlansclaib-engine",
-        Level::Avx => "tlansclaib-engine-avx",
-        Level::Sse => "tlansclaib-engine-sse",
+        Level::Avx2 => "wavetyper-engine",
+        Level::Avx => "wavetyper-engine-avx",
+        Level::Sse => "wavetyper-engine-sse",
     }
 }
 

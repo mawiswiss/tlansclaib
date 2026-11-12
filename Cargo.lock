@@ -5232,69 +5232,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
-name = "tlansclaib"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "bzip2",
- "flate2",
- "futures-util",
- "keepawake",
- "libc",
- "log",
- "percent-encoding",
- "reqwest",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "sysinfo",
- "tar",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tauri-plugin-process",
- "tauri-plugin-shell",
- "tauri-plugin-updater",
- "time",
- "tlansclaib-engine",
- "tokio",
- "webpki-root-certs",
- "windows-sys 0.61.2",
- "zip 6.0.0",
-]
-
-[[package]]
-name = "tlansclaib-engine"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "clap",
- "env_logger",
- "libc",
- "libloading 0.8.9",
- "log",
- "num_cpus",
- "rubato",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "symphonia",
- "unicode-segmentation",
- "whisper-rs",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "tlansclaib-engine-wasm"
-version = "0.4.0"
-dependencies = [
- "tlansclaib-engine",
-]
-
-[[package]]
 name = "tokio"
 version = "1.53.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5776,6 +5713,70 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "wavetyper"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "bzip2",
+ "dirs",
+ "flate2",
+ "futures-util",
+ "keepawake",
+ "libc",
+ "log",
+ "percent-encoding",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "sysinfo",
+ "tar",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tauri-plugin-process",
+ "tauri-plugin-shell",
+ "tauri-plugin-updater",
+ "time",
+ "tokio",
+ "wavetyper-engine",
+ "webpki-root-certs",
+ "windows-sys 0.61.2",
+ "zip 6.0.0",
+]
+
+[[package]]
+name = "wavetyper-engine"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "env_logger",
+ "libc",
+ "libloading 0.8.9",
+ "log",
+ "num_cpus",
+ "rubato",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "symphonia",
+ "unicode-segmentation",
+ "whisper-rs",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "wavetyper-engine-wasm"
+version = "0.4.0"
+dependencies = [
+ "wavetyper-engine",
 ]
 
 [[package]]

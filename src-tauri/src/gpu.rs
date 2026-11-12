@@ -27,7 +27,7 @@ pub async fn device(app: &AppHandle) -> Option<Device> {
     if cfg!(any(windows, target_os = "linux")) && !crate::cpu::runs_vulkan_engine() {
         return None;
     }
-    let sidecar = if cfg!(any(windows, target_os = "linux")) { "tlansclaib-engine-vulkan" } else { "tlansclaib-engine" };
+    let sidecar = if cfg!(any(windows, target_os = "linux")) { "wavetyper-engine-vulkan" } else { "wavetyper-engine" };
     let (mut events, child) = app.shell().sidecar(sidecar).ok()?.arg("probe").spawn().ok()?;
     let read = async {
         let mut stdout = Vec::new();

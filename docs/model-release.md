@@ -1,4 +1,4 @@
-Speech models for tlansclaib, converted to the whisper.cpp format. The app
+Speech models for wavetyper, converted to the whisper.cpp format. The app
 downloads them from this release and checks each file's size and SHA-256
 before it uses it.
 

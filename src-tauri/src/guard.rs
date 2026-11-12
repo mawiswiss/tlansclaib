@@ -170,7 +170,7 @@ pub fn should_stop(free: u64, swap_used: u64, swap_at_start: u64, floor: u64) ->
 }
 
 pub fn memory_floor() -> u64 {
-    std::env::var("TLANSCLAIB_MEMORY_FLOOR_MB")
+    std::env::var("WAVETYPER_MEMORY_FLOOR_MB")
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
         .map(|mb| mb * MIB)

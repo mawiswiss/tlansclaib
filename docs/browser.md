@@ -1,6 +1,6 @@
 # Browser version
 
-tlansclaib Lite runs the app in a desktop browser, with nothing to install and
+wavetyper Lite runs the app in a desktop browser, with nothing to install and
 nothing uploaded. It transcribes the first 10 minutes of a recording with one
 model, Whisper large-v3 turbo in q4f16 through transformers.js on WebGPU, and
 points to the desktop app for the rest. A browser without WebGPU or
@@ -111,9 +111,9 @@ The spike is in `scripts/browser-spike/`, measured on 2026-10-25.
 
 Both clips are synthesized speech: `engine/tests/fixtures/english.wav` (5.4 s,
 one line) and a German text read by macOS `say -v Anna` (61.1 s, four lines
-cut by `tlansclaib-engine split`). Each runtime gets the same lines. Times are
+cut by `wavetyper-engine split`). Each runtime gets the same lines. Times are
 from the second of two runs in a fresh headless Chrome 156, native from a
-single run of `tlansclaib-engine transcribe`. Peak memory is the
+single run of `wavetyper-engine transcribe`. Peak memory is the
 macOS footprint of the tab's renderer and of Chrome's GPU process. The CPU
 runtimes use four threads, like the native column.
 
@@ -194,8 +194,8 @@ cd scripts/browser-spike && npm install
 git clone --depth 1 --branch v1.8.3 https://github.com/ggml-org/whisper.cpp.git $WORK/whisper.cpp
 source $EMSDK/emsdk_env.sh && wasm/build.sh $WORK/whisper.cpp $WORK/build
 ./make-german.sh $WORK/audio/german.wav && cp ../../engine/tests/fixtures/english.wav $WORK/audio/
-tlansclaib-engine split --language de $WORK/audio/german.wav > $WORK/audio/german.lines.json
-tlansclaib-engine split --language en $WORK/audio/english.wav > $WORK/audio/english.lines.json
+wavetyper-engine split --language de $WORK/audio/german.wav > $WORK/audio/german.lines.json
+wavetyper-engine split --language en $WORK/audio/english.wav > $WORK/audio/english.lines.json
 node serve.mjs 8787 $WORK/models $WORK/audio $WORK/build &
 ./run-all.sh $WORK/results && node summarize.mjs $WORK/results
 ```

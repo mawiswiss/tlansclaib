@@ -1,13 +1,13 @@
 # Working in this repository
 
-tlansclaib is a desktop app for Mac, Windows and Linux that transcribes an
+wavetyper is a desktop app for Mac, Windows and Linux that transcribes an
 audio file on the user's own computer with whisper.cpp. Read `docs/design.md` before
 changing anything structural. `docs/` is flat: one kebab-case Markdown file per
 topic, no date prefixes, no generated trees.
 
 ## Layout
 
-- `engine/`: Rust crate. Library plus the `tlansclaib-engine` binary, which the
+- `engine/`: Rust crate. Library plus the `wavetyper-engine` binary, which the
   app runs as a sidecar and which also works from a terminal.
 - `src-tauri/`: the Tauri 2 app in Rust. Model list and downloads, run
   supervision, memory guard, system statistics. It also runs on iPhone and
@@ -61,11 +61,12 @@ topic, no date prefixes, no generated trees.
 
 - When `pro/brand/` exists, it is the source of truth for colors, type, icons,
   logos and user-facing copy. Read `pro/brand/guide.md` before changing
-  `src/styles.css`, `src/components/icons.tsx`, app icons or text users see.
-- The app keeps the name tlansclaib in its code, identifiers and text until a
-  rename is decided. Take the voice from the brand, not its name.
+  `src/styles/`, `src/components/icons.tsx`, app icons or text users see.
+- The name is always `wavetyper`, lowercase, even at the start of a sentence.
+  The GitHub repository and the website keep the old name in their addresses
+  until they move.
 - A value the app needs and the brand lacks goes into `pro/brand/` first, then
-  into the app. Change the brand with the `brand` skill in
-  `pro/.claude/skills/brand/`. It opens a pull request in the pro repo for
-  review and never commits in this one.
-- Without `pro/`, keep the existing tokens.
+  into the app with `node scripts/brand-sync.mjs`. Change the brand with the
+  `brand` skill in `pro/.claude/skills/brand/`. It opens a pull request in the
+  pro repo for review and never commits in this one.
+- Without `pro/`, leave the synced brand files as they are.

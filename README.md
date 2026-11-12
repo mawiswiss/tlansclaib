@@ -1,4 +1,4 @@
-# tlansclaib
+# wavetyper
 
 Transcribe recordings on your own computer, for macOS, Windows and Linux.
 Nothing is uploaded.
@@ -13,17 +13,17 @@ than the recording plays.
 
 ## Download
 
-- [tlansclaib for Mac](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-mac.dmg),
+- [wavetyper for Mac](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-mac.dmg),
   macOS 13 or newer, Apple silicon and Intel
-- [tlansclaib for Windows](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-windows-setup.exe),
+- [wavetyper for Windows](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-windows-setup.exe),
   Windows 10 or 11
-- [tlansclaib for Linux](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-linux.AppImage),
+- [wavetyper for Linux](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-linux.AppImage),
   64-bit Intel or AMD, Ubuntu 22.04, Debian 12, Fedora 36 or newer
 
-On a Mac, open the disk image and drag tlansclaib into Applications. On
+On a Mac, open the disk image and drag wavetyper into Applications. On
 Windows, run the installer. SmartScreen asks once, because the installer is
 not signed. Click "More info", then "Run anyway". On Linux, make the AppImage
-executable with `chmod +x tlansclaib-linux.AppImage` and start it.
+executable with `chmod +x wavetyper-linux.AppImage` and start it.
 
 The app comes without a speech model. On the first start it asks for the
 language you mostly transcribe and one of three setups, Precise, Essential or
@@ -66,14 +66,14 @@ Thai Compact, and several times that with Thai Best.
 ## What it does better
 
 Most transcription services upload your recording to their servers and charge
-a subscription for it. tlansclaib does everything on your computer. A model is
+a subscription for it. wavetyper does everything on your computer. A model is
 downloaded once, and from then on the app works offline. No account, no
 tracking, nothing to pay.
 
 > The recording never leaves your computer.
 
 Whisper's general models cover about 100 languages at once. For some of them
-that shows, so tlansclaib adds dedicated models, each trained on one language,
+that shows, so wavetyper adds dedicated models, each trained on one language,
 where they clearly do better. Every download is checked against its checksum
 before the app uses it.
 
@@ -100,10 +100,10 @@ GitHub for the newest version number, which About can turn off. That's it.
 
 ## How it started
 
-A friend came over and asked me to "tlansclaib" a company meeting in Thai.
+A friend came over and asked me to "wavetyper" a company meeting in Thai.
 That's where the name comes from. A Python script on my Mac did the job well,
 but it needed uv, Python, PyTorch, ffmpeg and a terminal. Fine for me. Not something I could hand to a friend.
-tlansclaib is that script turned into an app anyone can install.
+wavetyper is that script turned into an app anyone can install.
 
 ## Build it yourself
 
@@ -149,7 +149,7 @@ app next to the model.
 
 ## Support
 
-tlansclaib is an independent project. I build it in my own time, with no
+wavetyper is an independent project. I build it in my own time, with no
 company behind it, and it stays free, without ads or a subscription. If it
 saves you time, a contribution helps me keep it maintained and improving.
 

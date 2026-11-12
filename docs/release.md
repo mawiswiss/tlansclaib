@@ -18,13 +18,19 @@ Installers are built by GitHub Actions, never by hand. The `release` skill in
    `gh release edit vX.Y.Z --draft=false --latest`. From then on the app
    offers it as an update.
 
-The files keep the same names in every version, `tlansclaib-mac.dmg`,
-`tlansclaib-windows-setup.exe` and `tlansclaib-linux.AppImage`, so these
+The files keep the same names in every version, `wavetyper-mac.dmg`,
+`wavetyper-windows-setup.exe` and `wavetyper-linux.AppImage`, so these
 addresses always lead to the newest published release:
 
-- https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-mac.dmg
-- https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-windows-setup.exe
-- https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-linux.AppImage
+- https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-mac.dmg
+- https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-windows-setup.exe
+- https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-linux.AppImage
+
+Releases from before the rename to wavetyper used the former name,
+`tlansclaib-mac.dmg` and so on. Once a renamed release is the latest, links to
+those names lead nowhere. The live browser version still links to them until
+it is deployed again, so deploy it right after publishing the first wavetyper
+release.
 
 The browser version's desktop buttons download from them too. They break
 when another release is marked as the latest, which is why the model releases
@@ -48,8 +54,8 @@ place first, because tauri-build refuses to compile the app without either.
   binary then crashes on laptops without it. On MSVC that baseline also needs
   FMA, F16C and BMI2, so Haswell from 2013 or newer.
 - The engine uses Metal on macOS. Windows and Linux bundle four sidecars: the main CPU
-  engine, the Vulkan engine, `tlansclaib-engine-avx` for CPUs with AVX but not
-  the full AVX2 set (Sandy Bridge, Ivy Bridge), and `tlansclaib-engine-sse`,
+  engine, the Vulkan engine, `wavetyper-engine-avx` for CPUs with AVX but not
+  the full AVX2 set (Sandy Bridge, Ivy Bridge), and `wavetyper-engine-sse`,
   plain SSE2, for CPUs without AVX (Celeron, Pentium Silver, Core 2, Athlon
   II). No ggml kernel needs SSE4, so the SSE engine leaves it out. The two older builds set
   every instruction flag explicitly, each in its own target folder, because
@@ -128,10 +134,10 @@ With the updater key in the repository's secrets, the release workflow passes
 `src-tauri/tauri.updater.conf.json` to the build, which signs one update per
 platform, and tauri-action lists them in `latest.json`:
 
-- macOS: `tlansclaib-mac.app.tar.gz`, the notarised universal app.
-- Windows: `tlansclaib-windows-setup.exe`, the installer, which the app runs
+- macOS: `wavetyper-mac.app.tar.gz`, the notarised universal app.
+- Windows: `wavetyper-windows-setup.exe`, the installer, which the app runs
   in passive mode.
-- Linux: `tlansclaib-linux.AppImage`, which replaces the running AppImage.
+- Linux: `wavetyper-linux.AppImage`, which replaces the running AppImage.
 
 Each has a `.sig` next to it. The app checks it against the public key in
 `src-tauri/tauri.conf.json` and refuses an update without a valid one, or

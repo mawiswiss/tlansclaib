@@ -3,9 +3,9 @@ import { RELEASES } from "./about";
 export type Platform = "mac" | "windows" | "linux";
 
 export const INSTALLERS: Record<Platform, { name: string; file: string; url: string; requires: string }> = {
-  mac: { name: "Mac", file: "tlansclaib-mac.dmg", url: `${RELEASES}/latest/download/tlansclaib-mac.dmg`, requires: "macOS 13 or newer, Apple silicon or Intel" },
-  windows: { name: "Windows", file: "tlansclaib-windows-setup.exe", url: `${RELEASES}/latest/download/tlansclaib-windows-setup.exe`, requires: "Windows 10 or 11" },
-  linux: { name: "Linux", file: "tlansclaib-linux.AppImage", url: `${RELEASES}/latest/download/tlansclaib-linux.AppImage`, requires: "64-bit, Ubuntu 22.04, Debian 12, Fedora 36 or newer" },
+  mac: { name: "Mac", file: "wavetyper-mac.dmg", url: `${RELEASES}/latest/download/wavetyper-mac.dmg`, requires: "macOS 13 or newer, Apple silicon or Intel" },
+  windows: { name: "Windows", file: "wavetyper-windows-setup.exe", url: `${RELEASES}/latest/download/wavetyper-windows-setup.exe`, requires: "Windows 10 or 11" },
+  linux: { name: "Linux", file: "wavetyper-linux.AppImage", url: `${RELEASES}/latest/download/wavetyper-linux.AppImage`, requires: "64-bit, Ubuntu 22.04, Debian 12, Fedora 36 or newer" },
 };
 
 export function onPhone(userAgent: string): boolean {

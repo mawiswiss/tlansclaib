@@ -17,7 +17,7 @@ const dropOrtWasm = {
 };
 
 const SITE = "https://tlansclaib.marcwieland.name/";
-const TITLE = "tlansclaib Lite: transcribe audio in your browser, nothing uploaded";
+const TITLE = "wavetyper Lite: transcribe audio in your browser, nothing uploaded";
 const DESCRIPTION =
   "Transcribe audio and video to text or subtitles in your browser, in about 100 languages. Free, no sign-up, and the recording never leaves your computer.";
 
@@ -33,7 +33,7 @@ const webHead = {
     const app = {
       "@context": "https://schema.org",
       "@type": "WebApplication",
-      name: "tlansclaib Lite",
+      name: "wavetyper Lite",
       url: SITE,
       description: DESCRIPTION,
       applicationCategory: "MultimediaApplication",
@@ -56,7 +56,7 @@ const webHead = {
         link({ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" }),
         link({ rel: "apple-touch-icon", href: "/apple-touch-icon.png" }),
         meta({ property: "og:type", content: "website" }),
-        meta({ property: "og:site_name", content: "tlansclaib" }),
+        meta({ property: "og:site_name", content: "wavetyper" }),
         meta({ property: "og:locale", content: "en_US" }),
         meta({ property: "og:url", content: SITE }),
         meta({ property: "og:title", content: TITLE }),

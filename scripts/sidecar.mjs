@@ -1,5 +1,5 @@
 // Builds the engine in release mode and places it where Tauri expects a sidecar:
-// src-tauri/binaries/tlansclaib-engine-<target triple>[.exe]
+// src-tauri/binaries/wavetyper-engine-<target triple>[.exe]
 // A universal macOS build compiles both Apple targets and joins them with lipo.
 // On Windows and Linux it also builds the Vulkan engine and the engines for older CPUs.
 // On Windows it also copies the Microsoft C++ runtime into src-tauri/binaries/msvc, which the installer puts beside the engines.
@@ -24,16 +24,16 @@ const OLDER_CPUS = {
 };
 
 function build(target, features = [], cpu = null) {
-  const args = ["build", "--release", "-p", "tlansclaib-engine"];
+  const args = ["build", "--release", "-p", "wavetyper-engine"];
   if (target !== host) args.push("--target", target);
   if (features.length) args.push("--features", features.join(","));
   const out = cpu ? join(targetDir, `cpu-${cpu}`) : targetDir;
   execFileSync("cargo", args, { cwd: root, stdio: "inherit", env: { ...process.env, ...OLDER_CPUS[cpu], CARGO_TARGET_DIR: out } });
   const ext = target.includes("windows") ? ".exe" : "";
-  return join(out, target === host ? "" : target, "release", `tlansclaib-engine${ext}`);
+  return join(out, target === host ? "" : target, "release", `wavetyper-engine${ext}`);
 }
 
-function place(built, target, name = "tlansclaib-engine") {
+function place(built, target, name = "wavetyper-engine") {
   const path = join(dir, `${name}-${target}${target.includes("windows") ? ".exe" : ""}`);
   copyFileSync(built, path);
   return path;
@@ -52,7 +52,7 @@ function placeMsvcRuntime() {
   copyFileSync(join(folder("OpenMP"), "vcomp140.dll"), join(runtime, "vcomp140.dll"));
 }
 
-const buildOlderCpus = () => Object.keys(OLDER_CPUS).map((cpu) => place(build(triple, [], cpu), triple, `tlansclaib-engine-${cpu}`));
+const buildOlderCpus = () => Object.keys(OLDER_CPUS).map((cpu) => place(build(triple, [], cpu), triple, `wavetyper-engine-${cpu}`));
 
 // `node scripts/sidecar.mjs older-cpus` builds only those, and `msvc-runtime` only copies the runtime, for CI.
 if (process.argv[2] === "older-cpus") {
@@ -62,11 +62,11 @@ if (process.argv[2] === "older-cpus") {
 } else if (triple === "universal-apple-darwin") {
   // tauri-build checks for each slice's sidecar, the bundle takes the joined one.
   const slices = ["aarch64-apple-darwin", "x86_64-apple-darwin"].map((target) => place(build(target), target));
-  execFileSync("lipo", ["-create", "-output", join(dir, "tlansclaib-engine-universal-apple-darwin"), ...slices], { stdio: "inherit" });
+  execFileSync("lipo", ["-create", "-output", join(dir, "wavetyper-engine-universal-apple-darwin"), ...slices], { stdio: "inherit" });
 } else {
   place(build(triple), triple);
   if (triple.includes("windows") || triple.includes("linux")) {
-    place(build(triple, ["vulkan"]), triple, "tlansclaib-engine-vulkan");
+    place(build(triple, ["vulkan"]), triple, "wavetyper-engine-vulkan");
     buildOlderCpus();
   }
   if (triple.includes("windows")) placeMsvcRuntime();

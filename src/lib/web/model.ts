@@ -29,6 +29,7 @@ export const DOWNLOAD_BYTES = FILES.reduce((sum, f) => sum + f.size, 0);
 /** Peak of the renderer plus the GPU process for q4f16, measured in `docs/browser.md`. */
 export const PEAK_BYTES = (2272 + 1973) * 2 ** 20;
 
+// Keeps the app's former name, so stored data survives the rename.
 export const FOLDER = "tlansclaib-model-v1";
 
 export const LIMIT_SECONDS = 600;

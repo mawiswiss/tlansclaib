@@ -13,13 +13,13 @@ system usage while it works.
 ## Parts
 
 ```
-engine/      Rust: decoding, line cutting, whisper.cpp, speakers, the `tlansclaib-engine` binary
+engine/      Rust: decoding, line cutting, whisper.cpp, speakers, the `wavetyper-engine` binary
 src-tauri/   Rust: the Tauri 2 app. Models, downloads, runs, history, guards, system stats
 src/         React and TypeScript frontend
 scripts/     model conversion and the sidecar build, not shipped
 ```
 
-whisper.cpp runs inside `tlansclaib-engine`, bundled as a Tauri sidecar. On
+whisper.cpp runs inside `wavetyper-engine`, bundled as a Tauri sidecar. On
 Windows and Linux, a second sidecar has the Vulkan backend, and two more run on
 processors older than AVX2, see `docs/release.md`. The app checks its free GPU
 memory before each run and chooses the CPU sidecar when it cannot use Vulkan.
@@ -40,7 +40,7 @@ that counts as a failure and the CPU retry follows. Anywhere else the run
 ends with an error that names the step. After a gap of over 5 s in the
 once-a-second check, such as a sleeping computer, the 45 s start again.
 
-A browser version, tlansclaib Lite, builds the same window with
+A browser version, wavetyper Lite, builds the same window with
 `vite --mode web`. It runs one model on WebGPU, transcribes the first 10
 minutes, and leaves out speakers, updates and system statistics. See
 `docs/browser.md`.
@@ -50,7 +50,7 @@ of the app instead of a sidecar. See `docs/mobile.md`.
 
 ## The engine
 
-- `run.rs` holds the run loop of `tlansclaib-engine transcribe`, which the
+- `run.rs` holds the run loop of `wavetyper-engine transcribe`, which the
   phone app runs inside its own process. It reports each event through a
   callback. Once its stop flag is set, it ends between steps and lines, and
   whisper.cpp ends the line it works on through its abort callback.
@@ -74,7 +74,7 @@ of the app instead of a sidecar. See `docs/mobile.md`.
   keeps quiet recordings as whole as loud ones. With several tracks, each
   track is cut on its own and the lines of all tracks run in order of their
   start (`split_tracks`), so a speaker's turn is one line and a reply that
-  overlaps gets its own. `tlansclaib-engine split` prints where and why each
+  overlaps gets its own. `wavetyper-engine split` prints where and why each
   line would end.
 - `transcribe.rs` loads the model once and runs one decoding pass per line:
   greedy sampling, no context from the previous line, the chosen language,
@@ -116,7 +116,7 @@ of the app instead of a sidecar. See `docs/mobile.md`.
   chosen by `--speaker-backend`. Each loads its C library at run time from
   `--speaker-models <folder>` (`libloading`), so the engine runs without
   them. A recording with several tracks skips detection and keeps one speaker
-  per track. `tlansclaib-engine speakers --backend` prints the turns alone.
+  per track. `wavetyper-engine speakers --backend` prints the turns alone.
 - `speakers/nemotron.rs`, the better backend: parakeet.cpp's C library runs
   the Nemotron 3 Diarization GGUF model, which reports turns for up to eight
   speakers. A given number caps the labels by keeping the most active
@@ -212,7 +212,7 @@ because progress reporting and other work are outside those stages.
     notice are saved beside it. On Windows the library needs the Microsoft C++
     runtime the installer brings, see `docs/release.md`.
   - At every start, after each download and after a run that failed while
-    finding the speakers, `tlansclaib-engine speakers-check` opens each
+    finding the speakers, `wavetyper-engine speakers-check` opens each
     installed detection's library as a run would. One that cannot start
     reports the reason as `broken`, and the app does not use it. The check
     never reads the model files. So when it fails, and after every run that
@@ -224,7 +224,7 @@ because progress reporting and other work are outside those stages.
   with AVX2, FMA, F16C and BMI2, the AVX one, or the SSE one. Every CPU run
   and helper call goes through it.
 - `gpu.rs`: whether the computer can run the Precise model on its graphics
-  chip, for the setup's recommendation. `tlansclaib-engine probe` starts the
+  chip, for the setup's recommendation. `wavetyper-engine probe` starts the
   GPU whisper.cpp would pick and prints its backend, name and free memory, or
   null. On Windows and Linux the Vulkan sidecar answers, as before a run. A probe that
   hangs is killed after 10 seconds and counts as no GPU. Apple silicon is
@@ -284,6 +284,23 @@ because progress reporting and other work are outside those stages.
   `.part` file and a rename. With no settings in storage at start, the window
   fills it from that file before the first render. The window saves at every
   start, so one start of a version with the mirror writes the file.
+- `rename.rs`: the app was called tlansclaib, with the identifier `tlansclaib`.
+  On a desktop start, before Tauri creates any folder, it moves the app data
+  and local app data folders of that name to the ones of the current
+  identifier with a rename, so the models never copy. A new folder that holds
+  only `logs` or `EBWebView` gives way, one with real data leaves both in
+  place. After a move it rewrites the history's `file` and `audio` paths that
+  pointed into the old folder. The settings live in the webview's local
+  storage. On Windows and Linux that sits in the local app data folder and
+  moves with it. On macOS WebKit keeps it under the bundle id, so the move
+  also renames `~/Library/WebKit/tlansclaib`. An upgrade from any tlansclaib
+  release keeps the settings this way, without a release in between. On
+  Windows, `windows/hooks.nsh` runs the old installation's uninstaller
+  silently before installing, which keeps the app data. On macOS an in-app
+  update swaps the new contents into the old bundle, `tlansclaib.app`. When
+  that app quits, it renames itself to `wavetyper.app`, unless that name is
+  taken or the folder is not writable. The browser version keeps its storage
+  names, so its records and model stay.
 - `transcript.rs`: saves corrections, title changes and the timecodes display
   preference in private records. Exports text, SRT and WebVTT to a path chosen
   in the save dialog. Legacy text files keep their existing edit checks.

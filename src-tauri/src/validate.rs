@@ -70,7 +70,7 @@ mod tests {
     use super::*;
 
     fn write(name: &str, bytes: &[u8]) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-validate-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-validate-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(name);
         std::fs::write(&path, bytes).unwrap();

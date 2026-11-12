@@ -149,7 +149,7 @@ export function mockBackend(): Backend {
   }, 1000);
   return {
     listModels: async () => models.map((m) => ({ ...m })),
-    modelsFolder: async () => "/Users/someone/Library/Application Support/tlansclaib/models",
+    modelsFolder: async () => "/Users/someone/Library/Application Support/name.marcwieland.wavetyper/models",
     downloadModel: (id) =>
       new Promise((resolve) => {
         const m = models.find((x) => x.id === id)!;
@@ -360,7 +360,7 @@ export function mockBackend(): Backend {
       return `mock-${Date.now()}`;
     },
     saveTranscript: async (file, expected, _lines, _timestamps, speakers, colors) => {
-      if (expected === "stale") throw new Error("This transcript was changed outside tlansclaib since it was opened, so the edit was not saved.");
+      if (expected === "stale") throw new Error("This transcript was changed outside wavetyper since it was opened, so the edit was not saved.");
       if (speakers.some((s) => s.includes(":"))) throw new Error("A speaker name cannot contain a colon, because the colon ends the name in the transcript.");
       const taken = speakers.find((s, i) => speakers.slice(0, i).some((o) => o.toLowerCase() === s.toLowerCase()));
       if (taken) throw new Error(`Two speakers cannot both be called ${taken}.`);
@@ -434,7 +434,7 @@ export function mockBackend(): Backend {
           else resolve(updateMode === null ? null : "0.2.0");
         }, 800),
       ),
-    updateBlocker: async () => (updateMode === "blocked" ? "Move tlansclaib to the Applications folder and start it from there, then update." : null),
+    updateBlocker: async () => (updateMode === "blocked" ? "Move wavetyper to the Applications folder and start it from there, then update." : null),
     downloadUpdate: (onProgress) =>
       new Promise((resolve) => {
         const total = 48_000_000;

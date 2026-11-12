@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn tells_same_from_different_content_and_missing_files() {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-fingerprint-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-fingerprint-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let small = dir.join("small.m4a");
         std::fs::write(&small, b"short recording").unwrap();

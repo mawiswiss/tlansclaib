@@ -67,7 +67,7 @@ export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbo
           </button>
         ))}
       </div>
-      <button type="button" className="icon-button about-button" onClick={onAbout} title="About tlansclaib" aria-label="About tlansclaib">
+      <button type="button" className="icon-button about-button" onClick={onAbout} title="About wavetyper" aria-label="About wavetyper">
         <Info />
       </button>
     </header>

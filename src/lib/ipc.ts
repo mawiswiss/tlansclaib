@@ -151,7 +151,7 @@ async function tauriBackend(): Promise<Backend> {
     audioPeaks: (path, buckets) => invoke("audio_peaks", { path, buckets }),
     confirm: async (message, ok) => {
       const { ask } = await import("@tauri-apps/plugin-dialog");
-      return ask(message, { title: "tlansclaib", kind: "warning", okLabel: ok, cancelLabel: "Cancel" });
+      return ask(message, { title: "wavetyper", kind: "warning", okLabel: ok, cancelLabel: "Cancel" });
     },
     log: (level, message) => {
       import("@tauri-apps/plugin-log").then((l) => (level === "warn" ? l.warn(message) : l.info(message))).catch(() => {});

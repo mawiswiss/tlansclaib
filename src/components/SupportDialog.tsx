@@ -11,7 +11,7 @@ export function SupportDialog({ onSupport, onOpenUrl, onClose }: Props) {
         <span className="glyph">
           <Heart size={24} />
         </span>
-        <h2 id="support-title">Support tlansclaib</h2>
+        <h2 id="support-title">Support wavetyper</h2>
         <p className="muted">
           If it has made your work easier, your support helps me keep it maintained. I believe good software should be
           free for everyone to use.

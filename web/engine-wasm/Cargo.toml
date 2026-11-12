@@ -1,5 +1,5 @@
 [package]
-name = "tlansclaib-engine-wasm"
+name = "wavetyper-engine-wasm"
 description = "The engine's line cutting for the browser version"
 version.workspace = true
 edition.workspace = true
@@ -12,4 +12,4 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-engine = { package = "tlansclaib-engine", path = "../../engine", default-features = false }
+engine = { package = "wavetyper-engine", path = "../../engine", default-features = false }

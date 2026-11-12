@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn stores_removes_and_survives_a_broken_file() {
-        let dir = std::env::temp_dir().join(format!("tlansclaib-history-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-history-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let history = History::new(dir.join("history.json"));
         history.add(entry(1, "/a.txt")).unwrap();
@@ -442,7 +442,7 @@ mod tests {
         use crate::fingerprint::{self, Match};
         use crate::transcript::{self, Line};
 
-        let dir = std::env::temp_dir().join(format!("tlansclaib-edit-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-edit-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("meeting_transcript.txt");
         std::fs::write(&file, "[00:00:00.00 --> 00:00:12.75] first\n").unwrap();
@@ -470,7 +470,7 @@ mod tests {
         use crate::transcript::{self, Line, Stored};
         use engine::words::Word;
 
-        let dir = std::env::temp_dir().join(format!("tlansclaib-record-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavetyper-record-{}", std::process::id()));
         let records = dir.join("transcripts");
         std::fs::create_dir_all(&records).unwrap();
         let file = records.join("1.json");

@@ -1,20 +1,20 @@
-# Using tlansclaib
+# Using wavetyper
 
 ## Install
 
 Download the installer for your system:
 
 - Mac, macOS 13 or newer, Apple silicon and Intel:
-  [tlansclaib-mac.dmg](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-mac.dmg).
-  Open it and drag tlansclaib into Applications. Apple has checked the app,
+  [wavetyper-mac.dmg](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-mac.dmg).
+  Open it and drag wavetyper into Applications. Apple has checked the app,
   so it opens like any other.
 - Windows 10 or 11:
-  [tlansclaib-windows-setup.exe](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-windows-setup.exe).
+  [wavetyper-windows-setup.exe](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-windows-setup.exe).
   Run it. SmartScreen shows "Windows protected your PC" once. Click "More
   info", then "Run anyway".
 - Linux, 64-bit, Ubuntu 22.04, Debian 12, Fedora 36 or newer:
-  [tlansclaib-linux.AppImage](https://github.com/mawiswiss/tlansclaib/releases/latest/download/tlansclaib-linux.AppImage).
-  Make it executable with `chmod +x tlansclaib-linux.AppImage`, or under
+  [wavetyper-linux.AppImage](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-linux.AppImage).
+  Make it executable with `chmod +x wavetyper-linux.AppImage`, or under
   Properties in the file manager, and start it. Some distributions need the
   `libfuse2` package first.
 
@@ -124,7 +124,7 @@ Essential bring the better one, Minimal the basic one:
 
 Calls need none of this when each side is on its own track. Screen and call
 recordings often keep your microphone on one track and the computer's sound,
-with the other people, on another. tlansclaib transcribes every track and
+with the other people, on another. wavetyper transcribes every track and
 gives each line its speaker, such as
 `[00:01:23.40 --> 00:01:38.10] Speaker 2: text`.
 
@@ -290,6 +290,6 @@ The computer stays usable in the meantime.
   names what the file is instead.
 - A file that is not an audio file, or whose codec is not supported:
   convert the recording to MP3 or WAV with any audio tool and try again.
-- The log file lives in `~/Library/Logs/tlansclaib/` on macOS, in
-  `%LOCALAPPDATA%\tlansclaib\logs\` on Windows and in
-  `~/.local/share/tlansclaib/logs/` on Linux.
+- The log file lives in `~/Library/Logs/wavetyper/` on macOS, in
+  `%LOCALAPPDATA%\wavetyper\logs\` on Windows and in
+  `~/.local/share/wavetyper/logs/` on Linux.

@@ -12,7 +12,7 @@ use engine::{audio, model_file, speakers, transcribe, windows};
 use serde_json::json;
 
 #[derive(Parser)]
-#[command(name = "tlansclaib-engine", about = "Transcribes an audio file with whisper.cpp")]
+#[command(name = "wavetyper-engine", about = "Transcribes an audio file with whisper.cpp")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
