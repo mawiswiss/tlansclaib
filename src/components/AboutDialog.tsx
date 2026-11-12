@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AUTHOR, GITHUB, WEBSITE, YEAR } from "../lib/about";
 import { DEVICE, FEATURES } from "../lib/ipc";
 import type { UpdateState } from "../lib/update";
-import { Check, Close, Code, Globe, Heart, Lock, Logo, Monitor, User } from "./icons";
+import { Check, Close, Code, Globe, Heart, Mark, Monitor, User } from "./icons";
 import { UpdateSection } from "./UpdateSection";
 
 type Props = {
@@ -24,7 +24,7 @@ type Props = {
 
 const LIST = FEATURES.lite
   ? [
-      "Runs the model on the graphics chip, in this browser",
+      "Runs on the graphics chip, in this browser",
       "About 100 languages",
       "The first 10 minutes of each recording",
       "Timecodes on or off, export text or subtitles when you want",
@@ -59,10 +59,10 @@ export function AboutDialog(props: Props) {
     <div className="overlay" onClick={onClose}>
       <section className="modal about" role="dialog" aria-modal="true" aria-labelledby="about-title" onClick={(e) => e.stopPropagation()}>
         <header className="modal-head about-head">
-          <Logo size={44} />
+          <Mark />
           <div>
             <h2 id="about-title">{FEATURES.lite ? "tlansclaib Lite" : "tlansclaib"}</h2>
-            <p className="muted">{FEATURES.lite ? "The web version of the transcription app for Mac, Windows and Linux" : FEATURES.mobile ? "Offline transcription on your phone" : "Offline transcription for Mac, Windows and Linux"}</p>
+            <p className="muted">{FEATURES.lite ? "Private transcription in your browser" : FEATURES.mobile ? "Private transcription that works offline, on your phone" : "Private transcription that works offline"}</p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
             <Close />
@@ -72,22 +72,17 @@ export function AboutDialog(props: Props) {
           <section className="about-part">
             <h3>Features</h3>
             <div className="privacy">
-              <span className="fact-icon">
-                <Lock size={20} />
-              </span>
-              <div>
-                <strong>Your recordings never leave this {DEVICE}</strong>
-                <p>
-                  {FEATURES.lite
-                    ? "No uploads, no account, no cookies. The model downloads once and runs in this browser."
-                    : "No uploads, no analytics, no account. Once a model is installed, no internet is needed."}
-                </p>
-              </div>
+              <strong>Your recordings never leave this {DEVICE}</strong>
+              <p>
+                {FEATURES.lite
+                  ? "Nothing is uploaded, there is no account and no cookies. The model downloads once and runs in this browser."
+                  : "Nothing is uploaded, nothing is tracked and there is no account. Once a model is installed, you don't need internet."}
+              </p>
             </div>
             <ul className="feature-list">
               {LIST.map((f) => (
                 <li key={f}>
-                  <Check size={15} strokeWidth={2.2} />
+                  <Check size={16} />
                   <span>{f}</span>
                 </li>
               ))}
@@ -97,41 +92,41 @@ export function AboutDialog(props: Props) {
             <h3>About the app</h3>
             <div className="fact">
               <span className="fact-icon">
-                <User size={18} />
+                <User size={20} />
               </span>
               <div>
                 <strong>Made by an indie developer</strong>
                 <p>{AUTHOR} builds and maintains tlansclaib independently.</p>
                 <div className="actions">
                   <button type="button" className="small" onClick={() => onOpenUrl(WEBSITE)}>
-                    <Globe size={15} /> Website
+                    <Globe size={16} /> Website
                   </button>
                   <button type="button" className="small" onClick={() => onOpenUrl(GITHUB)}>
-                    <Code size={15} /> GitHub
+                    <Code size={16} /> GitHub
                   </button>
                 </div>
               </div>
             </div>
             <div className="fact">
               <span className="fact-icon">
-                <Code size={18} />
+                <Code size={20} />
               </span>
               <div>
                 <strong>Open source</strong>
-                <p>MIT license. Built on whisper.cpp and open-weight speech models from their authors.</p>
+                <p>MIT license. Built on whisper.cpp and open speech models from their authors.</p>
               </div>
             </div>
             <div className="fact">
               <span className="fact-icon">
-                <Monitor size={18} />
+                <Monitor size={20} />
               </span>
               <div>
                 <strong>For macOS, Windows and Linux</strong>
                 <p>macOS 13 or newer on Apple silicon or Intel, Windows 10 and 11, 64-bit Linux such as Ubuntu 22.04, Debian 12, Fedora 36 or newer.</p>
                 {FEATURES.lite && (
                   <div className="actions">
-                    <button type="button" className="primary small" onClick={onDesktop}>
-                      <Monitor size={15} /> Get the desktop app
+                    <button type="button" className="small" onClick={onDesktop}>
+                      <Monitor size={16} /> Get the desktop app
                     </button>
                   </div>
                 )}
@@ -139,14 +134,14 @@ export function AboutDialog(props: Props) {
             </div>
             <div className="fact">
               <span className="fact-icon">
-                <Heart size={18} />
+                <Heart size={20} />
               </span>
               <div>
-                <strong>Keep tlansclaib going</strong>
-                <p>If it saves you time, a contribution helps me keep it maintained and improving.</p>
+                <strong>Support tlansclaib</strong>
+                <p>If it saves you time, a contribution helps me keep it maintained.</p>
                 <div className="actions">
-                  <button type="button" className="primary small" onClick={onSupport}>
-                    <Heart size={15} /> Support my work
+                  <button type="button" className="small" onClick={onSupport}>
+                    <Heart size={16} /> Support my work
                   </button>
                 </div>
               </div>

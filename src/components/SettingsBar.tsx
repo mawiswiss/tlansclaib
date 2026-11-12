@@ -35,12 +35,17 @@ export function SettingsBar(props: Props) {
   const { models, modelId, model, onModel, languages, language, onLanguage, locked, backend, stats, busy } = props;
   const installed = models.filter((m) => m.installed);
   const fit = model?.too_heavy ? failedFit(model.too_heavy) : model && stats ? modelFit(model.ram_gb, stats, FEATURES.mobile) : null;
-  const pill = fit && <span className={`fit ${fit.level}`}>{model?.too_heavy ? "Failed here" : FIT_LABEL[fit.level]}</span>;
+  const pill = fit && (
+    <span className="pill status">
+      <span className={`dot ${fit.level === "ok" ? "" : fit.level}`.trim()} aria-hidden="true" />
+      {model?.too_heavy ? "Failed here" : FIT_LABEL[fit.level]}
+    </span>
+  );
   const pinned = installed.some((m) => m.id === modelId) ? modelId : "auto";
   const fix = props.speakerFix;
   return (
     <section className="settings" aria-label="Transcription settings">
-      <label className="setting" htmlFor="language-setting" title={locked ? "This model only knows one language" : undefined}>
+      <label className="setting" htmlFor="language-setting" title={locked ? "This model knows one language only" : undefined}>
         <span className="label">Recording language</span>
         <Select id="language-setting" value={locked ?? language} onChange={onLanguage} disabled={busy || locked !== null} label="Recording language" options={languages} />
       </label>
@@ -48,16 +53,16 @@ export function SettingsBar(props: Props) {
         <div className="setting fixed">
           <span className="label">
             Model
-            <Tooltip content="Lite has a single model to choose from. It covers about 100 languages.">
+            <Tooltip content="Lite has one model. It knows about 100 languages.">
               <span className="setting-info" tabIndex={0} aria-label="About the model in Lite">
-                <Info size={13} />
+                <Info size={16} />
               </span>
             </Tooltip>
           </span>
           <span className="setting-value">{(model ?? installed[0])?.name ?? "No model installed"}</span>
         </div>
       ) : (
-        <label className="setting" htmlFor="model-setting" title="Automatic takes the model of your setup for the language, or a better installed one while it fits the free memory.">
+        <label className="setting" htmlFor="model-setting" title="Automatic picks the model from your setup for this language, or a better installed one while it fits the free memory.">
           <span className="label">
             Model
             {fit?.tip ? <Tooltip content={fit.tip}>{pill}</Tooltip> : pill}
@@ -71,7 +76,7 @@ export function SettingsBar(props: Props) {
             trigger={(selected) => (
               <span className="select-value">
                 {selected?.label ?? ""}
-                {selected?.value === "auto" && (model || installed.some((m) => m.too_heavy)) && <span className="select-sub">{model ? languagesOf(model) : "None that works here"}</span>}
+                {selected?.value === "auto" && (model || installed.some((m) => m.too_heavy)) && <span className="setting-sub">{model ? languagesOf(model) : "None works here"}</span>}
               </span>
             )}
             options={
@@ -83,7 +88,7 @@ export function SettingsBar(props: Props) {
         </label>
       )}
       {FEATURES.speakers && (
-      <label className="setting" htmlFor="speakers-setting" title="Name who speaks in a recording with one audio track. A recording with several tracks gets one speaker per track anyway.">
+      <label className="setting" htmlFor="speakers-setting" title="Names who speaks in a recording with one audio track. A recording with several tracks gets one speaker per track anyway.">
         <span className="label">
           Speakers
           {backend === "sherpa" && props.speakers !== "off" && (
@@ -94,7 +99,7 @@ export function SettingsBar(props: Props) {
               disabled={busy}
               onChange={(value) => props.onSpeakerPrecision(value as "standard" | "fast")}
               label="Precision of speaker detection"
-              title="Standard places speaker changes to about a second. Fast takes about a third of the time and gets a few more changes wrong."
+              title="Standard places speaker changes to within about 1 second. Fast takes about a third of the time and gets a few more changes wrong."
               options={[
                 { value: "standard", label: "Standard" },
                 { value: "fast", label: "Fast" },

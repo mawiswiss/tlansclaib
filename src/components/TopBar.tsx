@@ -1,6 +1,6 @@
 import { DEVICE, FEATURES } from "../lib/ipc";
 import type { Theme } from "../lib/settings";
-import { Clock, Cube, Download, Info, Lock, Logo, Monitor, Moon, Sun } from "./icons";
+import { Clock, Cube, Download, Info, Logo, Monitor, Moon, Sun } from "./icons";
 
 type Props = {
   theme: Theme;
@@ -25,40 +25,37 @@ export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbo
   return (
     <header className={`topbar${update || FEATURES.lite ? " has-update" : ""}`}>
       <div className="brand">
-        <Logo size={26} />
-        <span>tlansclaib</span>
+        <Logo />
         {FEATURES.lite && (
-          <span className="lite-badge" title="The web version of tlansclaib, with fewer features than the desktop app">
+          <span className="lite-pill" title="The web version, with fewer features than the desktop app">
             Lite
           </span>
         )}
-        <span className="tagline" title={`Recordings and transcripts never leave this ${DEVICE}`}>
-          <Lock size={13} />
-          {FEATURES.lite ? "Web version" : "Offline processing"}
-          <span className="tagline-more"> · nothing leaves this {DEVICE}</span>
-        </span>
       </div>
+      <span className="pill status" title={`Recordings and transcripts never leave this ${DEVICE}`}>
+        Offline · all local
+      </span>
       <span className="spacer" />
       {FEATURES.lite && onDesktop && (
-        <button type="button" className="tool update-tool" onClick={onDesktop} aria-label="Desktop app">
+        <button type="button" className="tool update-tool" onClick={onDesktop} aria-label="Get the desktop app" title="Get the desktop app">
           <Monitor />
-          <span className="tool-label">Desktop app</span>
+          <span className="tool-label">Get the desktop app</span>
         </button>
       )}
       {update && (
-        <button type="button" className="tool update-tool" onClick={onUpdate}>
+        <button type="button" className="tool update-tool" onClick={onUpdate} aria-label={update} title={update}>
           <Download />
-          {update}
+          <span className="tool-label">{update}</span>
         </button>
       )}
       {onHistory && (
-        <button type="button" className={`tool${historyOpen ? " active" : ""}`} onClick={onHistory} aria-expanded={historyOpen} aria-label="History">
+        <button type="button" className={`tool${historyOpen ? " active" : ""}`} onClick={onHistory} aria-expanded={historyOpen} aria-label="History" title="History">
           <Clock />
           <span className="tool-label">History</span>
         </button>
       )}
       {onModels && (
-        <button type="button" className="tool" onClick={onModels} disabled={busy} aria-label="Models">
+        <button type="button" className="tool" onClick={onModels} disabled={busy} aria-label="Models" title="Models">
           <Cube />
           <span className="tool-label">Models</span>
         </button>
@@ -66,7 +63,7 @@ export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbo
       <div className="segmented" role="group" aria-label="Appearance">
         {THEMES.map(({ theme: t, title, icon: I }) => (
           <button key={t} type="button" title={title} aria-label={title} aria-pressed={theme === t} onClick={() => onTheme(t)}>
-            <I size={16} />
+            <I size={20} />
           </button>
         ))}
       </div>

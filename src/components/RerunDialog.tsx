@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { DETECTION } from "../lib/detection";
 import { parseLanguage, type LanguageOption } from "../lib/setup";
 import type { ModelStatus, SpeakerBackend } from "../lib/types";
-import { Alert, Close, Retry } from "./icons";
+import { Close, Retry } from "./icons";
 import { menuLabel } from "./ModelsPanel";
 import { Select } from "./Select";
 
@@ -66,14 +66,14 @@ export function RerunDialog(props: Props) {
         </header>
         <div className="modal-body rerun-form">
           {props.edited && (
-            <div className="rerun-warning" id="rerun-warning">
-              <Alert size={20} />
+            <div className="callout warn" id="rerun-warning">
+              <span className="dot warn" aria-hidden="true" />
               <p>
-                <strong>Your corrections will be lost.</strong> Transcribing again replaces this transcript and every correction in it. Files you exported stay where they are.
+                <strong>Your corrections will be replaced.</strong> Transcribing again replaces this transcript and every correction in it. Files you exported stay where they are.
               </p>
             </div>
           )}
-          {props.missingModel && <p className="note">{props.missingModel} is not installed any more, so another model is chosen.</p>}
+          {props.missingModel && <p className="callout">Chose another model, because {props.missingModel} is not installed any more.</p>}
           {FEATURES.lite ? (
             <div className="field">
               <span className="label">Model</span>
@@ -138,7 +138,7 @@ export function RerunDialog(props: Props) {
               </span>
             ) : (
               <span className="field-note">
-                Not named.{" "}
+                Speakers are not named.{" "}
                 <button type="button" className="inline-link" onClick={props.onSetUpDetection}>
                   Set up speaker detection
                 </button>
@@ -152,8 +152,8 @@ export function RerunDialog(props: Props) {
             <button type="button" onClick={props.onClose}>
               Cancel
             </button>
-            <button type="button" className={props.edited ? "primary destructive" : "primary"} onClick={() => props.onRun({ ...choice, language: parseLanguage(locked ?? choice.language).code })} disabled={!model}>
-              <Retry size={15} />
+            <button type="button" className={props.edited ? "danger" : "primary"} onClick={() => props.onRun({ ...choice, language: parseLanguage(locked ?? choice.language).code })} disabled={!model}>
+              <Retry size={16} />
               {props.edited ? "Discard corrections and transcribe" : "Transcribe again"}
             </button>
           </span>

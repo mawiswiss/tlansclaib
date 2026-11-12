@@ -107,7 +107,7 @@ export function RunView({ run, history, smaller, showTimes, languageName, onCanc
         <header className="card-head">
           <div className="titles">
             <h2>{fileName(run.audio)}</h2>
-            <p className="muted">{run.modelName}</p>
+            <p className="hint">{run.modelName}</p>
           </div>
           <button type="button" onClick={onCancel}>
             Cancel
@@ -120,24 +120,24 @@ export function RunView({ run, history, smaller, showTimes, languageName, onCanc
             return (
               <li key={s.step} className={state}>
                 <span className="step-head">
-                  <span className="marker">{state === "done" && <Check size={12} strokeWidth={2.6} />}</span>
+                  <span className="marker">{state === "done" && <Check size={16} />}</span>
                   <span className="title">
                     <span className="long">{s.title}</span>
                     <span className="short">{s.short}</span>
                   </span>
                 </span>
                 <span className="detail" title={text}>
-                  {text || " "}
+                  {text || " "}
                 </span>
               </li>
             );
           })}
         </ol>
         <div className="progress">
-          <div className="bar">
-            <div className="fill" style={{ width: `${percent}%` }} />
-          </div>
-          <div className="stats">
+          <span className="meter" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+            <i style={{ width: `${percent}%` }} />
+          </span>
+          <div className="stats data tabular">
             <strong>{percent}%</strong>
             <span>{duration(elapsed)} elapsed</span>
             {transcribing && <span>{est ? `${remaining(est.remainingSeconds)} left` : "estimating time left"}</span>}
@@ -146,41 +146,63 @@ export function RunView({ run, history, smaller, showTimes, languageName, onCanc
           </div>
         </div>
         {late && current && expected && stepSeconds !== null && (
-          <p role="status" className="note warn">
-            {current.title} is taking longer than {expected.measured ? "usual" : "expected"}:{" "}
-            {overdue(stepSeconds, expected) ? `${duration(stepSeconds)} so far` : `heading for about ${duration(heading!)}`},{" "}
-            {expected.measured ? `earlier runs took about ${duration(expected.seconds)}` : `it usually takes under ${duration(expected.seconds)}`}. It may still finish.
-            {advice(current.step, smaller) && (
-              <>
-                {" "}
-                {advice(current.step, smaller)}{" "}
-                <button type="button" className="inline-link" onClick={() => onRestart(null)}>
-                  Start over
-                </button>
-              </>
-            )}
-          </p>
+          <div role="status" className="t-note warn">
+            <span className="dot warn" />
+            <div>
+              <p>
+                {current.title} is taking longer than {expected.measured ? "usual" : "expected"}:{" "}
+                {overdue(stepSeconds, expected) ? `${duration(stepSeconds)} so far` : `heading for about ${duration(heading!)}`},{" "}
+                {expected.measured ? `earlier runs took about ${duration(expected.seconds)}` : `it usually takes under ${duration(expected.seconds)}`}. It may still finish.
+                {advice(current.step, smaller) && ` ${advice(current.step, smaller)}`}
+              </p>
+              {advice(current.step, smaller) && (
+                <div className="t-note-actions">
+                  <button type="button" onClick={() => onRestart(null)}>
+                    Start over
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
-        {run.retryReason && <p role="status" className="muted">{run.retryReason}</p>}
+        {run.retryReason && <p role="status" className="hint">{run.retryReason}</p>}
         {spoken && run.language && (
-          <p role="status" className="note">
-            This sounds like {languageName(spoken)}. Recording language is {languageName(run.language)}, so the transcript may come out in{" "}
-            {languageName(run.language)}.{" "}
-            <button type="button" className="inline-link" onClick={() => onRestart(spoken)}>
-              Restart in {languageName(spoken)}
-            </button>
-          </p>
+          <div role="status" className="t-note">
+            <span className="dot" />
+            <div>
+              <p>
+                This sounds like {languageName(spoken)}, but the language is set to {languageName(run.language)}. The transcript may come out in {languageName(run.language)}.
+              </p>
+              <div className="t-note-actions">
+                <button type="button" onClick={() => onRestart(spoken)}>
+                  Restart in {languageName(spoken)}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
-      <div className="log card" ref={log} onScroll={onScroll}>
-        {run.lines.length === 0 && <p className="muted">The text appears here as it is recognised.</p>}
+      <div className="log lines card" ref={log} onScroll={onScroll}>
+        {run.lines.length === 0 && <p className="muted">Text appears here as it is recognized.</p>}
         {run.lines.map((line) => {
           const speaker = line.speaker !== undefined && line.text ? run.speakers[line.speaker] : undefined;
+          const meta = showTimes || voiced;
           return (
-            <p key={`${line.start}-${line.speaker ?? 0}`} className={[showTimes ? "timed" : "", voiced ? "voiced" : ""].join(" ").trim() || undefined}>
-              {showTimes && <span className="time">{clock(line.start)}</span>}
-              {voiced && <span className={`line-dot${speaker !== undefined ? ` s${colorOf(run.colors, line.speaker!)}` : ""}`} title={speaker} />}
-              <span className={line.text ? "" : "muted"}>{line.text || "(nothing recognised)"}</span>
+            <p key={`${line.start}-${line.speaker ?? 0}`} className={`line${meta ? " has-meta" : ""}`}>
+              {meta && (
+                <span className="line-meta">
+                  {showTimes && <span className="time">{clock(line.start)}</span>}
+                  {voiced && speaker !== undefined && (
+                    <span className={`who s${colorOf(run.colors, line.speaker!)}`}>
+                      <span className="line-dot" />
+                      <span className="who-name">{speaker}</span>
+                    </span>
+                  )}
+                </span>
+              )}
+              <span className={`line-text${line.text ? "" : " muted"}`} dir="auto">
+                {line.text || "(nothing recognized)"}
+              </span>
             </p>
           );
         })}

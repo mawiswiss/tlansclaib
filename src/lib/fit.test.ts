@@ -36,8 +36,8 @@ describe("fit", () => {
     expect(ramFit(1.3, 16 * GIB)).toEqual({ level: "ok", tip: null });
     expect(ramFit(6, 8 * GIB).level).toBe("warn");
     expect(ramFit(7.5, 8 * GIB).level).toBe("high");
-    expect(ramFit(20, 8 * GIB).tip).toBe("Needs more RAM than this computer has.");
-    expect(budgetFit(1.3, 0.6 * GIB)).toEqual({ level: "high", tip: "Needs more memory than the phone gives the app." });
+    expect(ramFit(20, 8 * GIB).tip).toBe("This model needs more memory than this computer has.");
+    expect(budgetFit(1.3, 0.6 * GIB)).toEqual({ level: "high", tip: "This model needs more memory than the phone gives the app." });
     expect(budgetFit(0.7, 0.7 * GIB)).toEqual({ level: "ok", tip: null });
   });
 

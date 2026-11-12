@@ -1,11 +1,14 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { createPortal } from "react-dom";
 import { clock } from "../lib/format";
+import { getBackend } from "../lib/ipc";
 import { Pause, Play } from "./icons";
 
 export type PlayerHandle = { seek: (seconds: number, play?: boolean) => void; toggle: () => void };
 
 type Props = {
   src: string;
+  path?: string;
   onTime: (seconds: number, playing: boolean) => void;
   onFrame?: (seconds: number) => void;
   onSeek: (seconds: number) => void;
@@ -15,15 +18,80 @@ type Props = {
 };
 
 const SPEEDS = [1, 1.5, 2];
+const BAR = 4;
+const GAP = 3;
+const MAX_BUCKETS = 1000;
+const SMALL_STEP = 5;
+const BIG_STEP = 30;
 
-export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer({ src, onTime, onFrame, onSeek, onReady, onFail, onPlaybackError }, ref) {
+const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
+
+const Bars = memo(function Bars({ heights, played }: { heights: number[]; played: number }) {
+  return (
+    <span className="wave-bars" aria-hidden="true">
+      {heights.map((h, i) => (
+        <i key={i} className={i < played ? "played" : undefined} style={{ height: `${h}%` }} />
+      ))}
+    </span>
+  );
+});
+
+function resample(peaks: number[], count: number): number[] {
+  const top = Math.max(0.05, ...peaks);
+  return Array.from({ length: count }, (_, i) => {
+    const from = Math.floor((i * peaks.length) / count);
+    const to = Math.max(from + 1, Math.floor(((i + 1) * peaks.length) / count));
+    let peak = 0;
+    for (let j = from; j < to && j < peaks.length; j++) peak = Math.max(peak, peaks[j]);
+    return Math.max(8, Math.round((peak / top) * 100));
+  });
+}
+
+export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer({ src, path, onTime, onFrame, onSeek, onReady, onFail, onPlaybackError }, ref) {
   const audio = useRef<HTMLAudioElement>(null);
+  const slider = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
+  const [width, setWidth] = useState(0);
+  const [peaks, setPeaks] = useState<number[] | null>(null);
+  const [hover, setHover] = useState<{ x: number; top: number; time: number } | null>(null);
   const frame = useRef(onFrame);
   frame.current = onFrame;
+
+  const count = width > 0 ? clamp(Math.floor((width + GAP) / (BAR + GAP)), 1, MAX_BUCKETS) : 0;
+
+  useEffect(() => {
+    const el = slider.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setWidth(el.clientWidth));
+    observer.observe(el);
+    setWidth(el.clientWidth);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    setPeaks(null);
+  }, [path]);
+
+  useEffect(() => {
+    if (!path || count === 0) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      getBackend()
+        .then((backend) => backend.audioPeaks(path, count))
+        .then((result) => active && setPeaks(result && result.length > 0 ? result : null))
+        .catch(() => active && setPeaks(null));
+    }, 250);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [path, count]);
+
+  const heights = useMemo(() => (peaks && count > 0 ? resample(peaks, count) : null), [peaks, count]);
 
   useEffect(() => {
     if (!playing) return;
@@ -65,7 +133,58 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
     if (audio.current) audio.current.playbackRate = next;
   };
 
-  const progress = duration > 0 ? (time / duration) * 100 : 0;
+  const seekTo = (seconds: number) => {
+    const a = audio.current;
+    if (!a || duration <= 0) return;
+    const at = clamp(seconds, 0, duration);
+    a.currentTime = at;
+    setTime(at);
+    onSeek(at);
+  };
+
+  const timeAt = (clientX: number): number => {
+    const box = slider.current?.getBoundingClientRect();
+    if (!box || box.width === 0) return 0;
+    return clamp((clientX - box.left) / box.width, 0, 1) * duration;
+  };
+
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || duration <= 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragging.current = true;
+    seekTo(timeAt(e.clientX));
+  };
+
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (duration <= 0) return;
+    if (dragging.current) seekTo(timeAt(e.clientX));
+    if (e.pointerType !== "mouse") return;
+    const box = e.currentTarget.getBoundingClientRect();
+    setHover({ x: clamp(e.clientX, 40, window.innerWidth - 40), top: box.top, time: timeAt(e.clientX) });
+  };
+
+  const onPointerEnd = () => {
+    dragging.current = false;
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.altKey || e.ctrlKey || e.metaKey || duration <= 0) return;
+    const jump: Record<string, number> = {
+      ArrowLeft: -SMALL_STEP,
+      ArrowDown: -SMALL_STEP,
+      ArrowRight: SMALL_STEP,
+      ArrowUp: SMALL_STEP,
+      PageDown: -BIG_STEP,
+      PageUp: BIG_STEP,
+    };
+    if (e.key === "Home") seekTo(0);
+    else if (e.key === "End") seekTo(duration);
+    else if (e.key in jump) seekTo(time + jump[e.key]);
+    else return;
+    e.preventDefault();
+  };
+
+  const progress = duration > 0 ? clamp(time / duration, 0, 1) : 0;
 
   return (
     <div className="player">
@@ -74,7 +193,7 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
         src={src}
         preload="metadata"
         onLoadedMetadata={(e) => {
-          setDuration(e.currentTarget.duration);
+          setDuration(Number.isFinite(e.currentTarget.duration) ? e.currentTarget.duration : 0);
           onReady(e.currentTarget.duration);
         }}
         onTimeUpdate={(e) => {
@@ -86,28 +205,44 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
         onError={onFail}
       />
       <button type="button" className="play" onClick={toggle} aria-label={playing ? "Pause" : "Play"}>
-        {playing ? <Pause size={16} /> : <Play size={16} />}
+        {playing ? <Pause size={20} /> : <Play size={20} />}
       </button>
-      <input
-        type="range"
-        className="seek"
-        min={0}
-        max={duration || 0}
-        step={0.1}
-        value={time}
-        style={{ ["--progress" as string]: `${progress}%` }}
-        onChange={(e) => {
-          const a = audio.current;
-          if (a) a.currentTime = Number(e.target.value);
-          setTime(Number(e.target.value));
-          onSeek(Number(e.target.value));
-        }}
+      <div
+        ref={slider}
+        className={`wave-slider${heights ? " has-wave" : ""}`}
+        role="slider"
+        tabIndex={0}
         aria-label="Position in the recording"
-      />
-      <span className="player-time">
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration)}
+        aria-valuenow={Math.round(time)}
+        aria-valuetext={`${clock(time)} of ${clock(duration)}`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        onPointerLeave={() => setHover(null)}
+        onKeyDown={onKeyDown}
+      >
+        {heights ? (
+          <Bars heights={heights} played={Math.floor(progress * heights.length)} />
+        ) : (
+          <span className="meter">
+            <i style={{ width: `${progress * 100}%` }} />
+          </span>
+        )}
+      </div>
+      {hover &&
+        createPortal(
+          <span className="wave-tip" role="tooltip" style={{ left: hover.x, top: hover.top }}>
+            {clock(hover.time)}
+          </span>,
+          document.body,
+        )}
+      <span className="player-time data tabular">
         {clock(time)} / {clock(duration)}
       </span>
-      <button type="button" className="speed" onClick={nextSpeed} title="Playback speed">
+      <button type="button" className="speed data" onClick={nextSpeed} title="Playback speed">
         {speed}×
       </button>
     </div>

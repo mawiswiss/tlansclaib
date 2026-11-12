@@ -59,7 +59,7 @@ type RerunOptions = { focus?: "speakers" | "language"; speakers?: string; langua
 const GIB = 2 ** 30;
 
 function notStarted(startupError: string | null): string {
-  return startupError ? `The app could not start: ${startupError}` : "The app is still starting. Please try again.";
+  return startupError ? `The app could not start: ${startupError}` : "The app is still starting. Try again in a moment.";
 }
 
 function languageOf(model: ModelStatus, requested: SetupLanguage): SetupLanguage {
@@ -1202,7 +1202,7 @@ export default function App() {
     setPanelError(null);
     try {
       const b = requireBackend();
-      if (!(await b.confirm(`Delete all downloaded models and speaker detection? This frees ${bytes(ownBytes)}. Transcripts in the history stay, and the app asks for a setup again.`, "Delete all"))) return;
+      if (!(await b.confirm(`Delete all downloaded models and speaker detection? This frees ${bytes(ownBytes)}. Transcripts in the history stay, and the app asks for a setup again.`, `Delete all models (${bytes(ownBytes)})`))) return;
       setSettings((s) => ({ ...s, setup: null, modelId: "auto", speakers: "off" }));
       setFailed({});
       setSetupError(null);
@@ -1453,7 +1453,7 @@ export default function App() {
         return (
           <ErrorView
             title="Cancelled"
-            message={FEATURES.lite ? "The transcription was stopped." : "The transcription was stopped. Any completed lines are saved in app history."}
+            message={FEATURES.lite ? "You stopped the transcription." : "You stopped the transcription. The lines it finished are in the history."}
             onRetry={() => dispatch({ type: "reset" })}
             retryLabel={FEATURES.mobile ? "New transcription" : undefined}
           />
@@ -1534,7 +1534,7 @@ export default function App() {
       onDelete={() => {
         if (!webModel) return;
         void requireBackend()
-          .confirm(`Delete the model from this browser? This frees ${bytes(webModel.size_bytes)}.`, "Delete")
+          .confirm(`Delete the model from this browser? This frees ${bytes(webModel.size_bytes)}.`, `Delete model (${bytes(webModel.size_bytes)})`)
           .then((yes) => {
             if (yes) void remove(webModel.id);
           });
@@ -1561,14 +1561,29 @@ export default function App() {
       onDownload={(id) => { void download(id); }}
       onCancelDownload={(id) => { void cancelDownload(id); }}
       onAddFile={addFile}
-      onDelete={remove}
+      onDelete={(id) => {
+        const model = models.find((m) => m.id === id);
+        if (!model) return;
+        void requireBackend()
+          .confirm(`Delete ${model.name}? This frees ${bytes(model.size_bytes)}. Transcripts in the history stay.`, `Delete model (${bytes(model.size_bytes)})`)
+          .then((yes) => {
+            if (yes) void remove(id);
+          });
+      }}
       onUnlink={unlink}
       onRename={renameModel}
       onShowFolder={() => { void showInFolder(folder); }}
       onOpenUrl={openUrl}
       onDownloadDetection={(b) => { void downloadDetection(b); }}
       onCancelDetection={(b) => { void cancelDownload(DETECTION_IDS[b]); }}
-      onRemoveDetection={removeDetection}
+      onRemoveDetection={(b) => {
+        const size = detections.find((d) => d.backend === b)?.disk_bytes ?? 0;
+        void requireBackend()
+          .confirm(`Delete ${DETECTION[b].name}? This frees ${bytes(size)}. Names already in transcripts stay.`, `Delete speaker detection (${bytes(size)})`)
+          .then((yes) => {
+            if (yes) void removeDetection(b);
+          });
+      }}
       onLeaveSetup={leaveSetup}
       fresh={changes.fresh}
       onAcceptFresh={() => acceptChanges(changes.fresh)}

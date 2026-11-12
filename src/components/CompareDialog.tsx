@@ -16,8 +16,8 @@ const ROWS: { label: string; lite: Cell; desktop: Cell }[] = [
 ];
 
 function cell(value: Cell) {
-  if (value === true) return <Check size={16} strokeWidth={2.2} className="yes" role="img" aria-hidden={false} aria-label="Yes" />;
-  if (value === false) return <Close size={16} strokeWidth={2.2} className="no" role="img" aria-hidden={false} aria-label="No" />;
+  if (value === true) return <Check size={20} className="yes" role="img" aria-hidden={false} aria-label="Yes" />;
+  if (value === false) return <Close size={20} className="no" role="img" aria-hidden={false} aria-label="No" />;
   return value;
 }
 
@@ -29,7 +29,7 @@ export function CompareDialog({ onDownload, onClose }: Props) {
           <Close />
         </button>
         <span className="glyph">
-          <Monitor size={28} />
+          <Monitor size={24} />
         </span>
         <h2 id="compare-title">Lite or the desktop app</h2>
         <p className="muted">Both transcribe on this computer. The desktop app has no limits on length or size, runs larger and more accurate models, and names the speakers.</p>
@@ -55,7 +55,7 @@ export function CompareDialog({ onDownload, onClose }: Props) {
         </table>
         <div className="actions">
           <button type="button" className="primary" onClick={onDownload}>
-            <Download size={15} /> Download the desktop app
+            <Download size={16} /> Download the desktop app
           </button>
           <button type="button" onClick={onClose}>
             Keep using Lite

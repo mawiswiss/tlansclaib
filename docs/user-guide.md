@@ -25,7 +25,7 @@ updates". When there is a new version, "What's new" opens its release notes,
 and "Update and restart" downloads it, installs it and starts it. On Windows a
 small installer window shows the progress. Models, history and settings stay.
 
-Once a new version is found, a blue "Update to …" button in the top bar shows
+Once a new version is found, an "Update to …" button in the top bar shows
 it and the download progress, and leads back to Updates.
 
 "Check for updates on start" is on at first. The app then asks GitHub for the
@@ -56,8 +56,8 @@ On the first start it asks two things:
 
 The app measures the connection, checks for a graphics chip and marks one
 setup "Recommended for this computer". "Speed" rates the computer with
-one to five bars and a word: green Fast or Very fast, orange Steady, red
-Slow. Until the first transcription of a minute or more it is an estimate
+one to five bars and a word: Fast or Very fast in green, Steady in yellow,
+Slow in red. Until the first transcription of a minute or more it is an estimate
 from the graphics chip and the memory, marked "≈". Then it uses how fast
 transcriptions really ran. Point at the word to see what it rests on. If the Precise model failed on this
 computer before, Essential is recommended instead. A download of 10 minutes or
@@ -88,14 +88,14 @@ models it would download are outlined and marked "Downloads with" and the
 setup's name.
 
 Chips show the size, the RAM a model needs and, before the download, how
-long it takes. RAM is green when it fits. Orange and red mark a problem and
-explain it when pointed at:
+long it takes. RAM shows a green dot when it fits. A yellow or red dot marks a problem,
+named in words and explained when pointed at:
 
-- RAM: orange when the model takes 70% of the computer's RAM or more, red from
-  90%.
-- Size: orange when less than 10 GB would stay free on the disk, red when the
+- RAM: yellow when the model takes 70% of the computer's RAM or more, red
+  from 90%.
+- Size: yellow when less than 10 GB would stay free on the disk, red when the
   model does not fit, and then it cannot be downloaded.
-- Download: orange from 10 minutes, red from an hour, at the speed measured
+- Download: yellow from 10 minutes, red from an hour, at the speed measured
   the first time the dialog opens.
 
 "Add any model file…" adds a whisper.cpp model from anywhere on the computer.
@@ -152,8 +152,8 @@ until a download is done, and a notice says whether detection works now.
    instead. A model that ran out of memory, stopped
    responding or crashed on this computer is taken by Automatic only when no
    other installed model can transcribe the language.
-   The menu lists it with "(failed here)" and Models with a red "Failed on
-   this computer" chip. Pick it to try again: once a transcription with it
+   The menu lists it with "(failed here)" and Models with a "Failed on this
+   computer" label and a red dot. Pick it to try again: once a transcription with it
    finishes, Automatic takes it again. When transcriptions take longer than
    the recording itself, or before the first one the computer has no usable
    graphics chip and very little memory, a warning below the row says they
@@ -248,8 +248,8 @@ same rule as in the models list. A model that failed on this computer is
 labelled "Failed here", and its tooltip says why.
 
 The bar at the bottom shows the processor and the RAM, green below 70%,
-orange from 70% and red from 90%. Orange and red add a warning sign that
-tells what to do. During a transcription the processor is busy by design,
+yellow from 70% and red from 90%. Yellow and red add the word "High" or
+"Very high", which tells what to do when pointed at. During a transcription the processor is busy by design,
 and the RAM figure adds how much of it the transcription uses.
 
 ## Privacy

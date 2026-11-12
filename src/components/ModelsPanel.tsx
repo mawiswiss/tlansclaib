@@ -5,7 +5,7 @@ import { bytes, capitalize, fileName, folderOf } from "../lib/format";
 import { DEVICE, FEATURES } from "../lib/ipc";
 import { DETECTION_IDS, installed as isInstalled, MODE_NAMES, sizeOf, wanted, type Setup } from "../lib/setup";
 import type { DiskSpace, DownloadProgress, ModelStatus, SpeakerBackend, SpeakerDetection, Stats } from "../lib/types";
-import { Check, ChevronDown, Close, Info, LinkIcon, Pencil, Trash, Unlink } from "./icons";
+import { ChevronDown, Close, Info, LinkIcon, Pencil, Trash, Unlink } from "./icons";
 import { Tooltip } from "./Tooltip";
 
 export type DetailsProps = {
@@ -74,17 +74,33 @@ function critical(rating: Rating | null): Rating | null {
   return rating?.level === "ok" ? null : rating;
 }
 
-function Chip({ rating, children }: { rating: Rating | null; children: ReactNode }) {
-  const className = `chip${rating ? ` ${rating.level}` : ""}`;
-  if (!rating?.tip) return <span className={className}>{children}</span>;
+type Words = { warn: string | null; high: string | null };
+
+const FIT_WORDS: Words = { warn: "Tight", high: "Too large" };
+
+/** A size or time in mono. A rating that is not fine adds a dot in its level and a word. */
+function Chip({ rating, words = FIT_WORDS, children }: { rating: Rating | null; words?: Words; children: ReactNode }) {
+  const level = rating && rating.level !== "ok" ? rating.level : null;
+  const word = level ? words[level] : null;
+  const className = level ? "status data" : "tag data";
+  const body = (
+    <>
+      {level && <span className={`dot ${level}`} aria-hidden="true" />}
+      {children}
+      {word && <span> · {word}</span>}
+    </>
+  );
+  if (!rating?.tip) return <span className={className}>{body}</span>;
   return (
     <Tooltip content={rating.tip}>
       <span className={className} tabIndex={0}>
-        {children}
+        {body}
       </span>
     </Tooltip>
   );
 }
+
+const DOWNLOAD_WORDS: Words = { warn: "Longer", high: "Slow" };
 
 type Group = "all" | "detection" | "custom";
 
@@ -122,11 +138,21 @@ export function ModelDetails(props: DetailsProps) {
   const membership = (id: string, done: boolean) =>
     selected ? (
       <>
-        {next.includes(id) && <span className="chip recommended">{done ? `In ${MODE_NAMES[selected.mode]}` : `Downloads with ${MODE_NAMES[selected.mode]}`}</span>}
-        {ids.includes(id) && <span className="chip">In your setup</span>}
+        {next.includes(id) && (
+          <span className="status">
+            <span className="dot" aria-hidden="true" />
+            {done ? `In ${MODE_NAMES[selected.mode]}` : `Downloads with ${MODE_NAMES[selected.mode]}`}
+          </span>
+        )}
+        {ids.includes(id) && <span className="tag">In your setup</span>}
       </>
     ) : (
-      ids.includes(id) && <span className="chip recommended">In your setup</span>
+      ids.includes(id) && (
+        <span className="status">
+          <span className="dot" aria-hidden="true" />
+          In your setup
+        </span>
+      )
     );
   const cardClass = (id: string, done: boolean) => `model-card${done ? " installed" : next.includes(id) ? " selected" : ""}`;
   const seconds = (size: number) => (typeof speed === "number" ? downloadSeconds(size, speed) : null);
@@ -144,12 +170,12 @@ export function ModelDetails(props: DetailsProps) {
     const percent = dl?.total ? Math.round((dl.bytes / dl.total) * 100) : 0;
     return (
       <span className="model-action">
-        <span className="bar small">
-          <span className="fill" style={{ width: `${percent}%` }} />
+        <span className="meter model-meter" role="progressbar" aria-label="Download" aria-valuenow={percent}>
+          <span style={{ width: `${percent}%` }} />
         </span>
-        <span className="muted tabular">{percent}%</span>
+        <span className="data tabular">{percent}%</span>
         <button type="button" className="icon-button small" onClick={onCancel} aria-label="Cancel the download">
-          <Close size={15} />
+          <Close size={16} />
         </button>
       </span>
     );
@@ -164,16 +190,21 @@ export function ModelDetails(props: DetailsProps) {
     const done = isInstalled(id, models, detections);
     const dl = downloads[id];
     const status = props.fresh.includes(id) ? (
-      <span className="setup-status">New</span>
+      <span className="setup-status">
+        <span className="dot" aria-hidden="true" />
+        New
+      </span>
     ) : done ? (
-      <span className="setup-status ok">
-        <Check size={13} /> Installed
+      <span className="setup-status">
+        <span className="dot" aria-hidden="true" />
+        Installed
       </span>
     ) : dl ? (
       <span className="setup-status tabular">Downloading {dl.total ? Math.round((dl.bytes / dl.total) * 100) : 0}%</span>
     ) : failed[id] ? (
       <Tooltip content={failed[id]}>
-        <span className="setup-status problem-text" tabIndex={0}>
+        <span className="setup-status" tabIndex={0}>
+          <span className="dot high" aria-hidden="true" />
           Failed
         </span>
       </Tooltip>
@@ -190,7 +221,7 @@ export function ModelDetails(props: DetailsProps) {
         {status}
         <Tooltip content={done ? "Take it out of the setup and delete it from the computer" : "Take it out of the setup"}>
           <button type="button" className="icon-button small" onClick={() => props.onLeaveSetup(id)} disabled={busy} aria-label={`Take ${purpose} out of the setup`}>
-            {done ? <Trash size={15} /> : <Close size={15} />}
+            {done ? <Trash size={16} /> : <Close size={16} />}
           </button>
         </Tooltip>
       </li>
@@ -236,7 +267,7 @@ export function ModelDetails(props: DetailsProps) {
                     aria-label={`Rename ${m.name}`}
                     title="Rename"
                   >
-                    <Pencil size={13} />
+                    <Pencil size={16} />
                   </button>
                 )}
               </>
@@ -246,27 +277,36 @@ export function ModelDetails(props: DetailsProps) {
             {m.linked ? (
               <Tooltip content="Take it off the list. The file stays where it is.">
                 <button type="button" className="icon-button small" onClick={() => props.onUnlink(m.id)} disabled={busy} aria-label={`Unlink ${m.name}`}>
-                  <Unlink size={15} />
+                  <Unlink size={16} />
                 </button>
               </Tooltip>
             ) : (
               <Tooltip content="Delete this copy from the models folder">
-                <button type="button" className="icon-button small" onClick={() => onDelete(m.id)} disabled={busy} aria-label={`Delete ${m.name}`}>
-                  <Trash size={15} />
+                <button type="button" className="danger" onClick={() => onDelete(m.id)} disabled={busy} aria-label={`Delete ${m.name} (${bytes(m.size_bytes)})`}>
+                  Delete {bytes(m.size_bytes)}
                 </button>
               </Tooltip>
             )}
           </span>
         </div>
         <p className="model-about" title={m.file}>
-          {!m.installed ? <span className="problem-text">Not found at {m.file}</span> : m.linked ? `Used from ${folderOf(m.file)}` : "Copied into the models folder"}
+          {!m.installed ? (
+            <span className="state">
+              <span className="dot high" aria-hidden="true" />
+              Not found at {m.file}
+            </span>
+          ) : m.linked ? `Used from ${folderOf(m.file)}` : "Copied into the models folder"}
         </p>
         <div className="chips">
-          <span className="chip custom">Custom</span>
-          {m.too_heavy && <Chip rating={failedFit(m.too_heavy)}>Failed on this {DEVICE}</Chip>}
-          {m.label && <span className="chip">{m.label}</span>}
-          {m.installed && <span className="chip">{m.languages.includes("all") ? "Multilingual" : "English only"}</span>}
-          {m.installed && <span className="chip">{bytes(m.size_bytes)} size</span>}
+          <span className="tag">Custom</span>
+          {m.too_heavy && (
+            <Chip rating={failedFit(m.too_heavy)} words={{ warn: null, high: null }}>
+              Failed on this {DEVICE}
+            </Chip>
+          )}
+          {m.label && <span className="tag data">{m.label}</span>}
+          {m.installed && <span className="tag">{m.languages.includes("all") ? "Multilingual" : "English only"}</span>}
+          {m.installed && <span className="tag data">{bytes(m.size_bytes)} size</span>}
           {ram && <Chip rating={ram}>≈ {m.ram_gb.toFixed(1)} GB RAM</Chip>}
         </div>
       </li>
@@ -292,31 +332,28 @@ export function ModelDetails(props: DetailsProps) {
                 }
               >
                 <button type="button" className="icon-button tiny" onClick={() => onOpenUrl(m.source!)} aria-label={`Open the page of ${m.name}`}>
-                  <LinkIcon size={14} />
+                  <LinkIcon size={16} />
                 </button>
               </Tooltip>
             )}
           </span>
           {m.installed ? (
             <span className="model-action">
-              <span className="pill ok">
-                <Check size={13} /> Installed
-              </span>
               <Tooltip content="Delete this model from the computer">
-                <button type="button" className="icon-button small" onClick={() => onDelete(m.id)} disabled={busy} aria-label={`Delete ${m.name}`}>
-                  <Trash size={15} />
+                <button type="button" className="danger" onClick={() => onDelete(m.id)} disabled={busy} aria-label={`Delete ${m.name} (${bytes(m.size_bytes)})`}>
+                  Delete {bytes(m.size_bytes)}
                 </button>
               </Tooltip>
             </span>
           ) : downloads[m.id] ? (
             progress(m.id, () => onCancelDownload(m.id))
           ) : m.url ? (
-            <button type="button" className="primary small" onClick={() => onDownload(m.id)} disabled={space?.level === "high"}>
+            <button type="button" onClick={() => onDownload(m.id)} disabled={space?.level === "high"}>
               Download
             </button>
           ) : (
             <Tooltip content={`Choose ${m.file} (${bytes(m.size_bytes)}) on this computer.`}>
-              <button type="button" className="primary small" onClick={() => onAddFile(m.id)} disabled={space?.level === "high"}>
+              <button type="button" onClick={() => onAddFile(m.id)} disabled={space?.level === "high"}>
                 Add file…
               </button>
             </Tooltip>
@@ -324,13 +361,25 @@ export function ModelDetails(props: DetailsProps) {
         </div>
         <p className="model-about">{m.recommended}</p>
         <div className="chips">
-          {m.too_heavy && <Chip rating={failedFit(m.too_heavy)}>Failed on this {DEVICE}</Chip>}
+          {m.installed && (
+            <span className="status">
+              <span className="dot" aria-hidden="true" />
+              Installed
+            </span>
+          )}
+          {m.too_heavy && (
+            <Chip rating={failedFit(m.too_heavy)} words={{ warn: null, high: null }}>
+              Failed on this {DEVICE}
+            </Chip>
+          )}
           {membership(m.id, m.installed)}
-          {m.architecture && <span className="chip">{[m.architecture, m.quantization].filter(Boolean).join(", ")}</span>}
+          {m.architecture && <span className="tag data">{[m.architecture, m.quantization].filter(Boolean).join(", ")}</span>}
           <Chip rating={critical(space)}>{bytes(m.size_bytes)} size</Chip>
           {ram && <Chip rating={ram}>{m.ram_gb.toFixed(1)} GB RAM</Chip>}
           {m.url && !m.installed && (
-            <Chip rating={time !== null ? critical(downloadFit(time)) : null}>{time !== null ? `${shortDuration(time)} download` : speed === "offline" ? "No connection" : "Measuring speed…"}</Chip>
+            <Chip rating={time !== null ? critical(downloadFit(time)) : null} words={DOWNLOAD_WORDS}>
+              {time !== null ? `${shortDuration(time)} download` : speed === "offline" ? "No connection" : "Measuring speed…"}
+            </Chip>
           )}
         </div>
       </li>
@@ -358,25 +407,22 @@ export function ModelDetails(props: DetailsProps) {
               }
             >
               <button type="button" className="icon-button tiny" onClick={() => onOpenUrl(info.source)} aria-label={`Open the page of ${info.name}`}>
-                <LinkIcon size={14} />
+                <LinkIcon size={16} />
               </button>
             </Tooltip>
           </span>
           {detection.installed ? (
             <span className="model-action">
-              <span className="pill ok">
-                <Check size={13} /> Installed
-              </span>
               <Tooltip content="Delete this speaker detection from the computer">
-                <button type="button" className="icon-button small" onClick={() => props.onRemoveDetection(backend)} disabled={busy} aria-label={`Delete ${info.name}`}>
-                  <Trash size={15} />
+                <button type="button" className="danger" onClick={() => props.onRemoveDetection(backend)} disabled={busy} aria-label={`Delete ${info.name} (${bytes(detection.disk_bytes)})`}>
+                  Delete {bytes(detection.disk_bytes)}
                 </button>
               </Tooltip>
             </span>
           ) : downloads[id] || detection.downloading ? (
             progress(id, () => props.onCancelDetection(backend))
           ) : (
-            <button type="button" className="primary small" onClick={() => props.onDownloadDetection(backend)} disabled={space?.level === "high"}>
+            <button type="button" onClick={() => props.onDownloadDetection(backend)} disabled={space?.level === "high"}>
               Download
             </button>
           )}
@@ -385,11 +431,19 @@ export function ModelDetails(props: DetailsProps) {
           {backend === "sherpa" ? "Names who speaks when in a recording with one audio track. Small and quick, misses short replies." : "Names who speaks when, including short replies, for up to eight people. Runs offline."}
         </p>
         <div className="chips">
+          {detection.installed && (
+            <span className="status">
+              <span className="dot" aria-hidden="true" />
+              Installed
+            </span>
+          )}
           {membership(id, detection.installed)}
-          <span className="chip">Any language</span>
+          <span className="tag">Any language</span>
           <Chip rating={critical(space)}>{bytes(detection.installed ? detection.disk_bytes : detection.download_bytes)} size</Chip>
           {!detection.installed && (
-            <Chip rating={time !== null ? critical(downloadFit(time)) : null}>{time !== null ? `${shortDuration(time)} download` : speed === "offline" ? "No connection" : "Measuring speed…"}</Chip>
+            <Chip rating={time !== null ? critical(downloadFit(time)) : null} words={DOWNLOAD_WORDS}>
+              {time !== null ? `${shortDuration(time)} download` : speed === "offline" ? "No connection" : "Measuring speed…"}
+            </Chip>
           )}
         </div>
       </li>
@@ -400,7 +454,7 @@ export function ModelDetails(props: DetailsProps) {
     count > 0 && (
       <div className={`group${open[id] ? " open" : ""}`} ref={ref}>
         <button type="button" className="group-head" aria-expanded={open[id]} onClick={() => setOpen((o) => ({ ...o, [id]: !o[id] }))}>
-          <ChevronDown className="chevron" size={16} />
+          <ChevronDown className="chevron" size={20} />
           <span>{title}</span>
           <span className="count">{count}</span>
         </button>
@@ -418,8 +472,8 @@ export function ModelDetails(props: DetailsProps) {
           <h3>In your setup</h3>
           {props.fresh.length > 0 && (
             <p className="setup-news">
-              <span>{props.fresh.length === 1 ? "A new model joined" : "New models joined"} your setup with this version of the app.</span>
-              <button type="button" className="primary small" onClick={props.onAcceptFresh} disabled={busy}>
+              <span>{props.fresh.length === 1 ? "This version added a model to your setup." : "This version added models to your setup."}</span>
+              <button type="button" onClick={props.onAcceptFresh} disabled={busy}>
                 Download {bytes(props.fresh.reduce((sum, id) => sum + sizeOf(id, models, detections), 0))}
               </button>
             </p>
@@ -448,7 +502,7 @@ export function ModelDetails(props: DetailsProps) {
           <Tooltip content="Only whisper.cpp files named ggml-….bin work. PyTorch, CTranslate2 and ONNX files from Hugging Face do not. The file is used where it lies, not copied.">
             <button type="button" onClick={() => onAddFile(null)}>
               Add any model file…
-              <Info size={15} className="button-info" />
+              <Info size={16} className="button-info" />
             </button>
           </Tooltip>
           <button type="button" className="ghost" onClick={onShowFolder} title={folder}>
@@ -475,8 +529,9 @@ export function ModelsDialog({ error, subtitle, narrow = false, onClose, childre
         </header>
         <div className="modal-body">
           {error && (
-            <p className="problem" role="alert">
-              {error}
+            <p className="callout danger" role="alert">
+              <span className="dot high" aria-hidden="true" />
+              <span>{error}</span>
             </p>
           )}
           {children}

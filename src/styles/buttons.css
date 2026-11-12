@@ -1,0 +1,105 @@
+button {
+  font: inherit;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--pine);
+  background: var(--surface-raised);
+  border: var(--size-button-outline) solid var(--pine);
+  border-radius: var(--radius-sm);
+  height: var(--size-control-height);
+  padding: 0 var(--size-control-padding);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:active:not(:disabled) {
+  background: var(--pine-soft);
+}
+
+@media (hover: hover) {
+  button:hover:not(:disabled) {
+    background: var(--pine-soft);
+  }
+}
+
+button:disabled {
+  background: none;
+  color: var(--ink-muted);
+  border-color: var(--line);
+  font-weight: var(--font-weight-regular);
+  cursor: default;
+}
+
+button.primary {
+  background: var(--pine);
+  border-color: var(--pine);
+  color: var(--on-pine);
+}
+
+button.primary:active:not(:disabled) {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+@media (hover: hover) {
+  button.primary:hover:not(:disabled) {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+}
+
+button.danger {
+  color: var(--ink);
+  border-color: var(--danger);
+}
+
+button.large {
+  height: var(--size-button-min-height);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+button.ghost,
+button.tool,
+button.icon-button {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink);
+}
+
+button.ghost:active:not(:disabled),
+button.tool:active:not(:disabled),
+button.icon-button:active:not(:disabled) {
+  background: var(--pine-soft);
+}
+
+@media (hover: hover) {
+  button.ghost:hover:not(:disabled),
+  button.tool:hover:not(:disabled),
+  button.icon-button:hover:not(:disabled) {
+    background: var(--pine-soft);
+  }
+}
+
+button.icon-button {
+  width: var(--size-control-height);
+  padding: 0;
+}
+
+button.icon-button:disabled {
+  color: var(--ink-muted);
+}
+
+@media (pointer: coarse) {
+  button {
+    min-height: var(--size-button-min-height);
+  }
+
+  button.icon-button {
+    min-width: var(--size-button-min-height);
+  }
+}

@@ -1,4 +1,3 @@
-import { Alert, Download } from "./icons";
 
 type Props = {
   mode: string;
@@ -12,10 +11,10 @@ type Props = {
 export function SetupProgress({ mode, percent, ready, error, onRetry, onDetails }: Props) {
   if (error) {
     return (
-      <div className="setup-progress failed" role="alert">
-        <Alert size={15} />
-        <span className="setup-progress-text">
-          Downloading the {mode} models stopped: {error}
+      <div className="progress-strip failed" role="alert">
+        <span className="dot high" aria-hidden="true" />
+        <span className="progress-strip-text">
+          The {mode} models stopped downloading: {error}
         </span>
         <button type="button" className="inline-link" onClick={onRetry}>
           Try again
@@ -27,13 +26,12 @@ export function SetupProgress({ mode, percent, ready, error, onRetry, onDetails 
     );
   }
   return (
-    <div className="setup-progress" role="status">
-      <Download size={15} />
-      <span className="setup-progress-text">
-        Downloading the {mode} models, {percent}%. {ready ? "You can start a transcription now." : "A transcription can start once the first model is in."}
+    <div className="progress-strip" role="status">
+      <span className="progress-strip-text">
+        Downloading the {mode} models, {percent}%. {ready ? "You can transcribe now." : "You can transcribe once the first model is in."}
       </span>
-      <span className="bar small" aria-hidden="true">
-        <span className="fill" style={{ width: `${percent}%` }} />
+      <span className="meter" aria-hidden="true">
+        <span style={{ width: `${percent}%` }} />
       </span>
     </div>
   );

@@ -211,7 +211,14 @@ export function addSpeaker(transcript: Transcript): Transcript {
   return { speakers: named, colors, lines: plain ? lines.map((line) => ({ ...line, speaker: 0 })) : lines };
 }
 
-export function findMatches(lines: Line[], needle: string): number[] {
+export type Match = { line: number; at: number };
+
+export function findMatches(lines: Line[], needle: string): Match[] {
   if (!needle) return [];
-  return lines.flatMap((line, i) => (line.text.toLowerCase().includes(needle) ? [i] : []));
+  return lines.flatMap((line, i) => {
+    const lower = line.text.toLowerCase();
+    const found: Match[] = [];
+    for (let at = lower.indexOf(needle); at !== -1; at = lower.indexOf(needle, at + needle.length)) found.push({ line: i, at });
+    return found;
+  });
 }

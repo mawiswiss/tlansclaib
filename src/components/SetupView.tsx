@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { budgetFit, downloadFit, downloadSeconds, VERY_FAST, type Score } from "../lib/fit";
 import { bytes, gib, wholeGb } from "../lib/format";
-import { FEATURES } from "../lib/ipc";
+import { DEVICE, FEATURES } from "../lib/ipc";
 import { defaultModel, languageKey, missingBytes, MODE_DETECTION, MODE_NAMES, MODES, parseLanguage, recommend, SEVERAL, setupLanguages, wanted, withSelectedLanguage, type Mode, type Setup, type SetupLanguage } from "../lib/setup";
 import type { DiskSpace, Gpu, Language, ModelStatus, SpeakerDetection, Stats } from "../lib/types";
 import { ChevronDown } from "./icons";
@@ -45,17 +45,16 @@ const PITCH: Record<Mode, string> = FEATURES.mobile
 
 const SPEAKERS: Record<Mode, string> = FEATURES.mobile ? { precise: "Detected", essential: "Detected", minimal: "Detected" } : { precise: "Better detection", essential: "Better detection", minimal: "Basic detection" };
 
-const BARS: Record<Mode, number> = { precise: 30, essential: 16, minimal: 8 };
+const BARS: Record<Mode, number> = { precise: 12, essential: 8, minimal: 5 };
 
 function Wave({ mode }: { mode: Mode }) {
   const count = BARS[mode];
-  const step = 120 / count;
+  const played = Math.ceil(count * 0.4);
   return (
-    <svg className="setup-wave" viewBox="0 0 120 60" aria-hidden="true">
+    <svg className="setup-wave" viewBox={`0 0 ${count * 7 - 3} 24`} aria-hidden="true">
       {Array.from({ length: count }, (_, i) => {
-        const t = (i + 0.5) / count;
-        const h = 6 + 54 * Math.abs(0.6 * Math.sin(t * Math.PI * 3.1 + 0.4) + 0.4 * Math.sin(t * Math.PI * 7.3)) * Math.sin(t * Math.PI);
-        return <rect key={i} x={i * step + (step - 2.4) / 2} y={(60 - h) / 2} width={2.4} height={h} rx={1.2} />;
+        const h = 6 + 18 * Math.abs(Math.sin(i * 1.3 + 0.5));
+        return <rect key={i} className={i < played ? "on" : undefined} x={i * 7} y={(24 - h) / 2} width={4} height={h} rx={2} />;
       })}
     </svg>
   );
@@ -178,20 +177,33 @@ export function SetupView(props: Props) {
               disabled={props.busy}
             >
               <span className="setup-head">
-                <span className="setup-name">
-                  <span className="setup-dot" aria-hidden="true" />
-                  {MODE_NAMES[mode]}
+                <span className="setup-title">
+                  <span className="setup-name">
+                    <span className="setup-dot" aria-hidden="true" />
+                    {MODE_NAMES[mode]}
+                  </span>
+                  <Wave mode={mode} />
                 </span>
                 <span className="setup-badges">
-                  {badge === mode && <span className="chip recommended">Recommended</span>}
-                  {setup?.mode === mode && languageKey(setup.language) === languageValue && <span className="chip ok">Your setup</span>}
+                  {badge === mode && (
+                    <span className="status">
+                      <span className="dot" aria-hidden="true" />
+                      Recommended for this {DEVICE}
+                    </span>
+                  )}
+                  {setup?.mode === mode && languageKey(setup.language) === languageValue && (
+                    <span className="status">
+                      <span className="dot" aria-hidden="true" />
+                      Your setup
+                    </span>
+                  )}
                   {slow && slow.level !== "ok" && (
-                    <span className={`chip ${slow.level}`} title={slow.tip ?? undefined}>
+                    <span className="status" title={slow.tip ?? undefined}>
+                      <span className={`dot ${slow.level}`} aria-hidden="true" />
                       Longer download
                     </span>
                   )}
                 </span>
-                <Wave mode={mode} />
               </span>
               <span className="setup-pitch">{PITCH[mode]}</span>
               <span className="setup-facts">
@@ -203,27 +215,36 @@ export function SetupView(props: Props) {
                 )}
                 <span>Memory</span>
                 <span>
-                  {ram > 0 ? `≈ ${ram.toFixed(1)} GB RAM` : "–"}
-                  {phoneBudget !== null && ram > 0 && budgetFit(ram, phoneBudget).level === "high" && <span className="problem-text">, more than this phone allows</span>}
+                  <span className="data">{ram > 0 ? `≈ ${ram.toFixed(1)} GB RAM` : "–"}</span>
+                  {phoneBudget !== null && ram > 0 && budgetFit(ram, phoneBudget).level === "high" && (
+                    <span className="state">
+                      <span className="dot high" aria-hidden="true" />
+                      More than this phone allows
+                    </span>
+                  )}
                 </span>
                 <span>Download</span>
-                <span>{size === 0 ? "Installed" : [bytes(size), time].filter(Boolean).join(", ")}</span>
+                <span className="data">{size === 0 ? "Installed" : [bytes(size), time].filter(Boolean).join(", ")}</span>
               </span>
             </button>
           );
         })}
       </div>
       {offline && (
-        <p className="problem setup-offline" role="alert">
-          The models cannot be downloaded right now: {props.speedError ?? "the model server did not answer"}.{" "}
-          <button type="button" className="inline-link" onClick={props.onMeasureAgain}>
-            Try again
-          </button>
+        <p className="callout danger setup-offline" role="alert">
+          <span className="dot high" aria-hidden="true" />
+          <span>
+            Models cannot download right now: {props.speedError ?? "the model server did not answer"}.{" "}
+            <button type="button" className="inline-link" onClick={props.onMeasureAgain}>
+              Try again
+            </button>
+          </span>
         </p>
       )}
       {props.error && (
-        <p className="problem" role="alert">
-          {props.error}
+        <p className="callout danger" role="alert">
+          <span className="dot high" aria-hidden="true" />
+          <span>{props.error}</span>
         </p>
       )}
       <div className="setup-actions">
@@ -232,16 +253,18 @@ export function SetupView(props: Props) {
         </button>
       </div>
       {props.leftoverBytes > 0 && (
-        <p className="note setup-leftovers">
-          {bytes(props.leftoverBytes)} of models are no longer in your setup.{" "}
-          <button type="button" className="inline-link" onClick={props.onRemoveLeftovers} disabled={props.busy}>
-            Remove them
-          </button>
+        <p className="callout setup-leftovers">
+          <span>
+            <span className="data">{bytes(props.leftoverBytes)}</span> of models are no longer in your setup.{" "}
+            <button type="button" className="inline-link" onClick={props.onRemoveLeftovers} disabled={props.busy}>
+              Remove them
+            </button>
+          </span>
         </p>
       )}
       {props.onToggleDetails && (
         <button type="button" className={`setup-details-toggle${props.showDetails ? " open" : ""}`} aria-expanded={props.showDetails} onClick={props.onToggleDetails}>
-          <ChevronDown className="chevron" size={16} />
+          <ChevronDown className="chevron" size={20} />
           {props.showDetails ? "Hide single models" : "Show single models"}
         </button>
       )}

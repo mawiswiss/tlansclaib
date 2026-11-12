@@ -7,15 +7,15 @@ export function DesktopPromo({ transcribed, full, onDesktop }: Props) {
   const trimmed = transcribed !== null && full !== null && full > transcribed + 1;
   return (
     <aside className="desktop-promo">
-      <Monitor size={22} />
+      <Monitor size={20} />
       <div>
         <strong>{trimmed ? `This is the first ${duration(transcribed)} of ${duration(full)}` : "Like the result?"}</strong>
         <p className="muted">
           {trimmed ? "The desktop app transcribes the whole recording. " : "The desktop app transcribes recordings of any length. "}
-          It also names the speakers and covers about 100 languages, plus dedicated models. Free for Mac, Windows and Linux.
+          It also names the speakers and covers about 100 languages, plus dedicated models. It is free for Mac, Windows and Linux.
         </p>
       </div>
-      <button type="button" className="primary small" onClick={onDesktop}>
+      <button type="button" onClick={onDesktop}>
         Get the desktop app
       </button>
     </aside>

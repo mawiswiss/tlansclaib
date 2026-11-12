@@ -27,7 +27,7 @@ export function topBarLabel(state: UpdateState): string | null {
       return done === null ? "Updating…" : `Updating ${done}%`;
     }
     case "ready":
-      return "Update ready";
+      return "Restart to update";
     case "installing":
       return "Restarting…";
     case "failed":

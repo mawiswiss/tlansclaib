@@ -54,13 +54,18 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
           </button>
         </header>
         <label className="search">
-          <Search size={16} />
+          <Search size={20} />
           <input type="search" placeholder="Find by name or folder" value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
-        {error && <p className="problem history-error" role="alert">{error}</p>}
+        {error && (
+          <p className="callout danger drawer-error" role="alert">
+            <span className="dot high" aria-hidden="true" />
+            <span>{error}</span>
+          </p>
+        )}
         <ul className="history" ref={list}>
-          {entries.length === 0 && <li className="empty">Transcripts appear here once the first recording is done.</li>}
-          {entries.length > 0 && shown.length === 0 && <li className="empty">Nothing matches “{query}”.</li>}
+          {entries.length === 0 && <li className="empty">Your transcripts appear here after the first recording is done.</li>}
+          {entries.length > 0 && shown.length === 0 && <li className="empty">No transcript matches “{query}”.</li>}
           {shown.map((e) => (
             <li key={e.id} className={`entry${e.exists ? "" : " missing"}`}>
               {e.exists ? (
@@ -76,14 +81,19 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
                     <span className="when">{when(e.finished_at)}</span>
                   </span>
                   <span className="entry-meta">
-                    {e.status === "incomplete" && <span className="dot warn" title="Stopped early" />}
+                    {e.status === "incomplete" && (
+                      <span className="state" title="The transcription stopped before the end">
+                        <span className="dot warn" aria-hidden="true" />
+                        Stopped early
+                      </span>
+                    )}
                     {e.edited === true && (
-                      <span className="entry-edited" title="Corrected by hand">
-                        <Pencil size={11} strokeWidth={2.2} />
+                      <span className="tag" title="You corrected this transcript">
+                        <Pencil size={16} />
                         Edited
                       </span>
                     )}
-                    {e.audio_seconds !== null ? clock(e.audio_seconds) : `${e.lines} lines`} · {e.model}
+                    <span className="data">{e.audio_seconds !== null ? clock(e.audio_seconds) : `${e.lines} lines`}</span> · {e.model}
                     {e.language && <> · {languageName(e.language)}</>}
                   </span>
                   <span className="entry-path">{e.file.endsWith(".json") ? "App history" : folderOf(e.file)}</span>
@@ -95,7 +105,10 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
                     <span className="when">{when(e.finished_at)}</span>
                   </span>
                   <span className="entry-meta">
-                    <span className="problem-text">Transcript unavailable</span>
+                    <span className="state">
+                      <span className="dot high" aria-hidden="true" />
+                      Transcript unavailable
+                    </span>
                   </span>
                   <span className="entry-fix">
                     {e.audio_exists && (
@@ -106,7 +119,7 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
                         disabled={busy}
                         title={`Transcribe the recording again: ${[e.model, e.language && languageName(e.language), e.timestamps ? "timecodes" : "no timecodes"].filter(Boolean).join(", ")}`}
                       >
-                        <Retry size={14} />
+                        <Retry size={16} />
                         Transcribe again
                       </button>
                     )}
@@ -118,10 +131,10 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
               )}
               <span className="entry-actions">
                 <button type="button" className="icon-button small" onClick={() => onRemove(e.id)} title={e.file.endsWith(".json") ? "Delete transcript" : "Remove from the list"} aria-label={e.file.endsWith(".json") ? `Delete ${e.title ?? titleOf(e.file)}` : `Remove ${e.title ?? titleOf(e.file)} from the list`}>
-                  <Close size={15} />
+                  <Close size={16} />
                 </button>
                 {!e.file.endsWith(".json") && <button type="button" className="icon-button small" onClick={() => onReveal(e.file)} disabled={!e.exists} title="Show in folder" aria-label="Show in folder">
-                  <Folder size={16} />
+                  <Folder size={20} />
                 </button>}
               </span>
             </li>

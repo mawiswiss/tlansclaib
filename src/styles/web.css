@@ -1,0 +1,125 @@
+/* Browser version */
+
+.web-setup .notice-card {
+  max-width: 560px;
+}
+
+.web-setup .notice-card h2 {
+  font-size: var(--font-size-heading-2);
+  line-height: var(--font-line-height-heading-2);
+}
+
+.web-setup .glyph {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--pine-soft);
+  color: var(--pine);
+}
+
+.web-limits {
+  text-align: left;
+  margin: var(--space-1) 0;
+}
+
+.web-download {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  width: 100%;
+}
+
+.web-download .meter {
+  grid-column: 1 / -1;
+}
+
+.notice-card p.small-print {
+  font-size: var(--font-size-app-caption);
+  line-height: var(--font-line-height-app-caption);
+}
+
+.desktop-promo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+
+.desktop-promo > svg {
+  flex: none;
+  color: var(--pine);
+}
+
+.desktop-promo > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.desktop-promo strong {
+  font-weight: var(--font-weight-semibold);
+}
+
+.desktop-promo p {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-app-caption);
+  line-height: var(--font-line-height-app-caption);
+}
+
+.desktop-promo > button {
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .desktop-promo {
+    flex-wrap: wrap;
+  }
+}
+
+.web-model {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.web-model-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+
+.web-model-row > div > .status {
+  margin-left: var(--space-1);
+}
+
+.web-model-row p {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-app-caption);
+  line-height: var(--font-line-height-app-caption);
+}
+
+.web-model-row > button {
+  flex: none;
+}
+
+.web-model-heading {
+  margin: 0 0 var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--font-size-label);
+  line-height: var(--font-line-height-label);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: calc(var(--font-tracking-label) * 1em);
+  text-transform: uppercase;
+}
+
+.web-model .desktop-promo {
+  margin-top: 0;
+}

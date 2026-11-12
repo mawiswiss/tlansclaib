@@ -1,4 +1,3 @@
-import { Alert } from "./icons";
 import { toneClass, type NoticeAction } from "./Notices";
 
 export type ErrorAction = NoticeAction;
@@ -16,10 +15,10 @@ export function ErrorView({ title, message, note, onRetry, retryLabel = "Start o
   return (
     <section className="notice">
       <div className="notice-card">
-        <span className="glyph problem-glyph">
-          <Alert size={28} />
-        </span>
-        <h2>{title}</h2>
+        <h2>
+          <span className="dot high" aria-hidden="true" />
+          {title}
+        </h2>
         <p role="alert">{message}</p>
         <div className="actions">
           {actions.map((action, i) => (

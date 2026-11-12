@@ -162,7 +162,7 @@ export function Select({ value, options, onChange, id, label, title, disabled, c
         onKeyDown={onKeyDown}
       >
         {trigger ? trigger(selected) : <span className="select-value">{selected?.label ?? ""}</span>}
-        {chevron && <ChevronDown className="select-chevron" size={14} />}
+        {chevron && <ChevronDown className="select-chevron" size={16} />}
       </button>
       {open &&
         createPortal(
@@ -179,7 +179,7 @@ export function Select({ value, options, onChange, id, label, title, disabled, c
                 onClick={() => choose(i)}
               >
                 <span>{option.label}</span>
-                {option.value === value && <Check size={14} strokeWidth={2.2} />}
+                {option.value === value && <Check size={16} />}
               </li>
             ))}
           </ul>,

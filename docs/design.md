@@ -326,7 +326,7 @@ top bar picks one.
 - Updates have their own card in About, under the features
   (`UpdateSection.tsx`): the installed version and "Check for updates", then
   "Version X is available" with "Update and restart" and "What's new", which
-  opens the release on GitHub. The card turns blue once a version is found.
+  opens the release on GitHub. The card turns `pine-soft` with a `pine` border once a version is found.
   The download shows a bar. The install waits while a transcription or a
   download runs, and a failure links the release page. The switch "Check for
   updates on start" is on by default and checks at every start and once a
@@ -334,7 +334,7 @@ top bar picks one.
   in the background never interrupts a download or install under way.
 - A version found in the background shows once per start as a notice with
   "Update and restart" and "What's new".
-- A found update also puts a blue button in the top bar, "Update to X", which
+- A found update also puts a button in the top bar, "Update to X", which
   follows the download and opens About at the card. While it shows, narrow
   windows drop "Offline processing" so the bar does not overflow.
 - Before downloading, `update_blocker` refuses a Mac app started from the disk
@@ -359,7 +359,7 @@ top bar picks one.
   too heavy, which the menu lists with "(failed here)", only when no other
   installed model can transcribe the language, and then the one with the
   least RAM, so a computer whose only model failed once can try again.
-  When the computer rates red (see "Setup"), a warning in the same place says
+  When the computer rates at the `danger` level (see "Setup"), a warning in the same place says
   transcriptions run very slowly here: by the measured factor, or before any
   run by the missing graphics chip and the memory. Below Minimal it links to
   a smaller setup in Models, on Minimal it says to close other programs. Its
@@ -368,10 +368,10 @@ top bar picks one.
   are not a setting there: the switch
   above a finished transcript decides and is remembered for the next.
 - The model carries a fit label from `lib/fit.ts`: its listed RAM need
-  against the computer's total RAM, green below 70%, orange below 90%, red
+  against the computer's total RAM, `pine` below 70%, `warn` below 90%, `danger`
   above. It ignores what is in use right now, which the start check covers,
   so the label does not change while other programs come and go. A model
-  marked too heavy shows a red "Failed here" instead, with the reason in its
+  marked too heavy shows "Failed here" at the `danger` level instead, with the reason in its
   tooltip.
 - Menus (`Select.tsx`) are drawn by the app and follow the ARIA combobox
   pattern, a button with a listbox. Tab reaches them, the arrows, Home, End
@@ -447,16 +447,17 @@ top bar picks one.
   8 s, the others stay until dismissed with the cross. App errors arrive
   here too. A notice leads with what the app does or chose, with names and
   sizes, then why. An error says what failed and the one thing to do. None
-  describes what might happen. Buttons here and on error cards carry a tone: blue for the fix
-  the app recommends, red for one that deletes or skips a safety check, plain
-  for the rest.
+  describes what might happen. The fix the app recommends is the primary button on an error card and a
+  secondary one in a notice, which never holds a primary button. An action
+  that deletes or skips a safety check has a `danger` outline. The rest are
+  secondary.
 
 ### The result
 
 - A card with icons for export, copy text, transcribe again and close, each
   named in a tooltip. Legacy text files also have a show in folder icon.
   Copying turns its icon
-  into a green check. "Transcribe another" is a plus to the right of the
+  into a check. "Transcribe another" is a plus to the right of the
   card. Close and the plus both bring back the settings row and the drop
   zone.
 - The title starts as the recording's name. The pencil or a double-click
@@ -486,6 +487,14 @@ top bar picks one.
   empty: the app allows one file at a time when it shows it (`audio_source`).
   Videos play their sound only. A format the system player cannot play shows
   a note instead of the player.
+- The player draws the recording's loudness as a wave: one bar per bucket, the
+  loudest of all tracks and channels, scaled so the loudest bucket is full
+  height. The engine computes it in one streaming pass that keeps only a
+  fixed set of running maxima, so memory stays the same for a three hour
+  file (`audio_peaks`, `peaks.rs`), and the app caches the result per
+  recording and bucket count in `peaks/` of its data folder (the newest 200
+  files). When the sound cannot be read the call returns null and the player
+  shows no wave but still plays.
 
 ### Speakers
 
@@ -495,7 +504,7 @@ top bar picks one.
   (`wantedBackend`). The basic one offers 2 to 6 people and a small
   "Standard" or "Fast" choice in the label, the better one a cap of 2 to 8.
   Without a working detection the menu is greyed out and says "Not
-  installed" or "Not working". A blue "Download" in its label fetches the
+  installed" or "Not working". A "Download" button in its label fetches the
   setup's detection, "Repair" removes a damaged one and fetches it again. A
   detection that does not start with intact files gets no "Repair", because
   the same files would fail the same way. "Download" then offers the other
@@ -598,15 +607,15 @@ start again as "Speaker 1" and so on.
   one too small for Precise, otherwise 15, plus up to 40 for memory from 4 GB
   to 16 GB. After such runs it rates their median speed against the
   recording (`measuredSpeed` in `lib/pace.ts`): 20 points at real time and 20
-  more for each doubling. Green from 50, orange from 20, red below.
+  more for each doubling. The level is `pine` from 50, `warn` from 20 and `danger` below.
 - Each setup shows what it still has to download and how long that takes at
   the measured speed. "Recommended for this computer" marks Precise when the
   graphics chip can run its model, the computer reports 14 GB RAM or more (a
-  16 GB Windows PC reports less than 16), the model's RAM rates green and its
+  16 GB Windows PC reports less than 16), the model's RAM rates `pine` and its
   downloads take less than 30 minutes. Otherwise it marks Essential, also
   offline or when Precise's model for the language is installed and marked too
   heavy (`recommend`). A setup whose downloads take 10 minutes or more
-  carries a "Longer download" chip, orange, red from an hour. Nothing is
+  carries a "Longer download" pill at the `warn` level, `danger` from an hour. Nothing is
   selected while the check runs, then the marked setup is, unless the user
   already clicked one. Offline, the download button waits for "Try again".
 - "Download and start" or "Apply" saves the setup in the settings and
@@ -656,13 +665,13 @@ start again as "Speaker 1" and so on.
   Precise" when installed) and the ones still to download are outlined, so
   the list shows what "Apply" will fetch.
 - Then a link to the model page, a description of at most two lines, and
-  chips for language, architecture, size, RAM and download time, coloured by
-  `lib/fit.ts`. A model marked too heavy, listed or custom, leads with a red
-  "Failed on this computer" chip that gives the reason.
-  RAM: orange from 70% of total RAM, red from 90%, green when it fits. Size:
-  orange when less than 10 GB would stay free, red when the model does not
-  fit with 1 GB to spare, which also disables its button. Download: orange
-  from 10 minutes, red from an hour. Only orange and red chips carry a
+  chips for language, architecture, size, RAM and download time, with levels from
+  `lib/fit.ts`. A model marked too heavy, listed or custom, leads with a
+  "Failed on this computer" pill at the `danger` level that gives the reason.
+  RAM: `warn` from 70% of total RAM, `danger` from 90%, `pine` when it fits. Size:
+  `warn` when less than 10 GB would stay free, `danger` when the model does not
+  fit with 1 GB to spare, which also disables its button. Download: `warn`
+  from 10 minutes, `danger` from an hour. Only `warn` and `danger` chips carry a
   tooltip, with context rather than the value again.
 - The connection is measured for four seconds against the model server the
   first time the setup view shows, then kept for the session. Which files
@@ -670,9 +679,9 @@ start again as "Speaker 1" and so on.
 
 ### Footer
 
-One line with CPU and RAM in whole numbers, their bars green, orange from
-70% and red from 90%. Orange or red adds a warning sign whose tooltip says
-what to do. During a run, the RAM figure adds "(Transcription uses 1 GB)",
+One line with CPU and RAM in whole numbers, their meters `pine`, `warn` from
+70% and `danger` from 90%. The two upper levels add the word "High" or "Very
+high", whose tooltip says what to do. During a run, the RAM figure adds "(Transcription uses 1 GB)",
 the part the engine process holds. The copyright line on the right opens the
 support dialog.
 

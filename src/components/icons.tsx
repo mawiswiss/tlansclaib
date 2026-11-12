@@ -1,8 +1,11 @@
 import type { ReactNode, SVGProps } from "react";
+import logoDark from "../assets/brand/logo-on-dark.svg";
+import logoLight from "../assets/brand/logo.svg";
+import mark from "../assets/brand/mark.svg";
 
-type Props = SVGProps<SVGSVGElement> & { size?: number };
+type Props = Omit<SVGProps<SVGSVGElement>, "strokeWidth"> & { size?: 16 | 20 | 24 };
 
-function Icon({ size = 18, children, ...rest }: Props & { children: ReactNode }) {
+function Icon({ size = 20, children, ...rest }: Props & { children: ReactNode }) {
   return (
     <svg
       width={size}
@@ -10,11 +13,11 @@ function Icon({ size = 18, children, ...rest }: Props & { children: ReactNode })
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       {...rest}
+      style={{ strokeWidth: "var(--size-icon-stroke)", ...rest.style }}
     >
       {children}
     </svg>
@@ -79,18 +82,6 @@ export const ChevronDown = (p: Props) => (
   </Icon>
 );
 
-export const ChevronLeft = (p: Props) => (
-  <Icon {...p}>
-    <path d="M15 18l-6-6 6-6" />
-  </Icon>
-);
-
-export const ChevronRight = (p: Props) => (
-  <Icon {...p}>
-    <path d="M9 18l6-6-6-6" />
-  </Icon>
-);
-
 export const Check = (p: Props) => (
   <Icon {...p}>
     <path d="M5 12.5l4.5 4.5L19 7" />
@@ -138,13 +129,6 @@ export const Heart = (p: Props) => (
   </Icon>
 );
 
-export const Lock = (p: Props) => (
-  <Icon {...p}>
-    <rect x="5" y="10.5" width="14" height="10" rx="2" />
-    <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
-  </Icon>
-);
-
 export const Code = (p: Props) => (
   <Icon {...p}>
     <path d="M9 8l-4.5 4L9 16M15 8l4.5 4-4.5 4" />
@@ -178,9 +162,8 @@ export const Play = (p: Props) => (
 );
 
 export const Pause = (p: Props) => (
-  <Icon {...p} fill="currentColor" stroke="none">
-    <rect x="6.5" y="5" width="4" height="14" rx="1" />
-    <rect x="13.5" y="5" width="4" height="14" rx="1" />
+  <Icon {...p}>
+    <path d="M9 6v12M15 6v12" />
   </Icon>
 );
 
@@ -224,25 +207,13 @@ export const Redo = (p: Props) => (
   </Icon>
 );
 
-export function Logo({ size = 28 }: { size?: number }) {
+export function Logo() {
   return (
-    <svg width={size} height={size} viewBox="100 100 824 824" aria-hidden="true">
-      <defs>
-        <linearGradient id="logo-tile" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#3f8ff7" />
-          <stop offset="1" stopColor="#1846a8" />
-        </linearGradient>
-      </defs>
-      <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#logo-tile)" />
-      <g fill="#fff">
-        <rect x="232" y="452" width="48" height="120" rx="24" />
-        <rect x="308" y="362" width="48" height="300" rx="24" />
-        <rect x="384" y="292" width="48" height="440" rx="24" />
-        <rect x="460" y="392" width="48" height="240" rx="24" />
-        <rect x="560" y="364" width="232" height="48" rx="24" />
-        <rect x="560" y="488" width="232" height="48" rx="24" />
-        <rect x="560" y="612" width="148" height="48" rx="24" />
-      </g>
-    </svg>
+    <span className="logo">
+      <img className="only-light" src={logoLight} alt="wavetyper" />
+      <img className="only-dark" src={logoDark} alt="wavetyper" />
+    </span>
   );
 }
+
+export const Mark = () => <img className="mark" src={mark} alt="" />;

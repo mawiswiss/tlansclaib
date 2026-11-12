@@ -27,7 +27,7 @@ export function UpdateSection(props: Props) {
   const current = props.current ? `Version ${props.current}` : "This version";
   const whatsNew = (version: string) => (
     <button type="button" className="small" onClick={() => onOpenUrl(releasePage(version))}>
-      <Globe size={15} /> What's new
+      <Globe size={16} /> What's new
     </button>
   );
   const waiting = (button: ReactNode) => <Tooltip content={wait}>{button}</Tooltip>;
@@ -43,7 +43,7 @@ export function UpdateSection(props: Props) {
       text = "Checking asks GitHub for the newest version number and sends nothing else.";
       actions = (
         <button type="button" className="small" onClick={props.onCheck} disabled={state.status === "checking"}>
-          <Retry size={15} /> {state.status === "checking" ? "Checking…" : "Check for updates"}
+          <Retry size={16} /> {state.status === "checking" ? "Checking…" : "Check for updates"}
         </button>
       );
       break;
@@ -52,18 +52,18 @@ export function UpdateSection(props: Props) {
       text = `${current} is the newest.`;
       actions = (
         <button type="button" className="small" onClick={props.onCheck}>
-          <Retry size={15} /> Check again
+          <Retry size={16} /> Check again
         </button>
       );
       break;
     case "available":
       title = `Version ${state.version} is available`;
-      text = wait ?? `You have ${props.current || "an older version"}. Models, history and settings stay.`;
+      text = wait ?? `You have ${props.current || "an older version"}. Your models, history and settings stay.`;
       actions = (
         <>
           {waiting(
-            <button type="button" className="primary small" disabled={wait !== null} onClick={() => props.onUpdate(state.version)}>
-              <Download size={15} /> Update and restart
+            <button type="button" className="small" disabled={wait !== null} onClick={() => props.onUpdate(state.version)}>
+              <Download size={16} /> Update and restart
             </button>,
           )}
           {whatsNew(state.version)}
@@ -77,10 +77,10 @@ export function UpdateSection(props: Props) {
       break;
     case "ready":
       title = `Version ${state.version} is ready`;
-      text = wait ?? "Restart to finish the update.";
+      text = wait ?? "Restart the app to finish the update.";
       actions = waiting(
-        <button type="button" className="primary small" disabled={wait !== null} onClick={() => props.onInstall(state.version)}>
-          <Retry size={15} /> Restart to update
+        <button type="button" className="small" disabled={wait !== null} onClick={() => props.onInstall(state.version)}>
+          <Retry size={16} /> Restart to update
         </button>,
       );
       break;
@@ -90,15 +90,15 @@ export function UpdateSection(props: Props) {
       break;
     case "failed": {
       const version = state.version;
-      title = version ? `Could not update to ${version}` : "Could not check for updates";
+      title = version ? `Update to ${version} failed` : "Update check failed";
       text = state.message;
       actions = (
         <>
           <button type="button" className="small" onClick={() => (version ? props.onUpdate(version) : props.onCheck())} disabled={version !== null && wait !== null}>
-            <Retry size={15} /> Try again
+            <Retry size={16} /> Try again
           </button>
           <button type="button" className="small" onClick={() => onOpenUrl(releasePage(version))}>
-            <Globe size={15} /> Download from GitHub
+            <Globe size={16} /> Download from GitHub
           </button>
         </>
       );
@@ -113,14 +113,14 @@ export function UpdateSection(props: Props) {
       <div ref={card} className={`update-card${found ? " found" : ""}${props.focused ? " focused" : ""}`}>
         <div className="fact update-main">
           <span className="fact-icon">
-            <Download size={18} />
+            <Download size={20} />
           </span>
           <div className="update-text">
             <strong>{title}</strong>
             <p role={state.status === "failed" ? "alert" : undefined}>{text}</p>
             {progress !== null && (
-              <span className="bar" role="progressbar" aria-label="Update download" aria-valuenow={progress}>
-                <span className="fill" style={{ width: `${progress}%` }} />
+              <span className="meter" role="progressbar" aria-label="Update download" aria-valuenow={progress}>
+                <span style={{ width: `${progress}%` }} />
               </span>
             )}
           </div>
@@ -130,7 +130,7 @@ export function UpdateSection(props: Props) {
           <input type="checkbox" role="switch" className="toggle" checked={props.checkOnStart} onChange={(e) => props.onCheckOnStart(e.target.checked)} />
           <span>
             <strong>Check for updates on start</strong>
-            <small>At every start and once a day while the app is open. A new version then shows as a notice and in the top bar.</small>
+            <small>At every start and once a day while the app is open. A new version shows as a notice and in the top bar.</small>
           </span>
         </label>
       </div>

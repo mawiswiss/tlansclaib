@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { loadSettings, restoreSettings, settingsMissing } from "./lib/settings";
 import { applyTheme } from "./lib/theme";
-import "./styles.css";
+import "./styles/index.css";
 
 function start() {
   void applyTheme(loadSettings().theme).catch(() => {});

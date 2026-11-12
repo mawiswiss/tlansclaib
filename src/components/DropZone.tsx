@@ -34,12 +34,12 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
     return (
       <section className="dropzone disabled">
         <span className="glyph">
-          <Wave size={30} />
+          <Wave size={24} />
         </span>
         <h2>Getting your models</h2>
         <p className="muted">{preparing.label}</p>
-        <span className="bar dropzone-bar" role="progressbar" aria-valuenow={preparing.percent} aria-valuemin={0} aria-valuemax={100}>
-          <span className="fill" style={{ width: `${preparing.percent}%` }} />
+        <span className="meter dropzone-bar" role="progressbar" aria-valuenow={preparing.percent} aria-valuemin={0} aria-valuemax={100}>
+          <span style={{ width: `${preparing.percent}%` }} />
         </span>
       </section>
     );
@@ -48,10 +48,10 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
     return (
       <section className="dropzone disabled">
         <span className="glyph">
-          <Wave size={30} />
+          <Wave size={24} />
         </span>
-        <h2>First, get a model</h2>
-        <p className="muted">The app needs a speech model before it can transcribe. Models are downloaded once, or added from a file.</p>
+        <h2>Get a model first</h2>
+        <p className="muted">Transcribing needs a speech model. Download one once, or add it from a file.</p>
         <button type="button" className="primary large" onClick={onGetModel}>
           Choose a model
         </button>
@@ -62,10 +62,10 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
     return (
       <section className={`dropzone staged${dragging ? " over" : ""}`}>
         <button type="button" className="icon-button small staged-remove" onClick={onClear} aria-label="Remove this recording" title="Remove this recording">
-          <Close size={16} />
+          <Close size={20} />
         </button>
         <span className="glyph">
-          <Wave size={30} />
+          <Wave size={24} />
         </span>
         <h2 className="staged-name">
           <span title={pending}>{fileName(pending)}</span>
@@ -74,7 +74,7 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
           Change file
         </button>
         <div className="staged-settings">
-          <p className="hint">Transcribed with the settings above</p>
+          <p className="hint">Uses the settings above</p>
           <div className="chips">
             {summary.filter((item) => item.value).map((item) => (
               <Tooltip key={item.label} content={item.label} oneLine>
@@ -88,12 +88,12 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
         {blocked && (
           <div className="staged-wait" role="status">
             <p className="muted">{blocked.label}</p>
-            <span className="bar dropzone-bar" role="progressbar" aria-valuenow={blocked.percent} aria-valuemin={0} aria-valuemax={100}>
-              <span className="fill" style={{ width: `${blocked.percent}%` }} />
+            <span className="meter dropzone-bar" role="progressbar" aria-valuenow={blocked.percent} aria-valuemin={0} aria-valuemax={100}>
+              <span style={{ width: `${blocked.percent}%` }} />
             </span>
           </div>
         )}
-        <button type="button" className="primary go" onClick={onGo} disabled={blocked !== null} title={blocked ? "Waits for the download" : undefined}>
+        <button type="button" className="primary go" onClick={onGo} disabled={blocked !== null} title={blocked ? "Waits until the download finishes" : undefined}>
           GO
         </button>
       </section>
@@ -102,7 +102,7 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
   return (
     <section className={`dropzone${dragging ? " over" : ""}`} onClick={onChoose}>
       <span className="glyph">
-        <Wave size={30} />
+        <Wave size={24} />
       </span>
       <h2>{FEATURES.mobile ? "Choose a recording" : "Drop a recording here"}</h2>
       <p className="muted">m4a, mp3, wav, mp4, flac and most other audio files</p>
@@ -119,24 +119,24 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
       {FEATURES.lite && (
         <div className="lite-notes" onClick={(e) => e.stopPropagation()}>
           <p className="lite-local">
-            <Check size={16} strokeWidth={2.2} />
+            <Check size={20} />
             <span>
-              <strong>Nothing goes to a cloud.</strong> The app runs in this browser, not on a server. The recording and the transcript stay on this computer.
+              <strong>Nothing is uploaded.</strong> The app runs in this browser, not on a server. Your recording and transcript stay on this computer.
             </span>
           </p>
-          <h3 className="web-model-heading">Technical limits in Lite</h3>
+          <h3 className="web-model-heading">Limits in Lite</h3>
           <ul className="feature-list lite-limits">
             {FEATURES.limitSeconds !== null && (
               <li>
-                <Clock size={16} />
-                <span>Only the first {Math.round(FEATURES.limitSeconds / 60)} minutes of each recording are transcribed.</span>
+                <Clock size={20} />
+                <span>Lite transcribes the first {Math.round(FEATURES.limitSeconds / 60)} minutes of each recording.</span>
               </li>
             )}
             {FEATURES.largestFileBytes !== null && (
               <li>
-                <Folder size={16} />
+                <Folder size={20} />
                 <span>
-                  Files up to {Math.round(FEATURES.largestFileBytes / 2 ** 30)} GB, saved on this computer. A file that is only in iCloud Drive, Google Drive, OneDrive or Dropbox needs to be made available offline first.
+                  Files up to {Math.round(FEATURES.largestFileBytes / 2 ** 30)} GB, saved on this computer. Make a file that is only in iCloud Drive, Google Drive, OneDrive or Dropbox available offline first.
                 </span>
               </li>
             )}

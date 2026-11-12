@@ -103,13 +103,13 @@ describe("parseTranscript", () => {
     expect(playingAt([], 3)).toEqual({ lines: [], main: -1 });
   });
 
-  it("finds lines containing the search text, ignoring case", () => {
+  it("finds every match of the search text, ignoring case", () => {
     const lines = [
       { start: 0, end: 1, text: "Budget for Q4" },
       { start: 1, end: 2, text: "nothing here" },
-      { start: 2, end: 3, text: "the budget again" },
+      { start: 2, end: 3, text: "the budget, the whole budget" },
     ];
-    expect(findMatches(lines, "budget")).toEqual([0, 2]);
+    expect(findMatches(lines, "budget")).toEqual([{ line: 0, at: 0 }, { line: 2, at: 4 }, { line: 2, at: 22 }]);
     expect(findMatches(lines, "")).toEqual([]);
   });
 

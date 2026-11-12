@@ -4,7 +4,6 @@ import { AUTHOR, YEAR } from "../lib/about";
 import { level, memoryLevel, type Level } from "../lib/fit";
 import { wholeGb } from "../lib/format";
 import type { Stats } from "../lib/types";
-import { Alert } from "./icons";
 import { Tooltip } from "./Tooltip";
 
 type Props = { stats: Stats | null; running: boolean; onCredit: () => void };
@@ -18,18 +17,20 @@ function Meter({ value, state }: { value: number; state: Level }) {
   );
 }
 
+const LEVEL_WORD: Record<Level, string> = { ok: "", warn: "High", high: "Very high" };
+
 function ramNote(state: Level, fraction: number): string | null {
   if (state === "ok") return null;
-  if (state === "warn") return "Above 70%. Close programs you don't need.";
+  if (state === "warn") return "Memory use is above 70%. Close programs you don't need.";
   return fraction >= 0.9
-    ? "Above 90%. Close programs, or a transcription may stop."
-    : "Almost full. Close programs, or a transcription may stop.";
+    ? "Memory use is above 90%. Close programs, or a transcription may stop."
+    : "Memory is almost full. Close programs, or a transcription may stop.";
 }
 
 function cpuNote(state: Level, running: boolean): string | null {
   if (state === "ok") return null;
-  if (running) return "Busy with the transcription. Other programs may feel slower.";
-  return state === "high" ? "Above 90%. A transcription would run much slower." : "Above 70%. A transcription would run slower.";
+  if (running) return "The transcription is using the processor. Other programs may feel slower.";
+  return state === "high" ? "Processor use is above 90%. A transcription would run much slower." : "Processor use is above 70%. A transcription would run slower.";
 }
 
 function Stat({ note, state, children }: { note: string | null; state: Level; children: ReactNode }) {
@@ -38,7 +39,7 @@ function Stat({ note, state, children }: { note: string | null; state: Level; ch
     <Tooltip content={note} oneLine>
       <span className="stat" tabIndex={0}>
         {children}
-        <Alert size={14} className={`stat-alert ${state}`} />
+        <span className="stat-word">{LEVEL_WORD[state]}</span>
       </span>
     </Tooltip>
   );
@@ -57,7 +58,7 @@ export function SystemBar({ stats, running, onCredit }: Props) {
   if (!stats) {
     return (
       <footer className="system">
-        <span className="muted">Reading system usage…</span>
+        <span className="muted">Reading memory and processor use…</span>
         {credit}
       </footer>
     );
@@ -73,7 +74,7 @@ export function SystemBar({ stats, running, onCredit }: Props) {
       </Stat>
       <Stat note={ramNote(ramState, ram)} state={ramState}>
         RAM <Meter value={ram} state={ramState} /> {wholeGb(stats.memory_used).replace(" GB", "")} of {wholeGb(stats.memory_total)}
-        {running && stats.engine_memory > 0 && <span className="muted"> (Transcription uses {wholeGb(stats.engine_memory)})</span>}
+        {running && stats.engine_memory > 0 && <span className="muted"> (the transcription uses {wholeGb(stats.engine_memory)})</span>}
       </Stat>
       {credit}
     </footer>

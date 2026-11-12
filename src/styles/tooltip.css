@@ -1,0 +1,38 @@
+/* Tooltip */
+
+.tip-anchor {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.tip {
+  position: fixed;
+  z-index: 50;
+  max-width: 280px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: var(--font-size-app-caption);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--font-line-height-app-caption);
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: normal;
+  pointer-events: none;
+  visibility: hidden;
+  left: 0;
+  top: 0;
+  animation: fade var(--duration-transition-short) ease-out;
+}
+
+.tip.one-line {
+  max-width: none;
+  white-space: nowrap;
+}
+
+.tip-note {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-weight: var(--font-weight-semibold);
+}

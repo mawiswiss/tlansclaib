@@ -7,7 +7,7 @@ import { addSpeaker, assignSpeaker, colorOf, EXPORT_NAMES, MAX_SPEAKERS, findMat
 import type { ExportFormat } from "../lib/types";
 import { FEATURES } from "../lib/ipc";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
-import { Check, ChevronDown, Close, Download, Folder, Info, Pencil, Plus, Redo, Retry, Search, Undo } from "./icons";
+import { ChevronDown, Close, Folder, Info, Pencil, Plus, Redo, Retry, Search, Undo } from "./icons";
 import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
 
@@ -57,18 +57,32 @@ function flat(text: string): string {
   return text.replace(/\s*[\r\n]+\s*/g, " ");
 }
 
-function marked(text: string, query: string): ReactNode {
+function marked(text: string, query: string, current: number): ReactNode {
   if (!query) return text;
   const parts: ReactNode[] = [];
   const lower = text.toLowerCase();
   let from = 0;
   for (let at = lower.indexOf(query); at !== -1; at = lower.indexOf(query, at + query.length)) {
-    parts.push(text.slice(from, at), <mark key={at}>{text.slice(at, at + query.length)}</mark>);
+    parts.push(text.slice(from, at), <mark key={at} className={at === current ? "current" : undefined}>{text.slice(at, at + query.length)}</mark>);
     from = at + query.length;
   }
   parts.push(text.slice(from));
   return parts;
 }
+
+function Note({ level, role, actions, children }: { level?: "warn" | "high"; role?: "status" | "alert"; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <div className={`t-note${level ? ` ${level}` : ""}`} role={role}>
+      <span className={`dot${level ? ` ${level}` : ""}`} />
+      <div>
+        <p>{children}</p>
+        {actions && <div className="t-note-actions">{actions}</div>}
+      </div>
+    </div>
+  );
+}
+
+const FORMATS = Object.keys(EXPORT_NAMES) as ExportFormat[];
 
 type Held = { row: number; index: number; from: number; until: number };
 
@@ -245,7 +259,7 @@ export function ResultView(props: Props) {
 
   useEffect(() => {
     if (hits.length === 0) return;
-    rows.current[hits[hit]]?.scrollIntoView({ block: "center" });
+    rows.current[hits[hit]?.line]?.scrollIntoView({ block: "center" });
   }, [hits, hit]);
 
   useEffect(() => {
@@ -575,11 +589,8 @@ export function ResultView(props: Props) {
 
   return (
     <section className="result">
-      <div className="result-head">
-        <div className="card result-card">
-          <span className="glyph ok-glyph">
-            <Check size={20} strokeWidth={2.4} />
-          </span>
+      <div className="card result-card">
+        <div className="result-top">
           <div className="titles">
             {renaming ? (
               <input
@@ -610,150 +621,161 @@ export function ResultView(props: Props) {
                 <span className="title-text" onDoubleClick={startRename} title={title}>
                   {title}
                 </span>
-                <button type="button" className="icon-button tiny title-edit" onClick={startRename} aria-label="Rename" title="Rename the transcript">
-                  <Pencil size={14} />
+                <button type="button" className="icon-button title-edit" onClick={startRename} aria-label="Rename" title="Rename the transcript">
+                  <Pencil size={20} />
                 </button>
               </h2>
             )}
           </div>
           <div className="card-tools">
-            <div className="split-button">
-              <button type="button" className="primary small" onClick={() => download(format)}>
-                <Download size={16} />
-                Download .{format}
-              </button>
-              <Select
-                value=""
-                options={(Object.keys(EXPORT_NAMES) as ExportFormat[]).map((f) => ({ value: f, label: `${EXPORT_NAMES[f]} (.${f})` }))}
-                onChange={(f) => {
-                  setFormat(f as ExportFormat);
-                  download(f as ExportFormat);
-                }}
-                label="Download format"
-                title={run.timed ? "Choose a format" : "Subtitles need line times, so this transcript downloads as text"}
-                disabled={!run.timed}
-                className="primary small"
-                trigger={() => null}
-              />
-            </div>
             <Tooltip content={audioMissing ? "The recording is missing, so it cannot be transcribed again" : "Transcribe again with the same settings"} oneLine>
               <button type="button" className="icon-button" onClick={() => onRerun()} disabled={audioMissing} aria-label="Transcribe again">
-                <Retry />
+                <Retry size={20} />
               </button>
             </Tooltip>
             <Tooltip content="Close" oneLine>
               <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
-                <Close size={17} />
+                <Close size={20} />
               </button>
             </Tooltip>
-          </div>
-          <div className="result-details">
-            <p className="meta-line">
-              <span className="meta-text">
-                {[
-                  run.finishedAt !== null ? when(run.finishedAt) : null,
-                  run.audioSeconds !== null ? clock(run.audioSeconds) : null,
-                  sourceLabel(run.audio, run.video, run.detected ? 1 : run.tracks),
-                  run.language ? languageName(run.language) : null,
-                  run.modelName || null,
-                  run.detected ? `${run.speakerBackend ? `${DETECTION[run.speakerBackend].name}: ` : ""}${run.speakers.length > 1 ? `${run.speakers.length} people` : "1 person"}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-              <Tooltip
-                content={`Transcribed in ${duration(result.elapsed)}.${transcriptionSpeed ? ` Speed: ${transcriptionSpeed}.` : ""}`}
-                oneLine
-              >
-                <span className="meta-info" tabIndex={0} aria-label="Transcription speed">
-                  <Info size={14} />
-                </span>
-              </Tooltip>
-            </p>
-            <div className="original-file">
-              {audioMissing || audioChanged ? (
-                <span className="original-file-reference">
-                  <span className="original-file-path" title={run.audio}>{FEATURES.revealFiles ? run.audio : fileName(run.audio)}</span>
-                  <span className="chip warn">{audioMissing ? "File missing" : "Different file"}</span>
-                  <button type="button" className="inline-link" onClick={onLocateAudio}>Locate…</button>
-                </span>
-              ) : FEATURES.revealFiles ? (
-                <button type="button" className="original-file-link" onClick={onRevealAudio} title={`Show ${fileName(run.audio)} in its folder`}>
-                  <Folder size={14} />
-                  <span>{run.audio}</span>
-                </button>
-              ) : (
-                <span className="original-file-reference">
-                  <span className="original-file-path">{fileName(run.audio)}</span>
-                </span>
-              )}
-            </div>
+            <button type="button" className="primary another" onClick={onAnother}>
+              <Plus size={20} />
+              Transcribe another
+            </button>
           </div>
         </div>
-        <Tooltip content="Transcribe another" oneLine className="another-anchor">
-          <button type="button" className="another" onClick={onAnother} aria-label="Transcribe another">
-            <span className="another-glyph">
-              <Plus size={30} strokeWidth={1.5} />
+        <p className="meta-line data">
+          <span className="meta-text">
+            {[
+              run.finishedAt !== null ? when(run.finishedAt) : null,
+              run.audioSeconds !== null ? clock(run.audioSeconds) : null,
+              sourceLabel(run.audio, run.video, run.detected ? 1 : run.tracks),
+              run.language ? languageName(run.language) : null,
+              run.modelName || null,
+              run.detected ? `${run.speakerBackend ? `${DETECTION[run.speakerBackend].name}: ` : ""}${run.speakers.length > 1 ? `${run.speakers.length} people` : "1 person"}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+          <Tooltip content={`Transcribed in ${duration(result.elapsed)}.${transcriptionSpeed ? ` Speed: ${transcriptionSpeed}.` : ""}`} oneLine>
+            <span className="meta-info" tabIndex={0} aria-label="Transcription speed">
+              <Info size={16} />
             </span>
-            <span className="another-label">New transcription</span>
-          </button>
-        </Tooltip>
-      </div>
-      {error && <p className="problem" role="alert">{error}</p>}
-      {exported && <p className="note" role="status">{FEATURES.mobile ? `Exported ${exported}.` : `Saved to ${exported}.`}</p>}
-      {run.opened?.status === "incomplete" && <p className="note">This transcription was stopped early and holds the lines done until then.</p>}
-      {run.check?.changed && <p className="note">This transcript was changed outside tlansclaib since it was saved.</p>}
-      {spoken && run.language && (
-        <p className="note">
-          This sounds like {languageName(spoken)}, but was transcribed as {languageName(run.language)}.{" "}
-          <button type="button" className="inline-link" onClick={() => onRerun({ focus: "language", language: spoken })}>
-            Transcribe again in {languageName(spoken)}
-          </button>
+          </Tooltip>
         </p>
+        <div className="result-foot">
+          <div className="original-file data">
+            {audioMissing || audioChanged ? (
+              <span className="original-file-reference">
+                <span className="original-file-path" title={run.audio}>{FEATURES.revealFiles ? run.audio : fileName(run.audio)}</span>
+                <span className="t-status">
+                  <span className="dot warn" />
+                  {audioMissing ? "File missing" : "Different file"}
+                </span>
+                <button type="button" onClick={onLocateAudio}>Locate…</button>
+              </span>
+            ) : FEATURES.revealFiles ? (
+              <button type="button" className="original-file-link ghost" onClick={onRevealAudio} title={`Show ${fileName(run.audio)} in its folder`}>
+                <Folder size={16} />
+                <span>{run.audio}</span>
+              </button>
+            ) : (
+              <span className="original-file-reference">
+                <span className="original-file-path">{fileName(run.audio)}</span>
+              </span>
+            )}
+          </div>
+          <div className="export-row">
+            <span className="label">Export</span>
+            <span className="format-tags" role="group" aria-label="Export format">
+              {FORMATS.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  className={`format-tag${f === format ? " selected" : ""}`}
+                  aria-pressed={f === format}
+                  disabled={!run.timed && f !== "txt"}
+                  title={!run.timed && f !== "txt" ? "Subtitles need line times, so this transcript exports as text" : `${EXPORT_NAMES[f]}, .${f}`}
+                  onClick={() => {
+                    setFormat(f);
+                    download(f);
+                  }}
+                >
+                  .{f}
+                </button>
+              ))}
+            </span>
+            <span className="export-pro-slot" />
+          </div>
+        </div>
+      </div>
+      {error && <Note level="high" role="alert">{error}</Note>}
+      {exported && <Note role="status">{FEATURES.mobile ? `Exported ${exported}.` : `Saved to ${exported}.`}</Note>}
+      {run.opened?.status === "incomplete" && <Note>This transcription stopped early. It holds the lines finished until then.</Note>}
+      {run.check?.changed && <Note>This transcript was changed outside tlansclaib after it was saved.</Note>}
+      {spoken && run.language && (
+        <Note
+          actions={
+            <button type="button" onClick={() => onRerun({ focus: "language", language: spoken })}>
+              Transcribe again in {languageName(spoken)}
+            </button>
+          }
+        >
+          This sounds like {languageName(spoken)}, but was transcribed as {languageName(run.language)}.
+        </Note>
       )}
       {run.check?.audio === "different" && (
-        <p className="note">
-          The recording at this place is not the one that was transcribed.{" "}
-          <button type="button" className="inline-link" onClick={onLocateAudio}>
-            Locate the original…
-          </button>
-        </p>
+        <Note
+          level="warn"
+          actions={
+            <button type="button" onClick={onLocateAudio}>
+              Locate the original…
+            </button>
+          }
+        >
+          The file at this path is not the recording that was transcribed.
+        </Note>
       )}
-      {noTimecodes && <p className="note">This transcript was saved without timecodes, so there are none to show or play from.</p>}
+      {noTimecodes && <Note>This transcript was saved without timecodes, so you can't play from a line.</Note>}
       {justSaved > 0 && steps.undo > 0 && (
-        <p className="note">
-          Correction saved.{" "}
-          <button type="button" className="inline-link" onClick={undo}>
-            Undo
-          </button>
-        </p>
+        <Note
+          role="status"
+          actions={
+            <button type="button" onClick={undo}>
+              Undo
+            </button>
+          }
+        >
+          Correction saved.
+        </Note>
       )}
       {children}
       <div className="card transcript-card">
         <div className="transcript-tools">
           {audioMissing ? (
-            <p className="player-note">
-              {FEATURES.revealFiles ? (
-                <>
-                  <span className="problem-text">Recording not found</span> at {folderOf(run.audio)}.{" "}
-                </>
-              ) : FEATURES.mobile ? (
-                <>
-                  <span className="problem-text">The app's copy of this recording is gone.</span>{" "}
-                </>
-              ) : (
-                <>The browser forgets recordings when the page reloads. </>
-              )}
-              <button type="button" className="inline-link" onClick={onLocateAudio}>
+            <div className="player-note">
+              <span className={`dot ${FEATURES.revealFiles || FEATURES.mobile ? "high" : "warn"}`} />
+              <p>
+                {FEATURES.revealFiles
+                  ? `Recording not found at ${folderOf(run.audio)}.`
+                  : FEATURES.mobile
+                    ? "The app's copy of this recording is gone."
+                    : "The browser forgets recordings when the page reloads."}
+              </p>
+              <button type="button" onClick={onLocateAudio}>
                 Locate…
               </button>
-            </p>
+            </div>
           ) : unplayable ? (
-            <p className="player-note problem" role="alert">{playerError ?? "This recording cannot be played by the system player."}</p>
+            <div className="player-note" role="alert">
+              <span className="dot high" />
+              <p>{playerError ?? "This recording cannot be played by the system player."}</p>
+            </div>
           ) : src ? (
             <AudioPlayer
               ref={player}
               src={src}
+              path={run.audio}
               onTime={onTime}
               onFrame={playhead.set}
               onSeek={onSeek}
@@ -766,14 +788,14 @@ export function ResultView(props: Props) {
               }}
             />
           ) : (
-            <p className="player-note muted">Loading the recording…</p>
+            <p className="player-note hint">Loading the recording…</p>
           )}
         </div>
-        {playerError && !unplayable && <p className="problem" role="alert">{playerError}</p>}
+        {playerError && !unplayable && <Note level="high" role="alert">{playerError}</Note>}
         <div className="transcript-bar">
           {voiced ? (
             <div className="speakers-group">
-              <span className="speakers-label">Speakers</span>
+              <span className="label">Speakers</span>
               {run.speakers.map((name, track) =>
                 speakerEdit === track ? (
                   <input
@@ -812,7 +834,7 @@ export function ResultView(props: Props) {
                     >
                       <span className="speaker-dot" />
                       {name}
-                      <Pencil size={12} />
+                      <Pencil size={16} />
                     </button>
                     <button
                       type="button"
@@ -821,7 +843,7 @@ export function ResultView(props: Props) {
                       aria-label={`Remove ${name}`}
                       title={`Remove ${name}. Their lines become Unassigned.`}
                     >
-                      <Close size={11} strokeWidth={2.2} />
+                      <Close size={16} />
                     </button>
                   </span>
                 ),
@@ -835,15 +857,15 @@ export function ResultView(props: Props) {
               {run.detected && !audioMissing && (
                 <button
                   type="button"
-                  className="inline-link wrong-count"
+                  className="ghost"
                   onClick={() => onRerun({ focus: "speakers", speakers: String(Math.min(6, Math.max(2, run.speakers.length))) })}
                 >
                   Wrong number?
                 </button>
               )}
-              <Tooltip content="Click the dot in front of a line to change its speaker. Remove a speaker with its ×, or by clearing its name, and its lines become Unassigned. Give a speaker another speaker's name to merge them. Speakers come from the audio tracks of the recording, or from speaker detection.">
+              <Tooltip content="Names may come out wrong. Click a speaker under a timecode to change who said a line. Remove a speaker with its ×, or by clearing its name, and its lines become Unassigned. Give a speaker another speaker's name to merge them. Speakers come from the audio tracks of the recording, or from speaker detection.">
                 <span className="meta-info" tabIndex={0} aria-label="About speakers">
-                  <Info size={14} />
+                  <Info size={16} />
                 </span>
               </Tooltip>
             </div>
@@ -851,24 +873,24 @@ export function ResultView(props: Props) {
             <span className="speakers-note">
               <span>{run.detected ? "1 person detected" : "One speaker"}</span>
               {lines.length > 0 && (
-                <button type="button" className="inline-link" onClick={() => void addOne()}>
+                <button type="button" className="ghost" onClick={() => void addOne()}>
                   Add a speaker
                 </button>
               )}
               {!audioMissing && FEATURES.speakers &&
                 (!detectionInstalled ? (
-                  <button type="button" className="inline-link" onClick={onSetUpDetection}>
+                  <button type="button" className="ghost" onClick={onSetUpDetection}>
                     Set up speaker detection
                   </button>
                 ) : (
-                  <button type="button" className="inline-link" onClick={() => onRerun({ focus: "speakers", speakers: "2" })}>
+                  <button type="button" className="ghost" onClick={() => onRerun({ focus: "speakers", speakers: "2" })}>
                     More people in this audio?
                   </button>
                 ))}
             </span>
           )}
           <label className="find">
-            <Search size={15} />
+            <Search size={16} />
             <input
               ref={search}
               type="text"
@@ -884,14 +906,14 @@ export function ResultView(props: Props) {
             {needle && <span className="find-count">{hits.length ? `${hit + 1} of ${hits.length}` : "No matches"}</span>}
             {needle && (
               <>
-                <button type="button" className="icon-button tiny" onClick={() => step(-1)} disabled={!hits.length} aria-label="Previous match">
-                  <ChevronDown size={14} className="flip" />
+                <button type="button" className="icon-button" onClick={() => step(-1)} disabled={!hits.length} aria-label="Previous match">
+                  <ChevronDown size={16} className="flip" />
                 </button>
-                <button type="button" className="icon-button tiny" onClick={() => step(1)} disabled={!hits.length} aria-label="Next match">
-                  <ChevronDown size={14} />
+                <button type="button" className="icon-button" onClick={() => step(1)} disabled={!hits.length} aria-label="Next match">
+                  <ChevronDown size={16} />
                 </button>
-                <button type="button" className="icon-button tiny" onClick={() => setQuery("")} aria-label="Clear the search">
-                  <Close size={13} />
+                <button type="button" className="icon-button" onClick={() => setQuery("")} aria-label="Clear the search">
+                  <Close size={16} />
                 </button>
               </>
             )}
@@ -899,25 +921,25 @@ export function ResultView(props: Props) {
           {(steps.undo > 0 || steps.redo > 0) && (
             <span className="history-tools">
               <Tooltip content={`Undo the last correction (${KEYS.undo})`} oneLine>
-                <button type="button" className="icon-button small" onClick={undo} disabled={steps.undo === 0} aria-label="Undo" aria-keyshortcuts={MAC ? "Meta+Z" : "Control+Z"}>
-                  <Undo size={16} />
+                <button type="button" className="icon-button" onClick={undo} disabled={steps.undo === 0} aria-label="Undo" aria-keyshortcuts={MAC ? "Meta+Z" : "Control+Z"}>
+                  <Undo size={20} />
                 </button>
               </Tooltip>
               <Tooltip content={`Redo (${KEYS.redo})`} oneLine>
-                <button type="button" className="icon-button small" onClick={redo} disabled={steps.redo === 0} aria-label="Redo" aria-keyshortcuts={MAC ? "Shift+Meta+Z" : "Control+Y"}>
-                  <Redo size={16} />
+                <button type="button" className="icon-button" onClick={redo} disabled={steps.redo === 0} aria-label="Redo" aria-keyshortcuts={MAC ? "Shift+Meta+Z" : "Control+Y"}>
+                  <Redo size={20} />
                 </button>
               </Tooltip>
             </span>
           )}
           <label
             className="tool-switch"
-            title={noTimecodes ? "This transcript has no times to show" : "Show line times here and in text exports"}
+            title={noTimecodes ? "This transcript has no timecodes to show" : "Show line times here and in text exports"}
           >
             <input
               type="checkbox"
               role="switch"
-              className="toggle"
+              className="switch-input"
               checked={timecodes}
               disabled={noTimecodes}
               onChange={(e) => onTimecodes(e.target.checked)}
@@ -926,19 +948,18 @@ export function ResultView(props: Props) {
           </label>
         </div>
         <div
-          className="transcript"
+          className="transcript lines"
           onWheel={() => (userScrolled.current = Date.now())}
           onTouchMove={() => (userScrolled.current = Date.now())}
         >
-          {lines.length === 0 && <p className="muted">(nothing recognised)</p>}
+          {lines.length === 0 && <p className="muted">(nothing recognized)</p>}
           {lines.map((line, i) => {
             const isEditing = editing === line.index;
             const classes = [
-              run.timestamps ? "timed" : "",
-              voiced ? "voiced" : "",
+              "line",
+              run.timestamps || voiced ? "has-meta" : "",
               syncable && !isEditing ? "seekable" : "",
               heard.lines.includes(i) ? "current" : "",
-              hits.length > 0 && hits[hit] === i ? "hit" : "",
               isEditing ? "editing" : "",
             ]
               .filter(Boolean)
@@ -967,23 +988,32 @@ export function ResultView(props: Props) {
                 }
                 title={syncable && !isEditing ? "Play from here" : undefined}
               >
-                {run.timestamps && <span className="time">{clock(line.start)}</span>}
-                {voiced && (
-                  <span className="dot-pick" onClick={(e) => e.stopPropagation()}>
-                    <Select
-                      value={line.speaker !== undefined ? String(line.speaker) : UNASSIGNED}
-                      options={[
-                        ...run.speakers.map((name, track) => ({ value: String(track), label: name })),
-                        ...(unassigned ? [{ value: UNASSIGNED, label: "Unassigned", className: "unassigned" }] : []),
-                        ...(run.speakers.length < MAX_SPEAKERS ? [{ value: NEW_SPEAKER, label: "New speaker" }] : []),
-                      ]}
-                      onChange={(value) => void reassign(line.index, value)}
-                      label="Speaker of this line"
-                      title={`${line.speaker !== undefined ? run.speakers[line.speaker] : "Unassigned"}. Click to change the speaker`}
-                      className="dot-select"
-                      chevron={false}
-                      trigger={() => <span className={`line-dot ${line.speaker !== undefined ? `s${colorOf(run.colors, line.speaker)}` : "unassigned"}`} />}
-                    />
+                {(run.timestamps || voiced) && (
+                  <span className="line-meta">
+                    {run.timestamps && <span className="time">{clock(line.start)}</span>}
+                    {voiced && (
+                    <span className="who-pick" onClick={(e) => e.stopPropagation()}>
+                      <Select
+                        value={line.speaker !== undefined ? String(line.speaker) : UNASSIGNED}
+                        options={[
+                          ...run.speakers.map((name, track) => ({ value: String(track), label: name })),
+                          ...(unassigned ? [{ value: UNASSIGNED, label: "Unassigned", className: "unassigned" }] : []),
+                          ...(run.speakers.length < MAX_SPEAKERS ? [{ value: NEW_SPEAKER, label: "New speaker" }] : []),
+                        ]}
+                        onChange={(value) => void reassign(line.index, value)}
+                        label="Speaker of this line"
+                        title={`${line.speaker !== undefined ? run.speakers[line.speaker] : "Unassigned"}. Click to change the speaker`}
+                        className="dot-select"
+                        chevron={false}
+                        trigger={() => (
+                          <span className={`who ${line.speaker !== undefined ? `s${colorOf(run.colors, line.speaker)}` : "unassigned"}`}>
+                            <span className="line-dot" />
+                            <span className="who-name">{line.speaker !== undefined ? run.speakers[line.speaker] : "Unassigned"}</span>
+                          </span>
+                        )}
+                      />
+                    </span>
+                  )}
                   </span>
                 )}
                 {isEditing ? (
@@ -1003,6 +1033,7 @@ export function ResultView(props: Props) {
                     <textarea
                       ref={editor}
                       className="line-editor"
+                      dir="auto"
                       value={draft}
                       rows={1}
                       autoFocus
@@ -1060,7 +1091,7 @@ export function ResultView(props: Props) {
                         <button type="button" className="edit-action" onMouseDown={(e) => e.preventDefault()} onClick={() => startEdit(null)}>
                           Cancel <kbd>Esc</kbd>
                         </button>
-                        <button type="button" className="edit-action primary" onMouseDown={(e) => e.preventDefault()} onClick={() => void commit(line.index)}>
+                        <button type="button" className="edit-action" onMouseDown={(e) => e.preventDefault()} onClick={() => void commit(line.index)}>
                           Done
                         </button>
                       </span>
@@ -1069,19 +1100,20 @@ export function ResultView(props: Props) {
                 ) : (
                   <span
                     className="line-text"
+                    dir="auto"
                     onDoubleClick={() => editLine(line, i)}
                   >
                     {syncable && line.words?.length && !needle ? (
                       <Spoken row={i} start={line.start} text={line.text} words={line.words} live={heard.lines.includes(i)} playhead={playhead} onWord={playWord} />
                     ) : (
-                      marked(line.text, needle)
+                      marked(line.text, needle, hits[hit]?.line === i ? hits[hit].at : -1)
                     )}
                   </span>
                 )}
                 {!isEditing && (
                   <button
                     type="button"
-                    className="icon-button tiny line-edit"
+                    className="icon-button line-edit"
                     onClick={(e) => {
                       e.stopPropagation();
                       editLine(line, i);
@@ -1089,7 +1121,7 @@ export function ResultView(props: Props) {
                     aria-label="Edit this line"
                     title="Edit this line"
                   >
-                    <Pencil size={14} />
+                    <Pencil size={20} />
                   </button>
                 )}
               </p>

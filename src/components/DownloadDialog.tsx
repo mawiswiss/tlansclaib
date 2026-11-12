@@ -26,7 +26,7 @@ export function DownloadDialog({ platform, onDownload, onClose }: Props) {
           <Close />
         </button>
         <span className="glyph">
-          {platform ? <Download size={28} /> : <Monitor size={28} />}
+          {platform ? <Download size={24} /> : <Monitor size={24} />}
         </span>
         {platform ? (
           <>
@@ -63,13 +63,13 @@ export function DownloadDialog({ platform, onDownload, onClose }: Props) {
           </>
         ) : (
           <>
-            <h2 id="download-title">tlansclaib runs on Mac, Windows and Linux</h2>
-            <p className="muted">The desktop app is free. Download it on the computer you want to transcribe on.</p>
+            <h2 id="download-title">Download tlansclaib for your computer</h2>
+            <p className="muted">The desktop app is free. Download it on the computer you want to transcribe on. It runs on Mac, Windows and Linux.</p>
             <div className="download-choices">
               {PLATFORMS.map((p) => (
                 <div key={p}>
-                  <button type="button" className="primary" onClick={() => onDownload(p)}>
-                    <Download size={15} /> Download for {INSTALLERS[p].name}
+                  <button type="button" onClick={() => onDownload(p)}>
+                    <Download size={16} /> Download for {INSTALLERS[p].name}
                   </button>
                   <small className="faint">{INSTALLERS[p].requires}</small>
                 </div>
