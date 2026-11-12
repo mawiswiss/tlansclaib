@@ -23,7 +23,7 @@ pub struct Language {
     name: String,
 }
 
-pub use imp::{Worker, audio_seconds, languages};
+pub use imp::{Worker, audio_seconds, languages, peaks};
 
 /// Starts `tlansclaib-engine` with the arguments of one of its commands, the command first.
 pub fn spawn(app: &AppHandle, engine_name: &str, args: Vec<String>) -> Result<(UnboundedReceiver<Output>, Worker)> {
@@ -93,6 +93,15 @@ mod imp {
         Ok(serde_json::from_slice::<AudioInfo>(&info.stdout)?.sample_seconds)
     }
 
+    pub async fn peaks(app: &AppHandle, audio: &Path, buckets: usize) -> Result<Vec<f32>> {
+        let audio = audio.to_string_lossy().into_owned();
+        let output = app.shell().sidecar(crate::cpu::engine())?.args(["peaks", "--audio", &audio, "--buckets", &buckets.to_string()]).output().await?;
+        if !output.status.success() {
+            return Err(anyhow::anyhow!("the engine could not read the sound"));
+        }
+        Ok(serde_json::from_slice(&output.stdout)?)
+    }
+
     pub async fn languages(app: &AppHandle) -> Result<Vec<Language>> {
         let output = app.shell().sidecar(crate::cpu::engine())?.args(["languages"]).output().await?;
         if !output.status.success() {
@@ -147,6 +156,11 @@ mod imp {
         tauri::async_runtime::spawn_blocking(move || engine::audio::sample_seconds(&audio))
             .await?
             .map_err(|_| anyhow::anyhow!("Could not inspect the recording. Check that it is a supported audio or video file."))
+    }
+
+    pub async fn peaks(_: &AppHandle, audio: &Path, buckets: usize) -> Result<Vec<f32>> {
+        let audio = audio.to_path_buf();
+        tauri::async_runtime::spawn_blocking(move || engine::audio::peaks(&audio, buckets)).await?
     }
 
     pub async fn languages(_: &AppHandle) -> Result<Vec<Language>> {

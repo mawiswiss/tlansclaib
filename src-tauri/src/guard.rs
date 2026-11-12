@@ -181,9 +181,34 @@ pub fn gb(bytes: u64) -> String {
     format!("{:.1} GB", bytes as f64 / GIB as f64)
 }
 
+pub const PEAK_CACHE_KEEP: usize = 200;
+
+pub fn peak_buckets(requested: usize) -> usize {
+    requested.clamp(1, engine::peaks::MAX_BUCKETS)
+}
+
+/// How many of the oldest cached waves to delete so that `PEAK_CACHE_KEEP` remain.
+pub fn peak_cache_excess(files: usize) -> usize {
+    files.saturating_sub(PEAK_CACHE_KEEP)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn peak_buckets_stay_in_range() {
+        assert_eq!(peak_buckets(0), 1);
+        assert_eq!(peak_buckets(300), 300);
+        assert_eq!(peak_buckets(usize::MAX), engine::peaks::MAX_BUCKETS);
+    }
+
+    #[test]
+    fn peak_cache_drops_only_what_exceeds_the_cap() {
+        assert_eq!(peak_cache_excess(PEAK_CACHE_KEEP), 0);
+        assert_eq!(peak_cache_excess(PEAK_CACHE_KEEP + 3), 3);
+        assert_eq!(peak_cache_excess(0), 0);
+    }
 
     #[test]
     fn word_timing_adds_to_the_model_memory() {

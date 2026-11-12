@@ -2,6 +2,7 @@
 pub mod audio;
 pub mod model_file;
 pub mod output;
+pub mod peaks;
 pub mod protocol;
 #[cfg(feature = "whisper")]
 pub mod run;

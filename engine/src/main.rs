@@ -31,6 +31,13 @@ enum Command {
         #[arg(long)]
         audio: PathBuf,
     },
+    /// Print the loudness of a recording as a JSON array of 0 to 1 values, one per bucket
+    Peaks {
+        #[arg(long)]
+        audio: PathBuf,
+        #[arg(long)]
+        buckets: usize,
+    },
     /// Print the languages whisper supports as JSON
     Languages,
     /// Start the GPU whisper.cpp would use and print it as JSON, or null when there is none
@@ -113,6 +120,7 @@ fn main() {
         Command::AudioInfo { audio } => audio::sample_seconds(&audio).map(|sample_seconds| {
             println!("{}", json!({ "sample_seconds": sample_seconds }));
         }),
+        Command::Peaks { audio, buckets } => audio::peaks(&audio, buckets).map(|peaks| println!("{}", json!(peaks))),
         Command::Speakers { audio, models, backend, speakers: count, threshold, threads, shift, min_on, min_off } => audio::load(&audio).and_then(|samples| {
             let started = Instant::now();
             let detection = match backend {

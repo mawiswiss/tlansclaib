@@ -124,6 +124,36 @@ async function decode(file: File): Promise<{ samples: Float32Array; seconds: num
   }
 }
 
+/** Loudest absolute sample per bucket over all channels, scaled so the loudest is 1. */
+export function bucketPeaks(channels: Float32Array[], buckets: number): number[] {
+  const count = Math.min(2000, Math.max(1, Math.floor(buckets)));
+  const length = channels[0]?.length ?? 0;
+  const peaks = new Array<number>(count).fill(0);
+  if (!length) return peaks;
+  for (const channel of channels) {
+    for (let b = 0; b < count; b++) {
+      const end = Math.max(Math.floor(((b + 1) * length) / count), Math.floor((b * length) / count) + 1);
+      let loudest = peaks[b];
+      for (let i = Math.floor((b * length) / count); i < end && i < length; i++) loudest = Math.max(loudest, Math.abs(channel[i]));
+      peaks[b] = loudest;
+    }
+  }
+  const top = Math.max(...peaks);
+  return top > 0 ? peaks.map((peak) => peak / top) : peaks;
+}
+
+async function peaksOf(file: File, buckets: number): Promise<number[] | null> {
+  const context = new AudioContext({ sampleRate: RATE });
+  try {
+    const buffer = await context.decodeAudioData(await file.arrayBuffer());
+    return bucketPeaks(Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c)), buckets);
+  } catch {
+    return null;
+  } finally {
+    void context.close();
+  }
+}
+
 function pick(): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement("input");
@@ -385,6 +415,10 @@ export function webBackend(): Backend {
     openHistory: noHistory,
     checkCandidate: noHistory,
     relocateHistory: noHistory,
+    audioPeaks: async (path, buckets) => {
+      const file = files.get(path);
+      return file ? peaksOf(file, buckets) : null;
+    },
     audioUrl: async (path) => {
       const file = files.get(path);
       if (!file) throw new Refusal("Choose the recording again: the browser forgets files when the page reloads.");

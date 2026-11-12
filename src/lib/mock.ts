@@ -405,6 +405,7 @@ export function mockBackend(): Backend {
       emit("history", null);
     },
     audioUrl: async () => silence(),
+    audioPeaks: async (_path, buckets) => Array.from({ length: buckets }, (_, i) => 0.25 + 0.6 * Math.abs(Math.sin(i * 0.37) * Math.cos(i * 0.11))),
     confirm: async (message) => window.confirm(message),
     log: (level, message) => console[level](message),
     openUrl: async (url) => {

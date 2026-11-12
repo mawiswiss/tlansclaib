@@ -13,6 +13,7 @@ use symphonia::core::meta::MetadataOptions;
 use symphonia::core::units::TimeBase;
 
 use crate::RATE;
+use crate::peaks::Peaks;
 
 const CHUNK: usize = 4096;
 
@@ -147,6 +148,74 @@ pub fn load_tracks(path: &Path) -> Result<Source> {
         })
         .collect();
     Ok(Source { tracks, video, warnings })
+}
+
+/// Loudness per bucket over every audio track, in one pass that keeps no samples.
+pub fn peaks(path: &Path, buckets: usize) -> Result<Vec<f32>> {
+    const BLOCK: usize = 64;
+    let file = File::open(path).with_context(|| format!("cannot open {}", path.display()))?;
+    let stream = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
+        hint.with_extension(extension);
+    }
+    let mut format = symphonia::default::get_probe()
+        .probe(&hint, stream, FormatOptions::default(), MetadataOptions::default())
+        .map_err(|e| anyhow!("this is not an audio file symphonia can read: {e}"))?;
+
+    struct Listener {
+        id: u32,
+        rate: f64,
+        channels: usize,
+        time_base: Option<TimeBase>,
+        frames: u64,
+        decoder: Box<dyn symphonia::core::codecs::audio::AudioDecoder>,
+    }
+    let mut listeners = Vec::new();
+    for track in format.tracks().iter().filter(|t| t.track_type() == Some(TrackType::Audio)) {
+        let Some(params) = track.codec_params.as_ref().and_then(|p| p.audio()).cloned() else { continue };
+        let (Some(rate), Ok(decoder)) = (params.sample_rate, symphonia::default::get_codecs().make_audio_decoder(&params, &AudioDecoderOptions::default())) else { continue };
+        let channels = params.channels.as_ref().map(|c| c.count()).unwrap_or(1).max(1);
+        listeners.push(Listener { id: track.id, rate: rate as f64, channels, time_base: track.time_base, frames: 0, decoder });
+    }
+    if listeners.is_empty() {
+        bail!("this file has no audio track that can be decoded");
+    }
+
+    let mut peaks = Peaks::default();
+    let mut interleaved: Vec<f32> = Vec::new();
+    let mut decoded = false;
+    loop {
+        let packet = match format.next_packet() {
+            Ok(Some(packet)) => packet,
+            Ok(None) | Err(Error::ResetRequired) => break,
+            Err(e) => bail!("cannot read the audio: {e}"),
+        };
+        let Some(listener) = listeners.iter_mut().find(|t| t.id == packet.track_id) else { continue };
+        let buffer = match listener.decoder.decode(&packet) {
+            Ok(buffer) => buffer,
+            Err(Error::DecodeError(_)) | Err(Error::IoError(_)) => continue,
+            Err(e) => bail!("cannot decode the audio: {e}"),
+        };
+        interleaved.resize(buffer.samples_interleaved(), 0.0);
+        buffer.copy_to_slice_interleaved(&mut interleaved);
+        let start = listener
+            .time_base
+            .and_then(|base| base.calc_time(packet.pts))
+            .map(|time| time.as_secs_f64())
+            .unwrap_or(listener.frames as f64 / listener.rate);
+        for (index, block) in interleaved.chunks(BLOCK * listener.channels).enumerate() {
+            let amplitude = block.iter().fold(0.0f32, |loudest, sample| loudest.max(sample.abs()));
+            let length = (block.len() / listener.channels) as f64 / listener.rate;
+            peaks.add(start + (index * BLOCK) as f64 / listener.rate, length, amplitude);
+            decoded = true;
+        }
+        listener.frames += (interleaved.len() / listener.channels) as u64;
+    }
+    if !decoded {
+        bail!("no audio could be decoded from this file");
+    }
+    Ok(peaks.finish(buckets))
 }
 
 pub fn mix(mut tracks: Vec<Vec<f32>>) -> Vec<f32> {
@@ -358,6 +427,33 @@ mod tests {
     fn mixing_sums_the_tracks_and_keeps_the_longest() {
         assert_eq!(mix(vec![vec![0.25, 0.5]]), vec![0.25, 0.5]);
         assert_eq!(mix(vec![vec![0.25, 0.75, 0.1], vec![0.5, 0.5]]), vec![0.75, 1.0, 0.1]);
+    }
+
+    #[test]
+    fn peaks_follow_a_generated_wav() {
+        let rate = 8000u32;
+        let samples: Vec<i16> = (0..rate * 4).map(|i| if (2 * rate..2 * rate + 800).contains(&i) { 30000 } else { 3000 }).collect();
+        let data: Vec<u8> = samples.iter().flat_map(|s| s.to_le_bytes()).collect();
+        let mut wav = Vec::new();
+        wav.extend(b"RIFF");
+        wav.extend((36 + data.len() as u32).to_le_bytes());
+        wav.extend(b"WAVEfmt ");
+        wav.extend(16u32.to_le_bytes());
+        wav.extend([1, 0, 1, 0]);
+        wav.extend(rate.to_le_bytes());
+        wav.extend((rate * 2).to_le_bytes());
+        wav.extend([2, 0, 16, 0]);
+        wav.extend(b"data");
+        wav.extend((data.len() as u32).to_le_bytes());
+        wav.extend(data);
+        let path = std::env::temp_dir().join(format!("tlansclaib-peaks-{}.wav", std::process::id()));
+        std::fs::write(&path, wav).unwrap();
+        let result = peaks(&path, 40);
+        let _ = std::fs::remove_file(&path);
+        let result = result.unwrap();
+        assert_eq!(result.len(), 40);
+        assert_eq!(result[20], 1.0);
+        assert!(result[5] < 0.15 && result[5] > 0.05, "{}", result[5]);
     }
 
     #[test]

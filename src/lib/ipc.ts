@@ -76,6 +76,8 @@ export type Backend = {
   checkCandidate(id: number, kind: FileKind, path: string): Promise<Match>;
   relocateHistory(id: number, kind: FileKind, path: string): Promise<void>;
   audioUrl(path: string): Promise<string>;
+  /** Loudness per bucket from 0 to 1, or null when the recording cannot be read. */
+  audioPeaks(path: string, buckets: number): Promise<number[] | null>;
   confirm(message: string, ok: string): Promise<boolean>;
   log(level: "info" | "warn", message: string): void;
   openUrl(url: string): Promise<void>;
@@ -146,6 +148,7 @@ async function tauriBackend(): Promise<Backend> {
       const { convertFileSrc } = await import("@tauri-apps/api/core");
       return convertFileSrc(path);
     },
+    audioPeaks: (path, buckets) => invoke("audio_peaks", { path, buckets }),
     confirm: async (message, ok) => {
       const { ask } = await import("@tauri-apps/plugin-dialog");
       return ask(message, { title: "tlansclaib", kind: "warning", okLabel: ok, cancelLabel: "Cancel" });

@@ -5,6 +5,7 @@ mod gpu;
 mod guard;
 mod history;
 mod models;
+mod peaks;
 #[cfg(mobile)]
 mod phone_export;
 #[cfg(feature = "pro")]
@@ -395,6 +396,21 @@ fn audio_source(app: AppHandle, path: String) -> Result<(), String> {
     app.asset_protocol_scope().allow_file(&path).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn audio_peaks(app: AppHandle, path: String, buckets: usize) -> Option<Vec<f32>> {
+    let path = PathBuf::from(path);
+    if !path.is_file() {
+        return None;
+    }
+    match peaks::compute(&app, &path, buckets).await {
+        Ok(peaks) => Some(peaks),
+        Err(error) => {
+            log::warn!("could not draw the wave: {error:#}");
+            None
+        }
+    }
+}
+
 /// Phones work on a copy of the picked recording, see `recordings.rs`. The desktop reads it where it lies.
 #[tauri::command]
 async fn keep_recording(app: AppHandle, path: String) -> Result<String, String> {
@@ -568,6 +584,7 @@ pub fn run() {
             remove_speaker_detection,
             check_candidate,
             audio_source,
+            audio_peaks,
             keep_recording,
             open_url,
             disk_space,
