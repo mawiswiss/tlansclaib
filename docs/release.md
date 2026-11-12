@@ -191,3 +191,10 @@ node scripts/brand-sync.mjs
 The desktop icons come from `app-icon.svg`, except the 16 and 32 px images
 inside `icon.ico` and `icon.icns` and `32x32.png`, which come from
 `mark-small.svg`, as the brand guide asks.
+
+The browser version's share image, `public-web/og-image.png`, is rendered from
+`scripts/og-image.html` with sample data. With `pnpm dev` running:
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --force-device-scale-factor=1 --window-size=1200,630 --virtual-time-budget=4000 --screenshot=public-web/og-image.png http://localhost:1420/scripts/og-image.html
+```

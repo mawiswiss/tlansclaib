@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { readFileSync } from "node:fs";
 import process from "node:process";
 import pkg from "./package.json" with { type: "json" };
 const host = process.env.TAURI_DEV_HOST;
@@ -19,6 +20,10 @@ const SITE = "https://tlansclaib.marcwieland.name/";
 const TITLE = "tlansclaib Lite: transcribe audio in your browser, nothing uploaded";
 const DESCRIPTION =
   "Transcribe audio and video to text or subtitles in your browser, in about 100 languages. Free, no sign-up, and the recording never leaves your computer.";
+
+const tokens = readFileSync("src/styles/tokens.css", "utf8");
+const surface = (block: string) => /--surface: (#[0-9a-f]{6});/.exec(block)?.[1] ?? "";
+const SURFACE = { light: surface(tokens.split("@media")[0]), dark: surface(tokens.split(':root[data-theme="dark"]')[1] ?? "") };
 
 const webHead = {
   name: "web-head",
@@ -44,7 +49,8 @@ const webHead = {
       tags: [
         meta({ name: "description", content: DESCRIPTION }),
         meta({ name: "robots", content: "index, follow" }),
-        meta({ name: "theme-color", content: "#1846a8" }),
+        meta({ name: "theme-color", media: "(prefers-color-scheme: light)", content: SURFACE.light }),
+        meta({ name: "theme-color", media: "(prefers-color-scheme: dark)", content: SURFACE.dark }),
         link({ rel: "canonical", href: SITE }),
         link({ rel: "icon", href: "/favicon.ico", sizes: "32x32" }),
         link({ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" }),
@@ -58,7 +64,7 @@ const webHead = {
         meta({ property: "og:image", content: `${SITE}og-image.png` }),
         meta({ property: "og:image:width", content: "1200" }),
         meta({ property: "og:image:height", content: "630" }),
-        meta({ property: "og:image:alt", content: "tlansclaib Lite: Audio to text in your browser. Free, private, nothing uploaded." }),
+        meta({ property: "og:image:alt", content: "Audio to text. In your browser. A transcript with speakers, timecodes and a waveform in wavetyper Lite." }),
         meta({ name: "twitter:card", content: "summary_large_image" }),
         meta({ name: "twitter:image", content: `${SITE}og-image.png` }),
         { tag: "script", attrs: { type: "application/ld+json" }, children: JSON.stringify(app), injectTo: "head" as const },

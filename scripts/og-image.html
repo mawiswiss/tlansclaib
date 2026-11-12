@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/src/styles/index.css">
+<style>
+  html, body { width: 1200px; height: 630px; overflow: hidden; background: var(--palette-neutral-50); }
+  .og { display: grid; grid-template-columns: 440px 1fr; gap: var(--space-5); height: 100%; padding: var(--space-5); }
+  .og-copy { display: flex; flex-direction: column; }
+  .og-brand { display: flex; align-items: center; gap: var(--space-3); }
+  .og-brand img { height: 30px; }
+  .og-brand .lite { padding: 0 var(--space-2); border-radius: var(--radius-full); background: var(--pine-soft); color: var(--ink); font-size: var(--font-size-label); line-height: 22px; font-weight: var(--font-weight-semibold); letter-spacing: calc(var(--font-tracking-label) * 1em); text-transform: uppercase; }
+  .og h1 { margin: auto 0 var(--space-3); font: var(--font-weight-medium) var(--font-size-heading-1) / var(--font-line-height-heading-1) var(--font-family-display); letter-spacing: calc(var(--font-tracking-heading-1) * 1em); color: var(--ink); }
+  .og h1 em { color: var(--pine); }
+  .og .cursor { display: inline-block; width: 0.08em; height: 0.85em; margin-left: 0.18em; border-radius: var(--radius-cursor); background: var(--pine); vertical-align: -0.11em; }
+  .og .lead { font-size: var(--font-size-lead); line-height: var(--font-line-height-lead); color: var(--ink-muted); }
+  .og .label { margin-top: auto; }
+  .og-shot { align-self: center; width: 600px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); padding: var(--space-3); }
+  .og-shot .card { margin: 0; }
+  .og-shot .card + .card { margin-top: var(--space-3); }
+</style>
+</head>
+<body>
+<div class="og">
+  <div class="og-copy">
+    <div class="og-brand"><img src="/src/assets/brand/logo.svg" alt="wavetyper"><span class="lite">Lite</span></div>
+    <h1>Audio to text.<br><em>In your browser.</em><span class="cursor"></span></h1>
+    <p class="lead">Free, no account, and your recording is never uploaded.</p>
+    <p class="label">About 100 languages · Text and subtitles</p>
+  </div>
+  <div class="og-shot">
+    <section class="result">
+      <div class="card result-card">
+        <div class="result-top"><div class="titles"><h2 class="title-line">interview</h2></div></div>
+        <p class="meta-line data"><span class="meta-text">12 Mar, 10:04 · 00:58:10 · M4A audio · English</span></p>
+        <div class="result-foot"><div class="export-row"><span class="label">Export</span><span class="format-tags"><button type="button" class="format-tag selected">.txt</button><button type="button" class="format-tag">.srt</button><button type="button" class="format-tag">.vtt</button></span></div></div>
+      </div>
+      <div class="card transcript-card">
+        <div class="transcript-tools"><div class="player">
+          <button type="button" class="play" aria-label="Pause"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" style="stroke-width: var(--size-icon-stroke)"><path d="M9 6v12M15 6v12"/></svg></button>
+          <div class="wave-slider has-wave"><span class="wave-bars" id="bars"></span></div>
+          <span class="player-time data tabular">00:14:32 / 00:58:10</span>
+        </div></div>
+        <div class="transcript lines">
+          <p class="line has-meta"><span class="line-meta"><span class="time">00:14:28</span><span class="who s0"><span class="line-dot"></span><span class="who-name">Ana</span></span></span><span class="line-text" dir="auto">How did the first week go?</span></p>
+          <p class="line has-meta current"><span class="line-meta"><span class="time">00:14:32</span><span class="who s1"><span class="line-dot"></span><span class="who-name">Luis</span></span></span><span class="line-text" dir="auto">Intense, but very <span class="word now">clear</span>. We knew what to do from the second day on.</span></p>
+          <p class="line has-meta"><span class="line-meta"><span class="time">00:14:41</span><span class="who s0"><span class="line-dot"></span><span class="who-name">Ana</span></span></span><span class="line-text" dir="auto">And what changed after that?</span></p>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+<script>
+  const bars = document.getElementById("bars");
+  for (let i = 0; i < 72; i++) {
+    const h = 30 + 65 * Math.abs(Math.sin(i * 0.37) * Math.cos(i * 0.11));
+    const bar = document.createElement("i");
+    bar.style.height = `${Math.round(h)}%`;
+    if (i < 18) bar.className = "played";
+    bars.append(bar);
+  }
+</script>
+</body>
+</html>
