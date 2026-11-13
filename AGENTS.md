@@ -65,8 +65,12 @@ topic, no date prefixes, no generated trees.
 - The name is always `wavetyper`, lowercase, even at the start of a sentence.
   The GitHub repository and the website keep the old name in their addresses
   until they move.
-- A value the app needs and the brand lacks goes into `pro/brand/` first, then
-  into the app with `node scripts/brand-sync.mjs`. Change the brand with the
-  `brand` skill in `pro/.claude/skills/brand/`. It opens a pull request in the
-  pro repo for review and never commits in this one.
-- Without `pro/`, leave the synced brand files as they are.
+- Every interface change goes back into the brand guide in `pro/brand/`: a
+  screen, component, state, layout, value or text users see. Change the brand
+  with the `brand` skill in `pro/.claude/skills/brand/`. It opens a pull
+  request in the pro repo for review and never commits in this one.
+- The change lands in the brand only after that pull request is reviewed and
+  approved, and the interface change in this repository waits for it. Then
+  bring the values into the app with `node scripts/brand-sync.mjs`.
+- Without `pro/`, leave the synced brand files as they are, and ask before
+  changing the interface.
