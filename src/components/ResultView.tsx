@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import { clock, duration, fileName, folderOf, sourceLabel, speed } from "../lib/format";
+import { releaseAudioUrl } from "../lib/audio";
 import { DETECTION } from "../lib/detection";
 import { differs } from "../lib/language";
 import type { RunState, Word } from "../lib/run";
@@ -239,8 +240,13 @@ export function ResultView(props: Props) {
     setHeard({ lines: [], main: -1 });
     if (audioMissing) return;
     let active = true;
+    let loaded: string | null = null;
     audioUrl(run.audio)
-      .then((url) => active && setSrc(url))
+      .then((url) => {
+        if (!active) return releaseAudioUrl(url);
+        loaded = url;
+        setSrc(url);
+      })
       .catch((e) => {
         if (!active) return;
         setUnplayable(true);
@@ -249,6 +255,7 @@ export function ResultView(props: Props) {
       });
     return () => {
       active = false;
+      if (loaded) releaseAudioUrl(loaded);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run.audio, audioMissing]);

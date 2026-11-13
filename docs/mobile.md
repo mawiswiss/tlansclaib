@@ -44,6 +44,14 @@ a mobile tab does not get (`docs/browser.md`).
   and at start deletes copies no entry uses. iOS moves the app data folder on
   a reinstall, which leaves old absolute paths in the history, so at start the
   app points entries back at their copies by the `<id>` folder.
+- **Playback on Android** reads the recording in 4 MB chunks through the
+  app's `audio` protocol and plays a copy the webview keeps
+  (`src-tauri/src/playback.rs`). Android's webview applies a range request
+  again to the part Tauri's asset protocol already cut out, so a player
+  reading from there got the wrong bytes and stalled as soon as it asked for
+  anything but the start. The webview keeps most of the copy on disk, and
+  the storage check for keeping a recording runs first. iOS and the desktop
+  play from the asset protocol.
 - **Speaker detection** is Nemotron alone, on every setup. Phones load no
   downloaded code, so the app carries parakeet.cpp v0.6.1, without its sound
   tagging and speaker identification, and only the 200 MB model downloads.

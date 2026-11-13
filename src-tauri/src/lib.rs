@@ -8,6 +8,8 @@ mod models;
 mod peaks;
 #[cfg(mobile)]
 mod phone_export;
+#[cfg(any(target_os = "android", test))]
+mod playback;
 #[cfg(feature = "pro")]
 #[path = "../../pro/app/mod.rs"]
 mod pro;
@@ -389,13 +391,23 @@ fn relocate_history(app: AppHandle, history: State<History>, id: u64, kind: hist
     Ok(())
 }
 
+/// Returns the size when the page has to read the recording in chunks, see `playback.rs`.
 #[tauri::command]
-fn audio_source(app: AppHandle, path: String) -> Result<(), String> {
+fn audio_source(app: AppHandle, path: String) -> Result<Option<u64>, String> {
     let path = PathBuf::from(path);
     if !path.is_file() {
         return Err(format!("{} is not there", path.display()));
     }
-    app.asset_protocol_scope().allow_file(&path).map_err(|e| e.to_string())
+    app.asset_protocol_scope().allow_file(&path).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "android")]
+    {
+        let size = std::fs::metadata(&path).map_err(|e| e.to_string())?.len();
+        let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        guard::can_keep_recording(models::free_disk(&data), size)?;
+        Ok(Some(size))
+    }
+    #[cfg(not(target_os = "android"))]
+    Ok(None)
 }
 
 #[tauri::command]
@@ -508,6 +520,11 @@ pub fn run() {
         .plugin(tauri_plugin_process::init());
     #[cfg(mobile)]
     let builder = builder.plugin(tauri_plugin_fs::init());
+    #[cfg(target_os = "android")]
+    let builder = builder.register_asynchronous_uri_scheme_protocol(playback::SCHEME, |ctx, request, responder| {
+        let scope = ctx.app_handle().asset_protocol_scope();
+        tauri::async_runtime::spawn_blocking(move || responder.respond(playback::respond(&request, |path| scope.is_allowed(path))));
+    });
     builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

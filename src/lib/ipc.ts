@@ -1,4 +1,5 @@
 import type { Update } from "@tauri-apps/plugin-updater";
+import { readInChunks } from "./audio";
 import type { Line } from "./run";
 import { EXPORT_NAMES } from "./transcript";
 import { LARGEST_FILE_BYTES, LIMIT_SECONDS } from "./web/model";
@@ -144,9 +145,15 @@ async function tauriBackend(): Promise<Backend> {
     checkCandidate: (id, kind, path) => invoke("check_candidate", { id, kind, path }),
     relocateHistory: (id, kind, path) => invoke("relocate_history", { id, kind, path }),
     audioUrl: async (path) => {
-      await invoke("audio_source", { path });
+      const size = await invoke<number | null>("audio_source", { path });
       const { convertFileSrc } = await import("@tauri-apps/api/core");
-      return convertFileSrc(path);
+      if (size === null) return convertFileSrc(path);
+      const blob = await readInChunks(size, async (offset) => {
+        const response = await fetch(`${convertFileSrc(path, "audio")}?offset=${offset}`);
+        if (!response.ok) throw new Error(response.statusText || String(response.status));
+        return response.arrayBuffer();
+      });
+      return URL.createObjectURL(blob);
     },
     audioPeaks: (path, buckets) => invoke("audio_peaks", { path, buckets }),
     confirm: async (message, ok) => {

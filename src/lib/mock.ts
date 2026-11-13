@@ -20,10 +20,10 @@ function mockTranscript(timed: boolean, speakers: string[] = []): string {
     .join("\n");
 }
 
-let silent: string | null = null;
+let silent: Blob | null = null;
 
 function silence(): string {
-  if (silent) return silent;
+  if (silent) return URL.createObjectURL(silent);
   const rate = 8000;
   const samples = rate * 600;
   const bytes = new Uint8Array(44 + samples);
@@ -42,8 +42,8 @@ function silence(): string {
   text(36, "data");
   view.setUint32(40, samples, true);
   bytes.fill(128, 44);
-  silent = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
-  return silent;
+  silent = new Blob([bytes], { type: "audio/wav" });
+  return URL.createObjectURL(silent);
 }
 
 function spread(text: string, start: number, end: number) {

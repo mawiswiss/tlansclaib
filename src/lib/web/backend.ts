@@ -186,7 +186,6 @@ export function webBackend(): Backend {
     return Promise.resolve(() => target.removeEventListener(name, listener));
   };
   const files = new Map<string, File>();
-  const urls = new Map<string, string>();
   const remember = (file: File) => {
     const id = `browser:${crypto.randomUUID()}/${file.name}`;
     files.set(id, file);
@@ -423,12 +422,7 @@ export function webBackend(): Backend {
     audioUrl: async (path) => {
       const file = files.get(path);
       if (!file) throw new Refusal("Choose the recording again: the browser forgets files when the page reloads.");
-      let url = urls.get(path);
-      if (!url) {
-        url = URL.createObjectURL(file);
-        urls.set(path, url);
-      }
-      return url;
+      return URL.createObjectURL(file);
     },
     confirm: async (message) => window.confirm(message),
     log: (level, message) => console[level](message),
