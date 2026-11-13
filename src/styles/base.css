@@ -89,6 +89,18 @@ select:focus:not(:focus-visible) {
   color: var(--ink-muted);
 }
 
+.pill,
+.lite-pill,
+.tag,
+.status,
+.t-status,
+.chip,
+.count {
+  display: inline-flex;
+  align-items: center;
+  height: var(--size-chip-height);
+}
+
 .tabular {
   font-variant-numeric: tabular-nums;
 }

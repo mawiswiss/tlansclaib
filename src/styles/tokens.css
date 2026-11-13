@@ -12,6 +12,8 @@
   --palette-pine-900: #22302c;
   --palette-yellow-300: #f3d36b;
   --palette-red-500: #d65854;
+  --palette-red-600: #c4453f;
+  --palette-red-700: #a63a35;
   --palette-blue-500: #247cfe;
   --palette-teal-500: #288e8d;
   --palette-purple-500: #8775bf;
@@ -68,7 +70,8 @@
   --size-logo-clear-space-web: 48px;
   --size-control-height: 32px;
   --size-control-padding: 12px;
-  --size-main-action: 64px;
+  --size-chip-height: 24px;
+  --size-main-action: 80px;
   --size-focus-ring: 2px;
   --size-focus-offset: 2px;
   --size-dot: 6px;
@@ -79,6 +82,7 @@
   --surface: #fafbf8;
   --surface-raised: #ffffff;
   --line: #dceae5;
+  --edge: #dceae5;
   --ink-muted: #4f5d58;
   --ink: #16211e;
   --pine: #1e5149;
@@ -89,6 +93,9 @@
   --selection: rgba(30, 81, 73, 0.22);
   --warn: #f3d36b;
   --danger: #d65854;
+  --danger-fill: #c4453f;
+  --danger-fill-hover: #a63a35;
+  --on-danger: #fafbf8;
   --scrim: rgba(22, 33, 30, 0.4);
   --shadow-float: 0 8px 24px rgba(22, 33, 30, 0.12);
   --speaker-1: #f3d36b;
@@ -107,6 +114,7 @@
     --surface: #16211e;
     --surface-raised: #22302c;
     --line: #1c3d32;
+    --edge: rgba(250, 251, 248, 0.12);
     --ink-muted: #a7b3ae;
     --ink: #fafbf8;
     --pine: #dceae5;
@@ -117,8 +125,11 @@
     --selection: rgba(220, 234, 229, 0.22);
     --warn: #f3d36b;
     --danger: #d65854;
+    --danger-fill: #c4453f;
+    --danger-fill-hover: #a63a35;
+    --on-danger: #fafbf8;
     --scrim: rgba(22, 33, 30, 0.6);
-    --shadow-float: 0 8px 24px rgba(22, 33, 30, 0.4);
+    --shadow-float: 0 8px 24px rgba(22, 33, 30, 0.7);
     --speaker-1: #f3d36b;
     --speaker-2: #8bc7a4;
     --speaker-3: #fafbf8;
@@ -135,6 +146,7 @@
   --surface: #16211e;
   --surface-raised: #22302c;
   --line: #1c3d32;
+  --edge: rgba(250, 251, 248, 0.12);
   --ink-muted: #a7b3ae;
   --ink: #fafbf8;
   --pine: #dceae5;
@@ -145,8 +157,11 @@
   --selection: rgba(220, 234, 229, 0.22);
   --warn: #f3d36b;
   --danger: #d65854;
+  --danger-fill: #c4453f;
+  --danger-fill-hover: #a63a35;
+  --on-danger: #fafbf8;
   --scrim: rgba(22, 33, 30, 0.6);
-  --shadow-float: 0 8px 24px rgba(22, 33, 30, 0.4);
+  --shadow-float: 0 8px 24px rgba(22, 33, 30, 0.7);
   --speaker-1: #f3d36b;
   --speaker-2: #8bc7a4;
   --speaker-3: #fafbf8;

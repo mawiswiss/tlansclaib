@@ -45,7 +45,7 @@
   gap: var(--space-3);
   margin-top: var(--space-3);
   padding: var(--space-3);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }
@@ -91,7 +91,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }

@@ -131,7 +131,7 @@
 
 .privacy {
   padding: var(--space-3);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-lg);
   background: var(--pine-soft);
 }
@@ -236,7 +236,7 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }
@@ -280,7 +280,7 @@
   align-items: flex-start;
   gap: var(--space-2);
   padding-top: var(--space-3);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--edge);
   cursor: pointer;
 }
 
@@ -299,10 +299,10 @@
 
 .modal.support {
   width: min(400px, 100%);
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-2);
   padding: var(--space-4);
-  text-align: left;
+  text-align: center;
 }
 
 .modal.compare {
@@ -339,7 +339,7 @@
 .compare-table th,
 .compare-table td {
   padding: var(--space-2);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--edge);
   vertical-align: top;
 }
 
@@ -430,7 +430,7 @@
   width: 88px;
   height: 88px;
   margin: var(--space-1) 0;
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-full);
   object-fit: cover;
 }

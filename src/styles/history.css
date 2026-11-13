@@ -27,7 +27,7 @@
   gap: var(--space-3);
   padding: var(--space-3);
   background: var(--surface-raised);
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--edge);
   transform: translateX(104%);
   visibility: hidden;
   transition: transform var(--duration-transition-long) ease-out, visibility 0s linear var(--duration-transition-long);
@@ -113,7 +113,7 @@
   gap: var(--space-1);
   flex: none;
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-1);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }

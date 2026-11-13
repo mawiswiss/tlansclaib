@@ -8,7 +8,7 @@ import { addSpeaker, assignSpeaker, colorOf, EXPORT_NAMES, MAX_SPEAKERS, findMat
 import type { ExportFormat } from "../lib/types";
 import { FEATURES } from "../lib/ipc";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
-import { ChevronDown, Close, Folder, Info, Pencil, Plus, Redo, Retry, Search, Undo } from "./icons";
+import { ChevronDown, Close, Download, Folder, Info, Pencil, Plus, Redo, Retry, Search, Undo } from "./icons";
 import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
 
@@ -693,25 +693,25 @@ export function ResultView(props: Props) {
             )}
           </div>
           <div className="export-row">
-            <span className="label">Export</span>
-            <span className="format-tags" role="group" aria-label="Export format">
-              {FORMATS.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  className={`format-tag${f === format ? " selected" : ""}`}
-                  aria-pressed={f === format}
-                  disabled={!run.timed && f !== "txt"}
-                  title={!run.timed && f !== "txt" ? "Subtitles need line times, so this transcript exports as text" : `${EXPORT_NAMES[f]}, .${f}`}
-                  onClick={() => {
-                    setFormat(f);
-                    download(f);
-                  }}
-                >
-                  .{f}
-                </button>
-              ))}
-            </span>
+            <div className="split-button">
+              <button type="button" onClick={() => download(format)}>
+                <Download size={16} />
+                Export .{format}
+              </button>
+              <Select
+                value=""
+                options={FORMATS.map((f) => ({ value: f, label: `${EXPORT_NAMES[f]} (.${f})` }))}
+                onChange={(f) => {
+                  setFormat(f as ExportFormat);
+                  download(f as ExportFormat);
+                }}
+                label="Export format"
+                title={run.timed ? "Choose a format" : "Subtitles need line times, so this transcript exports as text"}
+                disabled={!run.timed}
+                className="split-menu"
+                trigger={() => null}
+              />
+            </div>
             <span className="export-pro-slot" />
           </div>
         </div>
@@ -841,7 +841,7 @@ export function ResultView(props: Props) {
                     >
                       <span className="speaker-dot" />
                       {name}
-                      <Pencil size={16} />
+                      <Pencil size={12} />
                     </button>
                     <button
                       type="button"
@@ -850,7 +850,7 @@ export function ResultView(props: Props) {
                       aria-label={`Remove ${name}`}
                       title={`Remove ${name}. Their lines become Unassigned.`}
                     >
-                      <Close size={16} />
+                      <Close size={12} />
                     </button>
                   </span>
                 ),
@@ -870,7 +870,7 @@ export function ResultView(props: Props) {
                   Wrong number?
                 </button>
               )}
-              <Tooltip content="Names may come out wrong. Click a speaker under a timecode to change who said a line. Remove a speaker with its ×, or by clearing its name, and its lines become Unassigned. Give a speaker another speaker's name to merge them. Speakers come from the audio tracks of the recording, or from speaker detection.">
+              <Tooltip content="Names may come out wrong. Click the dot beside a line to change who said it. Remove a speaker with its ×, or by clearing its name, and its lines become Unassigned. Give a speaker another speaker's name to merge them. Speakers come from the audio tracks of the recording, or from speaker detection.">
                 <span className="meta-info" tabIndex={0} aria-label="About speakers">
                   <Info size={16} />
                 </span>
@@ -940,13 +940,13 @@ export function ResultView(props: Props) {
             </span>
           )}
           <label
-            className="tool-switch"
+            className="switch-label"
             title={noTimecodes ? "This transcript has no timecodes to show" : "Show line times here and in text exports"}
           >
             <input
               type="checkbox"
               role="switch"
-              className="switch-input"
+              className="toggle"
               checked={timecodes}
               disabled={noTimecodes}
               onChange={(e) => onTimecodes(e.target.checked)}

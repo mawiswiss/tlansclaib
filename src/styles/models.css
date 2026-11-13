@@ -19,7 +19,7 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--surface-raised);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-lg);
   animation: pop var(--duration-transition-long) ease-out;
 }
@@ -29,7 +29,7 @@
   align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--edge);
 }
 
 .modal-head > div {
@@ -57,7 +57,7 @@
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--edge);
 }
 
 @media (max-width: 640px) {
@@ -94,9 +94,9 @@
   align-items: center;
   gap: var(--space-1);
   padding: 0 var(--space-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: transparent;
   color: var(--ink);
   font-size: var(--font-size-label);
   line-height: var(--font-line-height-label);
@@ -121,9 +121,9 @@
   align-items: center;
   gap: var(--space-1);
   padding: 0 var(--space-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-full);
-  background: var(--surface);
+  background: transparent;
   color: var(--ink);
   font-size: var(--font-size-label);
   line-height: var(--font-line-height-small);
@@ -149,7 +149,7 @@
   gap: var(--space-2);
   margin: 0;
   padding: var(--space-3);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   color: var(--ink);
@@ -183,8 +183,9 @@
 
 /* Models */
 
-.group-head {
-  width: 100%;
+.group-head,
+.group-head:is(:hover, :active):not(:disabled) {
+  align-self: flex-start;
   justify-content: flex-start;
   gap: var(--space-2);
   height: var(--size-control-height);
@@ -207,9 +208,9 @@
 .group-head .count,
 .model-section .count {
   padding: 0 var(--space-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-full);
-  background: var(--surface);
+  background: transparent;
   color: var(--ink-muted);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-timecode);
@@ -239,7 +240,7 @@
   min-width: 0;
   padding: var(--space-3);
   background: var(--surface-raised);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-lg);
 }
 

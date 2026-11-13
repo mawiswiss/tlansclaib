@@ -63,7 +63,7 @@ export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbo
       <div className="segmented" role="group" aria-label="Appearance">
         {THEMES.map(({ theme: t, title, icon: I }) => (
           <button key={t} type="button" title={title} aria-label={title} aria-pressed={theme === t} onClick={() => onTheme(t)}>
-            <I size={20} />
+            <I size={16} />
           </button>
         ))}
       </div>

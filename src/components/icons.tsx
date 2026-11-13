@@ -3,7 +3,7 @@ import logoDark from "../assets/brand/logo-on-dark.svg";
 import logoLight from "../assets/brand/logo.svg";
 import mark from "../assets/brand/mark.svg";
 
-type Props = Omit<SVGProps<SVGSVGElement>, "strokeWidth"> & { size?: 16 | 20 | 24 };
+type Props = Omit<SVGProps<SVGSVGElement>, "strokeWidth"> & { size?: 12 | 16 | 20 | 24 };
 
 function Icon({ size = 20, children, ...rest }: Props & { children: ReactNode }) {
   return (
