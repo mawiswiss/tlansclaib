@@ -57,6 +57,7 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
   const [speed, setSpeed] = useState(1);
   const [width, setWidth] = useState(0);
   const [peaks, setPeaks] = useState<number[] | null>(null);
+  const [started, setStarted] = useState(false);
   const [hover, setHover] = useState<{ x: number; top: number; time: number } | null>(null);
   const frame = useRef(onFrame);
   frame.current = onFrame;
@@ -74,6 +75,7 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
 
   useEffect(() => {
     setPeaks(null);
+    setStarted(false);
   }, [path]);
 
   useEffect(() => {
@@ -96,6 +98,7 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
     const bars = resample(peaks, count);
     return bars.some((h) => h !== bars[0]) ? bars : null;
   }, [peaks, count]);
+  const wave = started ? heights : null;
 
   useEffect(() => {
     if (!playing) return;
@@ -204,7 +207,10 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
           setTime(e.currentTarget.currentTime);
           onTime(e.currentTarget.currentTime, !e.currentTarget.paused);
         }}
-        onPlay={() => setPlaying(true)}
+        onPlay={() => {
+          setPlaying(true);
+          setStarted(true);
+        }}
         onPause={() => setPlaying(false)}
         onError={onFail}
       />
@@ -213,7 +219,7 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
       </button>
       <div
         ref={slider}
-        className={`wave-slider${heights ? " has-wave" : ""}`}
+        className="wave-slider"
         role="slider"
         tabIndex={0}
         aria-label="Position in the recording"
@@ -228,8 +234,8 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
         onPointerLeave={() => setHover(null)}
         onKeyDown={onKeyDown}
       >
-        {heights ? (
-          <Bars heights={heights} played={Math.floor(progress * heights.length)} />
+        {wave ? (
+          <Bars heights={wave} played={Math.floor(progress * wave.length)} />
         ) : (
           <span className="seek-track">
             <span className="meter">
