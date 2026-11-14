@@ -7,7 +7,9 @@ export function DesktopPromo({ transcribed, full, onDesktop }: Props) {
   const trimmed = transcribed !== null && full !== null && full > transcribed + 1;
   return (
     <aside className="desktop-promo">
-      <Monitor size={20} />
+      <span className="fact-icon">
+        <Monitor />
+      </span>
       <div>
         <strong>{trimmed ? `This is the first ${duration(transcribed)} of ${duration(full)}` : "Like the result?"}</strong>
         <p className="muted">

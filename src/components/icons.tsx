@@ -95,17 +95,9 @@ export const Search = (p: Props) => (
   </Icon>
 );
 
-export const Alert = (p: Props) => (
-  <Icon {...p}>
-    <circle cx="12" cy="12" r="8.5" />
-    <path d="M12 7.5v5.5M12 16.5v.01" />
-  </Icon>
-);
-
 export const Wave = (p: Props) => (
   <Icon {...p}>
-    <path d="M4 10v4M7.5 7v10M11 4.5v15M14.5 8v8" />
-    <path d="M18 9h2.5M18 12h2.5M18 15h1.5" />
+    <path d="M3.9 9.1v5.8M7.75 5.4v13.2M11.6 7.9v8.2M15.9 7.6h4.2M15.9 12h4.2M15.9 16.4h2.2" />
   </Icon>
 );
 

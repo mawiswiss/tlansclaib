@@ -28,10 +28,12 @@ export function CompareDialog({ onDownload, onClose }: Props) {
         <button type="button" className="icon-button compare-close" onClick={onClose} aria-label="Close">
           <Close />
         </button>
-        <span className="glyph">
-          <Monitor size={24} />
-        </span>
-        <h2 id="compare-title">Lite or the desktop app</h2>
+        <h2 id="compare-title" className="dialog-title">
+          <span className="fact-icon">
+            <Monitor />
+          </span>
+          Lite or the desktop app
+        </h2>
         <p className="muted">Both transcribe on this computer. The desktop app has no limits on length or size, runs larger and more accurate models, and names the speakers.</p>
         <table className="compare-table">
           <thead>

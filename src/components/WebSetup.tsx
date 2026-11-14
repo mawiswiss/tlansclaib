@@ -1,7 +1,7 @@
 import { onPhone } from "../lib/desktop";
 import { bytes } from "../lib/format";
 import type { DownloadProgress, ModelStatus } from "../lib/types";
-import { Alert, Check, Close, Download, Monitor, Trash } from "./icons";
+import { Check, Close, Download, Monitor, Trash } from "./icons";
 
 type Props = {
   variant: "page" | "dialog";
@@ -35,10 +35,12 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
     return (
       <section className="notice web-setup">
         <div className="notice-card">
-          <span className="glyph">
-            <Monitor size={24} />
-          </span>
-          <h2>Open wavetyper on your computer</h2>
+          <h2>
+            <span className="fact-icon">
+              <Monitor />
+            </span>
+            Open wavetyper on your computer
+          </h2>
           <p>wavetyper transcribes audio and video to text or subtitles on your own computer, in about 100 languages, and never uploads the recording.</p>
           <p>It does not run on a phone or tablet. Open this page in a browser on your computer, or download the free desktop app for Mac, Windows and Linux.</p>
           <div className="actions">{desktop(true)}</div>
@@ -50,10 +52,10 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
     return (
       <section className="notice web-setup">
         <div className="notice-card">
-          <span className="glyph">
-            <Alert size={24} />
-          </span>
-          <h2>wavetyper&nbsp;Lite does not run in this browser</h2>
+          <h2>
+            <span className="dot high" aria-hidden="true" />
+            wavetyper&nbsp;Lite does not run in this browser
+          </h2>
           <p>wavetyper Lite transcribes audio and video to text or subtitles on your own computer, in about 100 languages, and never uploads the recording.</p>
           <p role="alert">{problem} The desktop app for Mac, Windows and Linux runs on any recent computer.</p>
           <div className="actions">{desktop(true)}</div>
@@ -99,7 +101,6 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
           <div>
             <strong>{model?.name ?? "Universal"}</strong>{" "}
             <span className="status">
-              <span className={`dot${model?.installed ? "" : " warn"}`} aria-hidden="true" />
               {model?.installed ? "In this browser" : "Not downloaded"}
             </span>
             <p className="muted">
@@ -123,7 +124,9 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
           {limits}
         </div>
         <aside className="desktop-promo">
-          <Monitor size={20} />
+          <span className="fact-icon">
+            <Monitor />
+          </span>
           <div>
             <strong>More in the desktop app</strong>
             <p className="muted">
@@ -144,9 +147,6 @@ export function WebSetup({ variant, model, progress, error, problem, busy, onDow
   return (
     <section className="notice web-setup">
       <div className="notice-card">
-        <span className="glyph">
-          <Check size={24} />
-        </span>
         <h2>Try wavetyper Lite in your browser</h2>
         <p>The model downloads once ({bytes(model?.size_bytes ?? 0)}) and stays in this browser. Recordings are transcribed on this computer and never uploaded.</p>
         {limits}

@@ -25,12 +25,14 @@ export function DownloadDialog({ platform, onDownload, onClose }: Props) {
         <button type="button" className="icon-button compare-close" onClick={onClose} aria-label="Close">
           <Close />
         </button>
-        <span className="glyph">
-          {platform ? <Download size={24} /> : <Monitor size={24} />}
-        </span>
         {platform ? (
           <>
-            <h2 id="download-title">Your download has started</h2>
+            <h2 id="download-title" className="dialog-title">
+              <span className="fact-icon">
+                <Download />
+              </span>
+              Your download has started
+            </h2>
             <p className="muted">wavetyper for {INSTALLERS[platform].name}, {INSTALLERS[platform].requires}.</p>
             <ol className="download-steps">
               {STEPS[platform].map((step) => (
@@ -63,7 +65,12 @@ export function DownloadDialog({ platform, onDownload, onClose }: Props) {
           </>
         ) : (
           <>
-            <h2 id="download-title">Download wavetyper for your computer</h2>
+            <h2 id="download-title" className="dialog-title">
+              <span className="fact-icon">
+                <Monitor />
+              </span>
+              Download wavetyper for your computer
+            </h2>
             <p className="muted">The desktop app is free. Download it on the computer you want to transcribe on. It runs on Mac, Windows and Linux.</p>
             <div className="download-choices">
               {PLATFORMS.map((p) => (

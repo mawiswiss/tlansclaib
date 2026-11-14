@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { fileName } from "../lib/format";
 import { FEATURES } from "../lib/ipc";
-import { Check, Clock, Close, Folder, Wave } from "./icons";
+import { Clock, Close, Folder, Wave } from "./icons";
 import { Tooltip } from "./Tooltip";
 
 type Props = {
@@ -118,23 +118,21 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
       </button>
       {FEATURES.lite && (
         <div className="lite-notes" onClick={(e) => e.stopPropagation()}>
-          <p className="lite-local">
-            <Check size={20} />
-            <span>
-              <strong>Nothing is uploaded.</strong> The app runs in this browser, not on a server. Your recording and transcript stay on this computer.
-            </span>
-          </p>
+          <div className="privacy">
+            <strong>Nothing is uploaded</strong>
+            <p>The app runs in this browser, not on a server. Your recording and transcript stay on this computer.</p>
+          </div>
           <h3 className="web-model-heading">Limits in Lite</h3>
-          <ul className="feature-list lite-limits">
+          <ul className="feature-list">
             {FEATURES.limitSeconds !== null && (
               <li>
-                <Clock size={20} />
+                <Clock size={16} />
                 <span>Lite transcribes the first {Math.round(FEATURES.limitSeconds / 60)} minutes of each recording.</span>
               </li>
             )}
             {FEATURES.largestFileBytes !== null && (
               <li>
-                <Folder size={20} />
+                <Folder size={16} />
                 <span>
                   Files up to {Math.round(FEATURES.largestFileBytes / 2 ** 30)} GB, saved on this computer. Make a file that is only in iCloud Drive, Google Drive, OneDrive or Dropbox available offline first.
                 </span>

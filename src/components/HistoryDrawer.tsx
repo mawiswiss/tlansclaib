@@ -134,7 +134,7 @@ export function HistoryDrawer({ open, entries, languageName, busy, error, onOpen
                   <Close size={16} />
                 </button>
                 {!e.file.endsWith(".json") && <button type="button" className="icon-button small" onClick={() => onReveal(e.file)} disabled={!e.exists} title="Show in folder" aria-label="Show in folder">
-                  <Folder size={20} />
+                  <Folder size={16} />
                 </button>}
               </span>
             </li>

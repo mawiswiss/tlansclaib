@@ -455,3 +455,10 @@
 .button-info {
   color: var(--ink-muted);
 }
+
+.dialog-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-right: var(--size-control-height);
+}
