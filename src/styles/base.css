@@ -155,7 +155,7 @@ select:focus:not(:focus-visible) {
 }
 
 .logo img {
-  height: 20px;
+  height: 24px;
   width: auto;
   min-width: var(--size-logo-min-width);
 }
