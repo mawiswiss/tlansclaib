@@ -24,6 +24,16 @@
   animation: pop var(--duration-transition-long) ease-out;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .modal {
+    --surface-raised: var(--palette-pine-900);
+  }
+}
+
+:root[data-theme="dark"] .modal {
+  --surface-raised: var(--palette-pine-900);
+}
+
 .modal-head {
   display: flex;
   align-items: flex-start;
