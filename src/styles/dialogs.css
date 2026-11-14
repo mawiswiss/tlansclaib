@@ -132,7 +132,7 @@
 .privacy {
   padding: var(--space-3);
   border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--pine-soft);
 }
 
@@ -237,7 +237,7 @@
   gap: var(--space-3);
   padding: var(--space-3);
   border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface-raised);
 }
 

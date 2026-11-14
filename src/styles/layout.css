@@ -198,8 +198,10 @@ main {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3);
+}
+
+main > .note {
+  margin: var(--space-3) var(--space-3) 0;
 }
 
 .stage {
@@ -216,8 +218,6 @@ main {
 
 .card {
   background: var(--surface-raised);
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
 }
 
 .progress-strip {
@@ -226,8 +226,7 @@ main {
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   background: var(--surface-raised);
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
+  border-bottom: 1px solid var(--edge);
   color: var(--ink);
   font-size: var(--font-size-app-caption);
   line-height: var(--font-line-height-app-caption);
@@ -252,11 +251,6 @@ main {
 @media (max-width: 680px), (max-height: 600px) {
   main {
     overflow-y: auto;
-    padding-top: 0;
-  }
-
-  main > :first-child {
-    margin-top: var(--space-3);
   }
 
   .stage:has(> .result, > .dropzone) {

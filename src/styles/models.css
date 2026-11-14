@@ -241,7 +241,7 @@
   padding: var(--space-3);
   background: var(--surface-raised);
   border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
 
 .model-card.selected {

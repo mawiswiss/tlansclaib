@@ -7,8 +7,7 @@
   gap: var(--space-3);
   padding: var(--space-3);
   background: var(--surface-raised);
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
+  border-bottom: 1px solid var(--edge);
   flex: none;
 }
 

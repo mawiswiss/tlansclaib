@@ -12,9 +12,6 @@
   margin: 0 auto;
   padding: var(--space-4);
   overflow-y: auto;
-  background: var(--surface-raised);
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
 }
 
 .setup.dialog {
@@ -57,7 +54,7 @@
   margin: 0;
   background: var(--surface-raised);
   border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
 
 .setup-computer > div {
@@ -205,7 +202,7 @@ button.setup-mode {
   font-weight: var(--font-weight-regular);
   color: var(--ink);
   border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
 
 button.setup-mode.selected {
@@ -378,7 +375,7 @@ button.setup-details-toggle:active:not(:disabled) {
   list-style: none;
   background: var(--surface-raised);
   border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
 
 .setup-row {
@@ -521,7 +518,7 @@ button.setup-details-toggle:active:not(:disabled) {
   margin-top: var(--space-4);
   padding: var(--space-3);
   border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
 
 .danger-zone p {
