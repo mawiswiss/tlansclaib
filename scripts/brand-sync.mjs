@@ -1,9 +1,10 @@
 // Copies the brand from the private pro/brand into the app: tokens, fonts, logos and icons.
 // Run it from the repository root after the brand changes: node scripts/brand-sync.mjs
+// With --check it writes nothing and exits 1 when tokens, fonts or logos differ from pro/brand.
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 const BRAND = "pro/brand";
 const BRAND_PY = "pro/.claude/skills/brand/scripts/brand.py";
@@ -14,16 +15,27 @@ if (!existsSync(join(BRAND, "guide.md"))) {
 }
 
 const css = execFileSync("python3", ["-I", BRAND_PY, "css", BRAND, "--primitives"], { encoding: "utf8" });
-writeFileSync("src/styles/tokens.css", `/* Generated from pro/brand by scripts/brand-sync.mjs. Never edit. */\n${css}`);
-
-mkdirSync("src/assets/fonts", { recursive: true });
+const files = [["src/styles/tokens.css", Buffer.from(`/* Generated from pro/brand by scripts/brand-sync.mjs. Never edit. */\n${css}`)]];
 for (const file of readdirSync(join(BRAND, "fonts"))) {
-  if (file.endsWith(".woff2") || file === "LICENSE.txt") copyFileSync(join(BRAND, "fonts", file), join("src/assets/fonts", file));
+  if (file.endsWith(".woff2") || file === "LICENSE.txt") files.push([join("src/assets/fonts", file), readFileSync(join(BRAND, "fonts", file))]);
+}
+for (const file of ["logo.svg", "logo-on-dark.svg", "mark.svg", "mark-small.svg"]) {
+  files.push([join("src/assets/brand", file), readFileSync(join(BRAND, "logo", file))]);
 }
 
-mkdirSync("src/assets/brand", { recursive: true });
-for (const file of ["logo.svg", "logo-on-dark.svg", "mark.svg", "mark-small.svg"]) {
-  copyFileSync(join(BRAND, "logo", file), join("src/assets/brand", file));
+if (process.argv.includes("--check")) {
+  const stale = files.filter(([path, data]) => !existsSync(path) || !readFileSync(path).equals(data)).map(([path]) => path);
+  if (stale.length) {
+    console.error(`Out of date with pro/brand, run node scripts/brand-sync.mjs:\n  ${stale.join("\n  ")}`);
+    process.exit(1);
+  }
+  console.log("Tokens, fonts and logos match pro/brand. Icons are not compared.");
+  process.exit(0);
+}
+
+for (const [path, data] of files) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, data);
 }
 
 const tmp = mkdtempSync(join(tmpdir(), "brand-icons-"));
