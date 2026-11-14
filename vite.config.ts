@@ -22,8 +22,8 @@ const DESCRIPTION =
   "Transcribe audio and video to text or subtitles in your browser, in about 100 languages. Free, no sign-up, and the recording never leaves your computer.";
 
 const tokens = readFileSync("src/styles/tokens.css", "utf8");
-const surface = (block: string) => /--surface: (#[0-9a-f]{6});/.exec(block)?.[1] ?? "";
-const SURFACE = { light: surface(tokens.split("@media")[0]), dark: surface(tokens.split(':root[data-theme="dark"]')[1] ?? "") };
+const surface = (block: string) => /--surface-raised: (#[0-9a-f]{6});/.exec(block)?.[1] ?? "";
+const WINDOW = { light: surface(tokens.split("@media")[0]), dark: surface(tokens.split(':root[data-theme="dark"]')[1] ?? "") };
 
 const webHead = {
   name: "web-head",
@@ -49,8 +49,8 @@ const webHead = {
       tags: [
         meta({ name: "description", content: DESCRIPTION }),
         meta({ name: "robots", content: "index, follow" }),
-        meta({ name: "theme-color", media: "(prefers-color-scheme: light)", content: SURFACE.light }),
-        meta({ name: "theme-color", media: "(prefers-color-scheme: dark)", content: SURFACE.dark }),
+        meta({ name: "theme-color", media: "(prefers-color-scheme: light)", content: WINDOW.light }),
+        meta({ name: "theme-color", media: "(prefers-color-scheme: dark)", content: WINDOW.dark }),
         link({ rel: "canonical", href: SITE }),
         link({ rel: "icon", href: "/favicon.ico", sizes: "32x32" }),
         link({ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" }),
