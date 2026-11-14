@@ -38,21 +38,20 @@ export type DetailsProps = {
   onAcceptFresh: () => void;
 };
 
-const LANGUAGE_NAMES: Record<string, string> = {
-  th: "Thai",
-  en: "English",
-  de: "German",
-  fr: "French",
-  it: "Italian",
-  es: "Spanish",
-  ja: "Japanese",
-  zh: "Chinese",
-};
+const LANGUAGE_NAMES = new Intl.DisplayNames(["en"], { type: "language", fallback: "none" });
+
+function languageName(code: string): string {
+  try {
+    return LANGUAGE_NAMES.of(code) ?? capitalize(code);
+  } catch {
+    return capitalize(code);
+  }
+}
 
 export function languagesOf(m: ModelStatus): string {
   if (m.language_name) return m.language_name;
   if (m.languages.includes("all")) return "All languages";
-  return m.languages.map((l) => LANGUAGE_NAMES[l] ?? capitalize(l)).join(", ");
+  return m.languages.map(languageName).join(", ");
 }
 
 export function menuLabel(m: ModelStatus): string {
@@ -103,15 +102,15 @@ const DOWNLOAD_WORDS: Words = { warn: "Longer", high: "Slow" };
 
 type Group = "all" | "detection" | "custom";
 
-/** Models under one heading per language: all languages first, then the languages of the setup, then the rest. */
+/** Models for all languages, then those for one language: the languages of the setup first, then by language. */
 function byLanguage(models: ModelStatus[], setupIds: string[]): [string, ModelStatus[]][] {
-  const sections = new Map<string, ModelStatus[]>();
-  for (const m of models) {
-    const name = languagesOf(m);
-    sections.set(name, [...(sections.get(name) ?? []), m]);
-  }
-  const rank = ([name, list]: [string, ModelStatus[]]) => (name === "All languages" ? 0 : list.some((m) => setupIds.includes(m.id)) ? 1 : 2);
-  return [...sections].sort((a, b) => rank(a) - rank(b) || a[0].localeCompare(b[0]));
+  const all = models.filter((m) => m.languages.includes("all"));
+  const setupLanguages = new Set(models.filter((m) => setupIds.includes(m.id)).map(languagesOf));
+  const rank = (m: ModelStatus) => (setupLanguages.has(languagesOf(m)) ? 0 : 1);
+  const one = models
+    .filter((m) => !m.languages.includes("all"))
+    .sort((a, b) => rank(a) - rank(b) || languagesOf(a).localeCompare(languagesOf(b)));
+  return ([["All languages", all], ["One language", one]] as [string, ModelStatus[]][]).filter(([, list]) => list.length > 0);
 }
 
 export function ModelDetails(props: DetailsProps) {

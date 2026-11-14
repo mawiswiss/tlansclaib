@@ -99,10 +99,7 @@
   background: transparent;
   color: var(--ink);
   font-size: var(--font-size-label);
-  line-height: var(--font-line-height-label);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: calc(var(--font-tracking-label) * 1em);
-  text-transform: uppercase;
+  line-height: var(--font-line-height-small);
   white-space: nowrap;
 }
 
