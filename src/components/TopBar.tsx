@@ -33,7 +33,8 @@ export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbo
         )}
       </div>
       <span className="lead" title={`Recordings and transcripts never leave this ${DEVICE}`}>
-        Offline · all local
+        {FEATURES.lite ? "Web version" : "Offline processing"}
+        <span className="lead-more"> · nothing leaves this {DEVICE}</span>
       </span>
       <span className="spacer" />
       {FEATURES.lite && onDesktop && (

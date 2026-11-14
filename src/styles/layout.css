@@ -55,6 +55,18 @@
   white-space: nowrap;
 }
 
+@media (max-width: 1080px) {
+  .topbar.has-update .lead-more {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .topbar .lead-more {
+    display: none;
+  }
+}
+
 .lite-pill {
   display: inline-flex;
   align-items: center;
