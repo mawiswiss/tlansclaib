@@ -146,14 +146,12 @@ button.tool.update-tool {
 }
 
 button.tool.update-tool:active:not(:disabled) {
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--pine);
+  background: color-mix(in srgb, var(--pine) 14%, var(--pine-soft));
 }
 
 @media (hover: hover) {
   button.tool.update-tool:hover:not(:disabled) {
-    background: var(--surface);
-    box-shadow: inset 0 0 0 1px var(--pine);
+    background: color-mix(in srgb, var(--pine) 14%, var(--pine-soft));
   }
 }
 
