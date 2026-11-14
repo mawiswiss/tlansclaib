@@ -32,7 +32,7 @@ export function TopBar({ theme, onTheme, historyOpen, onHistory, onModels, onAbo
           </span>
         )}
       </div>
-      <span className="pill status" title={`Recordings and transcripts never leave this ${DEVICE}`}>
+      <span className="lead" title={`Recordings and transcripts never leave this ${DEVICE}`}>
         Offline · all local
       </span>
       <span className="spacer" />

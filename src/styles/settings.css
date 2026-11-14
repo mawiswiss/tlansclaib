@@ -44,16 +44,17 @@
 .setting .label .select-trigger.precision {
   height: var(--size-chip-height);
   padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-app-caption);
-  line-height: var(--font-line-height-app-caption);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-label);
+  line-height: var(--font-line-height-small);
   letter-spacing: 0;
   text-transform: none;
 }
 
 .settings .setting .label .setting-action {
   background: var(--surface-raised);
-  border: var(--size-button-outline) solid var(--pine);
+  border-color: var(--pine);
   color: var(--pine);
   font-weight: var(--font-weight-semibold);
 }

@@ -46,16 +46,13 @@
 
 .pill.status {
   background: transparent;
-  box-shadow: inset 0 0 0 1px var(--edge);
 }
 
-.topbar .pill.status::before {
-  content: "";
-  flex: none;
-  width: var(--size-dot);
-  height: var(--size-dot);
-  border-radius: var(--radius-full);
-  background: var(--pine);
+.topbar .lead {
+  color: var(--ink-muted);
+  font-size: var(--font-size-app-caption);
+  line-height: var(--font-line-height-app-caption);
+  white-space: nowrap;
 }
 
 .lite-pill {
@@ -87,7 +84,7 @@
     flex-basis: 100%;
   }
 
-  .topbar .pill.status {
+  .topbar .lead {
     order: 2;
     margin-top: var(--space-1);
   }
@@ -133,6 +130,16 @@ button.tool {
 button.tool.active {
   background: var(--pine-soft);
   color: var(--pine);
+}
+
+.topbar button.tool:not(.update-tool):active:not(:disabled) {
+  background: var(--pine-soft);
+}
+
+@media (hover: hover) {
+  .topbar button.tool:not(.update-tool):hover:not(:disabled) {
+    background: var(--pine-soft);
+  }
 }
 
 button.tool.update-tool {
