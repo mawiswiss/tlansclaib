@@ -38,6 +38,9 @@ src-tauri/binaries
 /src-tauri/tauri.ios.conf.json
 /src-tauri/tauri.android.conf.json
 
+# The brand skill, linked in from pro/
+/.claude/skills/brand
+
 # Local model files and conversions
 /models
 /scratch
