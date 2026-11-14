@@ -627,6 +627,7 @@ button.play:active:not(:disabled) {
 }
 
 .wave-slider {
+  position: relative;
   flex: 1;
   min-width: 80px;
   height: var(--size-wave-max-height);
@@ -672,6 +673,10 @@ button.play:active:not(:disabled) {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .wave-bars i {
+    transition: background-color var(--duration-transition-long) ease-out;
+  }
+
   .wave-bars.rising i {
     animation: wave-rise var(--duration-wave-rise) cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--from, 0) * var(--duration-wave-stagger)) backwards;
   }
@@ -685,6 +690,21 @@ button.play:active:not(:disabled) {
 
 .wave-bars i.played {
   background: var(--pine);
+}
+
+.wave-bars i.hovered {
+  background: var(--ink);
+  transition: none;
+}
+
+.wave-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--ink-muted);
+  pointer-events: none;
+  transform: translateX(-50%);
 }
 
 .wave-tip {

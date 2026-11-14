@@ -25,7 +25,7 @@ const BIG_STEP = 30;
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 const token = (name: string) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
 
-const Bars = memo(function Bars({ heights, played }: { heights: number[]; played: number }) {
+const Bars = memo(function Bars({ heights, played, hovered }: { heights: number[]; played: number; hovered: number }) {
   const [origin] = useState(() => played / heights.length);
   const [rising, setRising] = useState(true);
 
@@ -37,7 +37,7 @@ const Bars = memo(function Bars({ heights, played }: { heights: number[]; played
   return (
     <span className={rising ? "wave-bars rising" : "wave-bars"} aria-hidden="true">
       {heights.map((h, i) => (
-        <i key={i} className={i < played ? "played" : undefined} style={{ height: `${h}%`, ["--from" as string]: Math.abs((i + 0.5) / heights.length - origin) }} />
+        <i key={i} className={i === hovered ? "hovered" : i < played ? "played" : undefined} style={{ height: `${h}%`, ["--from" as string]: Math.abs((i + 0.5) / heights.length - origin) }} />
       ))}
     </span>
   );
@@ -65,9 +65,13 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
   const [width, setWidth] = useState(0);
   const [peaks, setPeaks] = useState<number[] | null>(null);
   const [started, setStarted] = useState(false);
-  const [hover, setHover] = useState<{ x: number; top: number; time: number } | null>(null);
+  const [hover, setHover] = useState<{ x: number; top: number; at: number; time: number } | null>(null);
+  const [moving, setMoving] = useState(false);
+  const still = useRef(0);
   const frame = useRef(onFrame);
   frame.current = onFrame;
+
+  useEffect(() => () => clearTimeout(still.current), []);
 
   const [bar, gap] = useMemo(() => [token("--size-wave-bar"), token("--size-wave-gap")], []);
   const count = width > 0 ? clamp(Math.floor((width + gap) / (bar + gap)), 1, MAX_BUCKETS) : 0;
@@ -175,7 +179,11 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
     if (dragging.current) seekTo(timeAt(e.clientX));
     if (e.pointerType !== "mouse") return;
     const box = e.currentTarget.getBoundingClientRect();
-    setHover({ x: clamp(e.clientX, 40, window.innerWidth - 40), top: box.top, time: timeAt(e.clientX) });
+    const at = box.width > 0 ? clamp((e.clientX - box.left) / box.width, 0, 1) : 0;
+    setHover({ x: clamp(e.clientX, 40, window.innerWidth - 40), top: box.top, at, time: at * duration });
+    setMoving(true);
+    clearTimeout(still.current);
+    still.current = window.setTimeout(() => setMoving(false), token("--duration-transition-short"));
   };
 
   const onPointerEnd = () => {
@@ -200,6 +208,12 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
   };
 
   const progress = duration > 0 ? clamp(time / duration, 0, 1) : 0;
+
+  // Bars spread edge to edge, so bar i starts at i * step. Half a bar of slack counts a bar the cursor touches.
+  const barAt = (fraction: number, bars: number) => {
+    const step = bars > 1 ? (width - bar) / (bars - 1) : 0;
+    return step > 0 ? clamp(Math.floor((fraction * width + bar / 2) / step), 0, bars - 1) : 0;
+  };
 
   return (
     <div className="player">
@@ -243,7 +257,7 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
         onKeyDown={onKeyDown}
       >
         {wave ? (
-          <Bars heights={wave} played={Math.floor(progress * wave.length)} />
+          <Bars heights={wave} played={progress > 0 ? barAt(progress, wave.length) + 1 : 0} hovered={hover && moving ? barAt(hover.at, wave.length) : -1} />
         ) : (
           <span className="seek-track">
             <span className="meter">
@@ -252,6 +266,7 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
             <i className="seek-dot" style={{ left: `${progress * 100}%` }} />
           </span>
         )}
+        {hover && <i className="wave-cursor" style={{ left: `${hover.at * 100}%` }} />}
       </div>
       {hover &&
         createPortal(
