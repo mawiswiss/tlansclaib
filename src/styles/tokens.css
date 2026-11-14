@@ -77,8 +77,12 @@
   --size-dot: 6px;
   --size-meter: 4px;
   --size-wave-max-height: 40px;
+  --size-wave-bar: 2px;
+  --size-wave-gap: 6px;
   --duration-transition-short: 120ms;
   --duration-transition-long: 200ms;
+  --duration-wave-rise: 420ms;
+  --duration-wave-stagger: 360ms;
   --surface: #fafbf8;
   --surface-raised: #ffffff;
   --line: #dceae5;

@@ -661,21 +661,26 @@ button.play:active:not(:disabled) {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  animation: wave-in var(--duration-transition-long) ease-out;
-}
-
-@keyframes wave-in {
-  from {
-    opacity: 0;
-  }
 }
 
 .wave-bars i {
   flex: none;
-  width: 4px;
-  min-height: 4px;
+  width: var(--size-wave-bar);
+  min-height: var(--size-wave-bar);
   border-radius: var(--radius-full);
   background: var(--line);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wave-bars.rising i {
+    animation: wave-rise var(--duration-wave-rise) cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--from, 0) * var(--duration-wave-stagger)) backwards;
+  }
+}
+
+@keyframes wave-rise {
+  from {
+    height: var(--size-meter);
+  }
 }
 
 .wave-bars i.played {

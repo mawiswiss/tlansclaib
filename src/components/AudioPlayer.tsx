@@ -18,19 +18,26 @@ type Props = {
 };
 
 const SPEEDS = [1, 1.5, 2];
-const BAR = 4;
-const GAP = 3;
 const MAX_BUCKETS = 1000;
 const SMALL_STEP = 5;
 const BIG_STEP = 30;
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
+const token = (name: string) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
 
 const Bars = memo(function Bars({ heights, played }: { heights: number[]; played: number }) {
+  const [origin] = useState(() => played / heights.length);
+  const [rising, setRising] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setRising(false), token("--duration-wave-rise") + token("--duration-wave-stagger"));
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <span className="wave-bars" aria-hidden="true">
+    <span className={rising ? "wave-bars rising" : "wave-bars"} aria-hidden="true">
       {heights.map((h, i) => (
-        <i key={i} className={i < played ? "played" : undefined} style={{ height: `${h}%` }} />
+        <i key={i} className={i < played ? "played" : undefined} style={{ height: `${h}%`, ["--from" as string]: Math.abs((i + 0.5) / heights.length - origin) }} />
       ))}
     </span>
   );
@@ -62,7 +69,8 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
   const frame = useRef(onFrame);
   frame.current = onFrame;
 
-  const count = width > 0 ? clamp(Math.floor((width + GAP) / (BAR + GAP)), 1, MAX_BUCKETS) : 0;
+  const [bar, gap] = useMemo(() => [token("--size-wave-bar"), token("--size-wave-gap")], []);
+  const count = width > 0 ? clamp(Math.floor((width + gap) / (bar + gap)), 1, MAX_BUCKETS) : 0;
 
   useEffect(() => {
     const el = slider.current;
