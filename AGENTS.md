@@ -24,6 +24,8 @@ topic, no date prefixes, no generated trees.
 - `pnpm typecheck`, `pnpm test`.
 - `pnpm dev:web` and `pnpm build:web` for the browser version. They need the
   `wasm32-unknown-unknown` Rust target.
+- Cmd/Ctrl+Shift+E in a dev build opens a panel that fires every toast and
+  error screen. The mock backend takes query flags, see `docs/development.md`.
 - `pnpm tauri build` for installers. Release builds come from GitHub Actions on
   a `v*` tag, see `docs/release.md`. Release with the `release` skill in
   `.claude/skills/release/`.

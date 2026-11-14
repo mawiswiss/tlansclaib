@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AboutDialog } from "./components/AboutDialog";
 import { CompareDialog } from "./components/CompareDialog";
+import type { DevInline, DevScreen } from "./components/DevErrors";
 import { DropZone } from "./components/DropZone";
 import { ErrorView, type ErrorAction } from "./components/ErrorView";
 import { Notices, type Notice, type NoticeAction } from "./components/Notices";
@@ -28,6 +29,8 @@ import { DETECTION } from "./lib/detection";
 import { score } from "./lib/fit";
 import { measuredSpeed } from "./lib/pace";
 import { loadSettings, saveSettings, settingsLoadError } from "./lib/settings";
+
+const DevErrors = import.meta.env.DEV ? lazy(() => import("./components/DevErrors")) : null;
 import { askedForSupport, countFromHistory, countOne, shouldAskForSupport } from "./lib/support";
 import { colorsOf, parseTranscript, withTimes, type Transcript } from "./lib/transcript";
 import { applyTheme } from "./lib/theme";
@@ -90,7 +93,7 @@ export default function App() {
   const settingsAtStart = useRef(settings);
   const [notices, setNotices] = useState<Notice[]>(settingsLoadError ? [{ id: 0, kind: "error", text: settingsLoadError }] : []);
   const noticeId = useRef(1);
-  const [panel, setPanel] = useState<"models" | "about" | "support" | "compare" | "download" | null>(null);
+  const [panel, setPanel] = useState<"models" | "about" | "support" | "compare" | "download" | "dev" | null>(null);
   const [installer, setInstaller] = useState<Platform | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -220,6 +223,12 @@ export default function App() {
         e.preventDefault();
         setHistoryOpen(false);
         setPanel("support");
+        return;
+      }
+      if (import.meta.env.DEV && (e.metaKey || e.ctrlKey) && e.shiftKey && e.code === "KeyE") {
+        e.preventDefault();
+        setHistoryOpen(false);
+        setPanel("dev");
         return;
       }
       if (e.key !== "Escape") return;
@@ -1211,6 +1220,31 @@ export default function App() {
     refreshDetections();
   };
 
+  const devScreen = (screen: DevScreen) => {
+    setPanel(null);
+    if (screen === "fail") dispatch({ type: "fail", message: "The engine stopped unexpectedly (exit code 1)." });
+    else {
+      // The reducer drops engine events unless a run is going. Both dispatches land in one render.
+      dispatch({ type: "start", audio: "dev.wav", folder: "", modelName: "Dev", timestamps: false, autoLanguage: false, now: Date.now() });
+      dispatch({ type: "engine", event: { event: "cancelled" }, now: Date.now() });
+    }
+  };
+
+  const devInline = (target: DevInline, text: string) => {
+    setPanel(target === "models" || target === "setup" || target === "speed" ? "models" : null);
+    setPanelError(target === "models" ? text : null);
+    if (target === "setup") setSetupError(text);
+    if (target === "speed") {
+      setSpeed("offline");
+      setSpeedError(text);
+    }
+    if (target === "history") {
+      setHistoryOpen(true);
+      setHistoryError(text);
+    }
+    if (target === "result") setResultError(text);
+  };
+
   const closePanel = () => {
     setPanel(null);
     setModelsFocus(null);
@@ -1704,8 +1738,14 @@ export default function App() {
           onOpenUrl={openUrl}
           onDesktop={compareDesktop}
           onSupport={support}
+          onDev={DevErrors ? () => setPanel("dev") : undefined}
           onClose={closePanel}
         />
+      )}
+      {DevErrors && panel === "dev" && (
+        <Suspense fallback={null}>
+          <DevErrors onToast={notify} onScreen={devScreen} onInline={devInline} onClose={closePanel} />
+        </Suspense>
       )}
       {panel === "compare" && <CompareDialog onDownload={getDesktop} onClose={closePanel} />}
       {panel === "download" && <DownloadDialog platform={installer} onDownload={downloadDesktop} onClose={closePanel} />}

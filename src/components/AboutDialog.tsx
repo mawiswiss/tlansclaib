@@ -18,6 +18,7 @@ type Props = {
   onOpenUrl: (url: string) => void;
   onDesktop: () => void;
   onSupport: () => void;
+  onDev?: () => void;
   onClose: () => void;
 };
 
@@ -172,6 +173,11 @@ export function AboutDialog(props: Props) {
             © {YEAR} {AUTHOR} · MIT License{v && ` · Version ${v}`}
             {versionError && <span role="alert"> · {versionError}</span>}
           </span>
+          {import.meta.env.DEV && props.onDev && (
+            <button type="button" className="small" onClick={props.onDev}>
+              Test errors
+            </button>
+          )}
         </footer>
       </section>
     </div>
