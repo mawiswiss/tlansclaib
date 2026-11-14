@@ -28,7 +28,6 @@ const LIST = FEATURES.lite
       "About 100 languages",
       "The first 10 minutes of each recording",
       "Timecodes on or off, export text or subtitles when you want",
-      "A history of every transcript, kept in this browser",
       "Free, with no ads, no tracking and no subscription",
     ]
   : FEATURES.mobile

@@ -144,6 +144,8 @@ function save(name: string, text: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+const noHistory = () => Promise.reject(new Refusal("Lite keeps no history."));
+
 export function webBackend(): Backend {
   const target = new EventTarget();
   const emit = (name: string, detail: unknown) => target.dispatchEvent(new CustomEvent(name, { detail }));
@@ -169,7 +171,7 @@ export function webBackend(): Backend {
 
   const record = async (file: string) => {
     const found = await records.get(records.idOf(file));
-    if (!found) throw new Refusal("This transcript is no longer in the browser's history.");
+    if (!found) throw new Refusal("This transcript is gone: the browser forgets it when the page reloads.");
     return found;
   };
 
@@ -201,7 +203,6 @@ export function webBackend(): Backend {
       },
       lines: run.lines,
       revision: 1,
-      audio_size: files.get(audio)?.size ?? 0,
     });
     if (replaced) await records.remove(replaced.entry.id);
     emit("history", null);
@@ -353,10 +354,7 @@ export function webBackend(): Backend {
       await this.startRun(audio, modelId, language, timestamps, speakers, precision, speakerBackend, outputFile, force);
     },
     listHistory: entries,
-    removeHistory: async (id) => {
-      await records.remove(id);
-      emit("history", null);
-    },
+    removeHistory: noHistory,
     setTranscriptTimestamps: async (file, lines, timestamps) => {
       const found = await record(file);
       await records.put({ ...found, lines, entry: { ...found.entry, timestamps }, revision: found.revision + 1 });
@@ -384,23 +382,9 @@ export function webBackend(): Backend {
       emit("history", null);
       return file;
     },
-    openHistory: async (id) => {
-      const found = await records.get(id);
-      if (!found) throw new Refusal("This transcript is no longer in the browser's history.");
-      return { text: "", lines: found.lines, timestamps: found.entry.timestamps, hash: `r${found.revision}`, changed: false, audio: files.has(found.entry.audio) ? "same" : "missing" };
-    },
-    checkCandidate: async (id, _kind, path) => {
-      const found = await records.get(id);
-      const file = files.get(path);
-      if (!found || !file || !found.audio_size) return "unknown";
-      return file.size === found.audio_size ? "same" : "different";
-    },
-    relocateHistory: async (id, _kind, path) => {
-      const found = await records.get(id);
-      if (!found) return;
-      await records.put({ ...found, entry: { ...found.entry, audio: path } });
-      emit("history", null);
-    },
+    openHistory: noHistory,
+    checkCandidate: noHistory,
+    relocateHistory: noHistory,
     audioUrl: async (path) => {
       const file = files.get(path);
       if (!file) throw new Refusal("Choose the recording again: the browser forgets files when the page reloads.");

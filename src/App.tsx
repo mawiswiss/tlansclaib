@@ -1403,7 +1403,7 @@ export default function App() {
             onClose={() => dispatch({ type: "reset" })}
             onAnother={() => dispatch({ type: "reset" })}
           >
-            {FEATURES.lite && !run.opened && <DesktopPromo transcribed={run.audioSeconds} full={run.fullSeconds} onDesktop={compareDesktop} />}
+            {FEATURES.lite && <DesktopPromo transcribed={run.audioSeconds} full={run.fullSeconds} onDesktop={compareDesktop} />}
           </ResultView>
         );
       case "error":
@@ -1453,7 +1453,7 @@ export default function App() {
         return (
           <ErrorView
             title="Cancelled"
-            message="The transcription was stopped. Any completed lines are saved in app history."
+            message={FEATURES.lite ? "The transcription was stopped." : "The transcription was stopped. Any completed lines are saved in app history."}
             onRetry={() => dispatch({ type: "reset" })}
             retryLabel={FEATURES.mobile ? "New transcription" : undefined}
           />
@@ -1534,7 +1534,7 @@ export default function App() {
       onDelete={() => {
         if (!webModel) return;
         void requireBackend()
-          .confirm(`Delete the model from this browser? This frees ${bytes(webModel.size_bytes)}. Transcripts in the history stay.`, "Delete")
+          .confirm(`Delete the model from this browser? This frees ${bytes(webModel.size_bytes)}.`, "Delete")
           .then((yes) => {
             if (yes) void remove(webModel.id);
           });
@@ -1581,7 +1581,7 @@ export default function App() {
         theme={settings.theme}
         onTheme={(theme) => setSettings((s) => ({ ...s, theme }))}
         historyOpen={historyOpen}
-        onHistory={problem ? undefined : () => setHistoryOpen((o) => !o)}
+        onHistory={problem || FEATURES.lite ? undefined : () => setHistoryOpen((o) => !o)}
         onModels={problem ? undefined : () => setPanel("models")}
         onAbout={() => {
           setAboutFocus(null);
@@ -1759,7 +1759,7 @@ export default function App() {
           onClose={closePanel}
         />
       )}
-      <HistoryDrawer
+      {!FEATURES.lite && <HistoryDrawer
         open={historyOpen}
         entries={shownHistory}
         languageName={languageName}
@@ -1774,7 +1774,7 @@ export default function App() {
           setHistoryOpen(false);
           setHistoryError(null);
         }}
-      />
+      />}
       <Notices notices={notices} onDismiss={dismissNotice} />
     </div>
   );

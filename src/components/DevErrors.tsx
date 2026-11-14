@@ -1,3 +1,4 @@
+import { FEATURES } from "../lib/ipc";
 import { Close } from "./icons";
 import type { Notice, NoticeAction } from "./Notices";
 
@@ -40,7 +41,7 @@ export default function DevErrors({ onToast, onScreen, onInline, onClose }: Prop
     ["Speed measurement", "speed", "Error: no connection to the model server"],
     ["History", "history", "Could not load the history: the file is damaged."],
     ["Open result", "result", "Could not export the transcript: permission denied."],
-  ];
+  ].filter(([, target]) => target !== "history" || !FEATURES.lite) as [string, DevInline, string][];
 
   return (
     <div className="overlay" onClick={onClose}>

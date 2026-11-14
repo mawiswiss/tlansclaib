@@ -45,8 +45,8 @@ them. `public-web/` holds `robots.txt` and the icons.
   speakers and multi-track recordings are left out.
 - The browser decodes the audio (`decodeAudioData` at 16 kHz), so the formats
   are the browser's. It mixes all tracks into one.
-- History lives in IndexedDB, the model in OPFS. The browser forgets a
-  recording when the page reloads, so a reopened transcript asks for it again.
+- Transcripts live in memory and go when the page reloads, as the recordings
+  do, so Lite shows no history. The model stays in OPFS.
 - `src/lib/web/export.ts` ports the text, SRT and WebVTT export from Rust.
   Keep the two in step.
 
