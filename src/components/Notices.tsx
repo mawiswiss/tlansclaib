@@ -33,15 +33,12 @@ function NoticeItem({ notice, onDismiss }: { notice: Notice; onDismiss: (id: num
   return (
     <div className={`notice-toast ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}>
       <div className="notice-toast-body">
-        <span>
+        <p className="notice-toast-text">
           {notice.kind !== "info" && (
-            <strong className="notice-kind">
-              <span className={`dot ${notice.kind === "error" ? "high" : "warn"}`} aria-hidden="true" />
-              {notice.kind === "error" ? "Error" : "Warning"}
-            </strong>
+            <span className={`dot ${notice.kind === "error" ? "high" : "warn"}`} role="img" aria-label={notice.kind === "error" ? "Error" : "Warning"} />
           )}
-          {notice.text}
-        </span>
+          <span>{notice.text}</span>
+        </p>
         <button type="button" className="icon-button tiny" onClick={() => onDismiss(notice.id)} aria-label="Dismiss" title="Dismiss">
           <Close size={16} />
         </button>

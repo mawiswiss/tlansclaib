@@ -9,17 +9,18 @@ type Props = {
   onRetry: () => void;
   retryLabel?: string;
   actions?: ErrorAction[];
+  neutral?: boolean;
 };
 
-export function ErrorView({ title, message, note, onRetry, retryLabel = "Start over", actions = [] }: Props) {
+export function ErrorView({ title, message, note, onRetry, retryLabel = "Start over", actions = [], neutral = false }: Props) {
   return (
     <section className="notice">
-      <div className="notice-card">
+      <div className={neutral ? "notice-card" : "notice-card error"}>
         <h2>
-          <span className="dot high" aria-hidden="true" />
+          {!neutral && <span className="dot high" aria-hidden="true" />}
           {title}
         </h2>
-        <p role="alert">{message}</p>
+        <p role={neutral ? "status" : "alert"}>{message}</p>
         <div className="actions">
           {actions.map((action, i) => (
             <button key={action.label} type="button" className={toneClass(action.tone ?? (i === 0 ? "primary" : "neutral"))} onClick={action.run}>

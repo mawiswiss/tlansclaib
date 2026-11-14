@@ -1453,6 +1453,7 @@ export default function App() {
         return (
           <ErrorView
             title="Cancelled"
+            neutral
             message={FEATURES.lite ? "You stopped the transcription." : "You stopped the transcription. The lines it finished are in the history."}
             onRetry={() => dispatch({ type: "reset" })}
             retryLabel={FEATURES.mobile ? "New transcription" : undefined}
