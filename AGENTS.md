@@ -27,6 +27,9 @@ topic, no date prefixes, no generated trees.
 - `pnpm tauri build` for installers. Release builds come from GitHub Actions on
   a `v*` tag, see `docs/release.md`. Release with the `release` skill in
   `.claude/skills/release/`.
+- Open a pull request with the `pull-request` skill in
+  `.claude/skills/pull-request/`. A change users can see carries before and
+  after screenshots in the description.
 
 ## Rules
 
