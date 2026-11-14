@@ -88,12 +88,14 @@
   --duration-wave-stagger: 360ms;
   --surface: light-dark(#fafbf8, #16211e);
   --surface-raised: light-dark(#ffffff, #16211e);
+  --surface-dialog: light-dark(#ffffff, #22302c);
   --line: light-dark(#dceae5, #1c3d32);
   --edge: light-dark(#dceae5, rgba(250, 251, 248, 0.12));
   --ink-muted: light-dark(#4f5d58, #a7b3ae);
   --ink: light-dark(#16211e, #fafbf8);
   --pine: light-dark(#1e5149, #dceae5);
   --pine-soft: light-dark(#dceae5, #1c3d32);
+  --pine-soft-hover: light-dark(rgba(30, 81, 73, 0.14), rgba(220, 234, 229, 0.14));
   --on-pine: light-dark(#fafbf8, #1e5149);
   --highlight: #f3d36b;
   --on-highlight: #16211e;
@@ -128,12 +130,14 @@
   :root {
     --surface: #fafbf8;
     --surface-raised: #ffffff;
+    --surface-dialog: #ffffff;
     --line: #dceae5;
     --edge: #dceae5;
     --ink-muted: #4f5d58;
     --ink: #16211e;
     --pine: #1e5149;
     --pine-soft: #dceae5;
+    --pine-soft-hover: rgba(30, 81, 73, 0.14);
     --on-pine: #fafbf8;
     --selection: rgba(30, 81, 73, 0.22);
     --scrim: rgba(22, 33, 30, 0.4);
@@ -145,12 +149,14 @@
     :root:not([data-theme="light"]) {
       --surface: #16211e;
       --surface-raised: #16211e;
+      --surface-dialog: #22302c;
       --line: #1c3d32;
       --edge: rgba(250, 251, 248, 0.12);
       --ink-muted: #a7b3ae;
       --ink: #fafbf8;
       --pine: #dceae5;
       --pine-soft: #1c3d32;
+      --pine-soft-hover: rgba(220, 234, 229, 0.14);
       --on-pine: #1e5149;
       --selection: rgba(220, 234, 229, 0.22);
       --scrim: rgba(22, 33, 30, 0.6);
@@ -162,12 +168,14 @@
   :root[data-theme="dark"] {
     --surface: #16211e;
     --surface-raised: #16211e;
+    --surface-dialog: #22302c;
     --line: #1c3d32;
     --edge: rgba(250, 251, 248, 0.12);
     --ink-muted: #a7b3ae;
     --ink: #fafbf8;
     --pine: #dceae5;
     --pine-soft: #1c3d32;
+    --pine-soft-hover: rgba(220, 234, 229, 0.14);
     --on-pine: #1e5149;
     --selection: rgba(220, 234, 229, 0.22);
     --scrim: rgba(22, 33, 30, 0.6);

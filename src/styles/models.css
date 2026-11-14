@@ -12,6 +12,7 @@
 }
 
 .modal {
+  --surface-raised: var(--surface-dialog);
   width: min(900px, 100%);
   flex: none;
   margin: auto;
@@ -22,16 +23,6 @@
   border: 1px solid var(--edge);
   border-radius: var(--radius-lg);
   animation: pop var(--duration-transition-long) ease-out;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .modal {
-    --surface-raised: var(--palette-pine-900);
-  }
-}
-
-:root[data-theme="dark"] .modal {
-  --surface-raised: var(--palette-pine-900);
 }
 
 .modal-head {

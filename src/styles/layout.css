@@ -143,15 +143,19 @@ button.tool.update-tool {
   color: var(--pine);
   background: var(--pine-soft);
   font-variant-numeric: tabular-nums;
+  transition:
+    background-color var(--duration-transition-short) ease-out,
+    color var(--duration-transition-short) ease-out,
+    box-shadow var(--duration-transition-short) ease-out;
 }
 
 button.tool.update-tool:active:not(:disabled) {
-  background: color-mix(in srgb, var(--pine) 14%, var(--pine-soft));
+  box-shadow: inset 0 0 0 100vmax var(--pine-soft-hover);
 }
 
 @media (hover: hover) {
   button.tool.update-tool:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--pine) 14%, var(--pine-soft));
+    box-shadow: inset 0 0 0 100vmax var(--pine-soft-hover);
   }
 }
 
