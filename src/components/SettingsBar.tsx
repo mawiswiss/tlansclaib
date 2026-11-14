@@ -37,7 +37,6 @@ export function SettingsBar(props: Props) {
   const fit = model?.too_heavy ? failedFit(model.too_heavy) : model && stats ? modelFit(model.ram_gb, stats, FEATURES.mobile) : null;
   const pill = fit && (
     <span className="pill status">
-      {fit.level !== "ok" && <span className={`dot ${fit.level}`} aria-hidden="true" />}
       {model?.too_heavy ? "Failed here" : FIT_LABEL[fit.level]}
     </span>
   );

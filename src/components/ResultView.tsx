@@ -676,7 +676,6 @@ export function ResultView(props: Props) {
               <span className="original-file-reference">
                 <span className="original-file-path" title={run.audio}>{FEATURES.revealFiles ? run.audio : fileName(run.audio)}</span>
                 <span className="t-status">
-                  <span className="dot warn" />
                   {audioMissing ? "File missing" : "Different file"}
                 </span>
                 <button type="button" onClick={onLocateAudio}>Locate…</button>

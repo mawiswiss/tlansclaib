@@ -187,19 +187,16 @@ export function SetupView(props: Props) {
                 <span className="setup-badges">
                   {badge === mode && (
                     <span className="status">
-                      <span className="dot" aria-hidden="true" />
                       Recommended for this {DEVICE}
                     </span>
                   )}
                   {setup?.mode === mode && languageKey(setup.language) === languageValue && (
                     <span className="status">
-                      <span className="dot" aria-hidden="true" />
                       Your setup
                     </span>
                   )}
                   {slow && slow.level !== "ok" && (
                     <span className="status" title={slow.tip ?? undefined}>
-                      <span className={`dot ${slow.level}`} aria-hidden="true" />
                       Longer download
                     </span>
                   )}

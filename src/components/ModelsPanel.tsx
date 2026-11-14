@@ -78,14 +78,13 @@ type Words = { warn: string | null; high: string | null };
 
 const FIT_WORDS: Words = { warn: "Tight", high: "Too large" };
 
-/** A size or time in mono. A rating that is not fine adds a dot in its level and a word. */
+/** A size or time in mono. A rating that is not fine adds a word. */
 function Chip({ rating, words = FIT_WORDS, children }: { rating: Rating | null; words?: Words; children: ReactNode }) {
   const level = rating && rating.level !== "ok" ? rating.level : null;
   const word = level ? words[level] : null;
   const className = level ? "status data" : "tag data";
   const body = (
     <>
-      {level && <span className={`dot ${level}`} aria-hidden="true" />}
       {children}
       {word && <span> · {word}</span>}
     </>
@@ -140,7 +139,6 @@ export function ModelDetails(props: DetailsProps) {
       <>
         {next.includes(id) && (
           <span className="status">
-            <span className="dot" aria-hidden="true" />
             {done ? `In ${MODE_NAMES[selected.mode]}` : `Downloads with ${MODE_NAMES[selected.mode]}`}
           </span>
         )}
@@ -149,7 +147,6 @@ export function ModelDetails(props: DetailsProps) {
     ) : (
       ids.includes(id) && (
         <span className="status">
-          <span className="dot" aria-hidden="true" />
           In your setup
         </span>
       )
@@ -363,7 +360,6 @@ export function ModelDetails(props: DetailsProps) {
         <div className="chips">
           {m.installed && (
             <span className="status">
-              <span className="dot" aria-hidden="true" />
               Installed
             </span>
           )}
@@ -433,7 +429,6 @@ export function ModelDetails(props: DetailsProps) {
         <div className="chips">
           {detection.installed && (
             <span className="status">
-              <span className="dot" aria-hidden="true" />
               Installed
             </span>
           )}

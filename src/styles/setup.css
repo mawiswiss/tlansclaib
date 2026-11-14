@@ -263,11 +263,6 @@ button.setup-mode:disabled {
   text-align: left;
 }
 
-.setup-badges .status .dot {
-  align-self: flex-start;
-  margin-top: calc((1lh - var(--size-dot)) / 2);
-}
-
 .setup-wave {
   flex: none;
   height: 24px;
