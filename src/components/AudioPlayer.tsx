@@ -91,7 +91,11 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
     };
   }, [path, count]);
 
-  const heights = useMemo(() => (peaks && count > 0 ? resample(peaks, count) : null), [peaks, count]);
+  const heights = useMemo(() => {
+    if (!peaks || count === 0) return null;
+    const bars = resample(peaks, count);
+    return bars.some((h) => h !== bars[0]) ? bars : null;
+  }, [peaks, count]);
 
   useEffect(() => {
     if (!playing) return;
@@ -227,8 +231,11 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
         {heights ? (
           <Bars heights={heights} played={Math.floor(progress * heights.length)} />
         ) : (
-          <span className="meter">
-            <i style={{ width: `${progress * 100}%` }} />
+          <span className="seek-track">
+            <span className="meter">
+              <i style={{ width: `${progress * 100}%` }} />
+            </span>
+            <i className="seek-dot" style={{ left: `${progress * 100}%` }} />
           </span>
         )}
       </div>

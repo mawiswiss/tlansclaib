@@ -642,8 +642,20 @@ button.play:active:not(:disabled) {
   height: var(--size-control-height);
 }
 
-.wave-slider .meter {
+.seek-track {
+  position: relative;
   width: 100%;
+}
+
+.seek-dot {
+  position: absolute;
+  top: 50%;
+  width: calc(var(--size-meter) * 3);
+  height: calc(var(--size-meter) * 3);
+  border-radius: var(--radius-full);
+  background: var(--pine);
+  box-shadow: 0 0 0 2px var(--surface-raised);
+  transform: translate(-50%, -50%);
 }
 
 .wave-bars {
