@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { transcriptText } from "./format";
-import { addSpeaker, assignSpeaker, findMatches, hasUnassigned, joinLine, lineAt, mergeSpeakers, nextSpeaker, parseTranscript, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, withTimes, wordAt } from "./transcript";
+import { addSpeaker, assignSpeaker, findMatches, hasSpeakers, hasUnassigned, joinLine, lineAt, mergeSpeakers, nextSpeaker, parseTranscript, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, withTimes, wordAt } from "./transcript";
 
 describe("parseTranscript", () => {
   it("reads a file with timecodes back into lines", () => {
@@ -206,6 +206,16 @@ describe("speaker corrections", () => {
     expect(hasUnassigned({ speakers: ["Host"], lines: plain })).toBe(false);
     expect(hasUnassigned({ speakers: [], lines: plain })).toBe(false);
     expect(hasUnassigned({ speakers: ["Host", "Guest"], lines })).toBe(false);
+  });
+
+  it("keeps showing the last speaker after another one is removed", () => {
+    const plain = [{ start: 0, end: 1, text: "a" }];
+    const added = addSpeaker({ speakers: [], lines: plain });
+    expect(hasSpeakers(removeUnusedSpeakers(removeSpeaker(added, 1)))).toBe(true);
+    expect(hasSpeakers(mergeSpeakers({ speakers: ["Host", "Guest"], lines }, 1, 0))).toBe(true);
+    expect(hasSpeakers({ speakers: ["Host", "Guest"], lines })).toBe(true);
+    expect(hasSpeakers({ speakers: [], lines: plain })).toBe(false);
+    expect(hasSpeakers({ speakers: ["Host"], lines: plain })).toBe(false);
   });
 
   it("keeps unassigned lines unassigned when a speaker is added", () => {

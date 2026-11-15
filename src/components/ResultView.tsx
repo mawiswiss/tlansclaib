@@ -4,7 +4,7 @@ import { releaseAudioUrl } from "../lib/audio";
 import { DETECTION } from "../lib/detection";
 import { differs } from "../lib/language";
 import type { RunState, Word } from "../lib/run";
-import { addSpeaker, assignSpeaker, colorOf, EXPORT_NAMES, MAX_SPEAKERS, findMatches, hasUnassigned, joinLine, mergeSpeakers, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
+import { addSpeaker, assignSpeaker, colorOf, EXPORT_NAMES, MAX_SPEAKERS, findMatches, hasSpeakers, hasUnassigned, joinLine, mergeSpeakers, placeWords, playingAt, removeSpeaker, removeUnusedSpeakers, splitLine, wordAt, type Playing, type Transcript } from "../lib/transcript";
 import type { ExportFormat } from "../lib/types";
 import { FEATURES } from "../lib/ipc";
 import { AudioPlayer, type PlayerHandle } from "./AudioPlayer";
@@ -213,7 +213,7 @@ export function ResultView(props: Props) {
   const title = run.title;
   const spoken = differs(run.language, run.heard);
   const unassigned = useMemo(() => hasUnassigned({ lines: run.lines, speakers: run.speakers }), [run.lines, run.speakers]);
-  const voiced = run.speakers.length > 1 || unassigned;
+  const voiced = useMemo(() => hasSpeakers({ lines: run.lines, speakers: run.speakers }), [run.lines, run.speakers]);
   const lines = useMemo(() => run.lines.flatMap((l, index) => (l.text ? [{ ...l, index }] : [])), [run.lines]);
   const audioMissing = run.check?.audio === "missing";
   const audioChanged = run.check?.audio === "different";

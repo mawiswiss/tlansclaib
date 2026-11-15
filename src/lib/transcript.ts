@@ -190,6 +190,11 @@ export function hasUnassigned(transcript: Transcript): boolean {
   return transcript.speakers.length > 0 && spoken.some((line) => line.speaker === undefined) && spoken.some((line) => line.speaker !== undefined);
 }
 
+/** The engine never names a lone speaker, so one speaker comes from an edit and still counts once a line has it. */
+export function hasSpeakers(transcript: Transcript): boolean {
+  return transcript.speakers.length > 1 || (transcript.speakers.length === 1 && transcript.lines.some((line) => line.speaker !== undefined));
+}
+
 /** The palette has eight colours, `--speaker-0` to `--speaker-7` in styles.css. */
 export const SPEAKER_COLORS = 8;
 
