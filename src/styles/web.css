@@ -115,3 +115,7 @@
 .web-model .desktop-promo {
   margin-top: 0;
 }
+
+.result > .desktop-promo {
+  margin: 0 var(--space-3) var(--space-3);
+}
