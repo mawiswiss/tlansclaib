@@ -958,6 +958,19 @@ button.speaker-remove {
   gap: var(--space-1);
 }
 
+.saved-hint {
+  margin-left: var(--space-1);
+  color: var(--ink-muted);
+  font-size: var(--font-size-app-caption);
+  line-height: var(--font-line-height-app-caption);
+  opacity: 0;
+  transition: opacity var(--duration-transition-long) ease-out;
+}
+
+.saved-hint.shown {
+  opacity: 1;
+}
+
 .switch-label {
   display: inline-flex;
   align-items: center;

@@ -743,18 +743,9 @@ export function ResultView(props: Props) {
         </Note>
       )}
       {noTimecodes && <Note>This transcript was saved without timecodes, so you can't play from a line.</Note>}
-      {justSaved > 0 && steps.undo > 0 && (
-        <Note
-          role="status"
-          actions={
-            <button type="button" onClick={undo}>
-              Undo
-            </button>
-          }
-        >
-          Correction saved.
-        </Note>
-      )}
+      <p className="sr-only" role="status">
+        {justSaved > 0 && steps.undo > 0 ? "Correction saved." : ""}
+      </p>
       {children}
       <div className="card transcript-card">
         <div className="transcript-tools">
@@ -936,6 +927,9 @@ export function ResultView(props: Props) {
                   <Redo size={20} />
                 </button>
               </Tooltip>
+              <span className={`saved-hint${justSaved > 0 && steps.undo > 0 ? " shown" : ""}`} aria-hidden="true">
+                Saved
+              </span>
             </span>
           )}
           <label
