@@ -100,24 +100,17 @@ export function DropZone({ ready, preparing, blocked, dragging, pending, summary
     );
   }
   return (
-    <section className={`dropzone${dragging ? " over" : ""}`} onClick={onChoose}>
+    <section className={`dropzone${dragging ? " over" : ""}`}>
       <span className="glyph">
         <Wave size={24} />
       </span>
       <h2>{FEATURES.mobile ? "Choose a recording" : "Drop a recording here"}</h2>
       <p className="muted">m4a, mp3, wav, mp4, flac and most other audio files</p>
-      <button
-        type="button"
-        className="primary large"
-        onClick={(e) => {
-          e.stopPropagation();
-          onChoose();
-        }}
-      >
+      <button type="button" className="primary large" onClick={onChoose}>
         Choose a file…
       </button>
       {FEATURES.lite && (
-        <div className="lite-notes" onClick={(e) => e.stopPropagation()}>
+        <div className="lite-notes">
           <div className="privacy">
             <strong>Nothing is uploaded</strong>
             <p>The app runs in this browser, not on a server. Your recording and transcript stay on this computer.</p>
