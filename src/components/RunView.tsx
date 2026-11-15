@@ -17,6 +17,8 @@ type Props = {
   onRestart: (language: string | null) => void;
 };
 
+const SKELETON = [86, 64, 92, 72, 58, 80];
+
 const STEPS: { step: Step; title: string; short: string }[] = [
   { step: "decode", title: "Reading the audio", short: "Audio" },
   { step: "speakers", title: "Finding the speakers", short: "Speakers" },
@@ -183,7 +185,24 @@ export function RunView({ run, history, smaller, showTimes, languageName, onCanc
         )}
       </div>
       <div className="log lines card" ref={log} onScroll={onScroll}>
-        {run.lines.length === 0 && <p className="muted">Text appears here as it is recognized.</p>}
+        {run.lines.length === 0 && (
+          <>
+            <p className="sr-only">Text appears here as it is recognized.</p>
+            {SKELETON.map((width, i) => (
+              <p key={i} className={`line skeleton${showTimes ? " has-meta" : ""}`} aria-hidden="true">
+                {showTimes && (
+                  <span className="line-meta">
+                    <span className="time">{clock(0)}</span>
+                  </span>
+                )}
+                <span className="line-text">
+                  {" "}
+                  <span className="bar" style={{ width: `${width}%` }} />
+                </span>
+              </p>
+            ))}
+          </>
+        )}
         {run.lines.map((line) => {
           const speaker = line.speaker !== undefined && line.text ? run.speakers[line.speaker] : undefined;
           const meta = showTimes || voiced;
