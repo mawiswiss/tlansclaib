@@ -211,7 +211,8 @@ describe("speaker corrections", () => {
   it("keeps showing the last speaker after another one is removed", () => {
     const plain = [{ start: 0, end: 1, text: "a" }];
     const added = addSpeaker({ speakers: [], lines: plain });
-    expect(hasSpeakers(removeUnusedSpeakers(removeSpeaker(added, 1)))).toBe(true);
+    expect(hasSpeakers(added)).toBe(true);
+    expect(hasSpeakers(removeUnusedSpeakers(removeSpeaker(addSpeaker(added), 1)))).toBe(true);
     expect(hasSpeakers(mergeSpeakers({ speakers: ["Host", "Guest"], lines }, 1, 0))).toBe(true);
     expect(hasSpeakers({ speakers: ["Host", "Guest"], lines })).toBe(true);
     expect(hasSpeakers({ speakers: [], lines: plain })).toBe(false);
@@ -225,7 +226,7 @@ describe("speaker corrections", () => {
 
   it("adds a speaker under a free name, and gives every line a speaker when there was none", () => {
     const plain = [{ start: 0, end: 1, text: "a" }];
-    expect(addSpeaker({ speakers: [], lines: plain })).toEqual({ speakers: ["Speaker 1", "Speaker 2"], colors: [0, 1], lines: [{ start: 0, end: 1, text: "a", speaker: 0 }] });
+    expect(addSpeaker({ speakers: [], lines: plain })).toEqual({ speakers: ["Speaker 1"], colors: [0], lines: [{ start: 0, end: 1, text: "a", speaker: 0 }] });
     expect(addSpeaker({ speakers: ["Speaker 1"], lines: plain }).speakers).toEqual(["Speaker 1", "Speaker 2"]);
     expect(addSpeaker({ speakers: ["Marc", "Client"], lines })).toEqual({ speakers: ["Marc", "Client", "Speaker 3"], colors: [0, 1, 2], lines });
     expect(addSpeaker({ speakers: ["Marc", "speaker 3"], lines }).speakers).toEqual(["Marc", "speaker 3", "Speaker 4"]);

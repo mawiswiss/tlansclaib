@@ -204,16 +204,18 @@ export const MAX_SPEAKERS = SPEAKER_COLORS;
 /** A new speaker takes the first colour no other speaker has. */
 export function addSpeaker(transcript: Transcript): Transcript {
   const { speakers, lines } = transcript;
+  const plain = lines.every((line) => line.speaker === undefined);
+  const assigned = plain ? lines.map((line) => ({ ...line, speaker: 0 })) : lines;
+  if (speakers.length === 0) return { speakers: ["Speaker 1"], colors: [0], lines: assigned };
   const taken = new Set(speakers.map((name) => name.toLowerCase()));
-  const named = speakers.length === 0 ? ["Speaker 1"] : [...speakers];
-  const colors = speakers.length === 0 ? [0] : colorsOf(transcript);
+  const named = [...speakers];
+  const colors = colorsOf(transcript);
   let n = named.length + 1;
   while (taken.has(`speaker ${n}`)) n++;
   named.push(`Speaker ${n}`);
   const free = Array.from({ length: SPEAKER_COLORS }, (_, slot) => slot).find((slot) => !colors.includes(slot));
   colors.push(free ?? colors.length % SPEAKER_COLORS);
-  const plain = lines.every((line) => line.speaker === undefined);
-  return { speakers: named, colors, lines: plain ? lines.map((line) => ({ ...line, speaker: 0 })) : lines };
+  return { speakers: named, colors, lines: assigned };
 }
 
 export type Match = { line: number; at: number };
