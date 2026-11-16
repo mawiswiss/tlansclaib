@@ -7,9 +7,11 @@ use tauri::{AppHandle, Manager};
 
 use crate::guard;
 
+const MEASURE: &str = "rms-db";
+
 pub fn cache_key(path: &str, size: u64, modified_seconds: u64, buckets: usize) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(format!("{path}\0{size}\0{modified_seconds}\0{buckets}"));
+    hasher.update(format!("{MEASURE}\0{path}\0{size}\0{modified_seconds}\0{buckets}"));
     hasher.finalize().iter().take(16).map(|byte| format!("{byte:02x}")).collect()
 }
 

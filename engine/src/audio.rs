@@ -205,9 +205,8 @@ pub fn peaks(path: &Path, buckets: usize) -> Result<Vec<f32>> {
             .map(|time| time.as_secs_f64())
             .unwrap_or(listener.frames as f64 / listener.rate);
         for (index, block) in interleaved.chunks(BLOCK * listener.channels).enumerate() {
-            let amplitude = block.iter().fold(0.0f32, |loudest, sample| loudest.max(sample.abs()));
             let length = (block.len() / listener.channels) as f64 / listener.rate;
-            peaks.add(start + (index * BLOCK) as f64 / listener.rate, length, amplitude);
+            peaks.add(start + (index * BLOCK) as f64 / listener.rate, length, block);
             decoded = true;
         }
         listener.frames += (interleaved.len() / listener.channels) as u64;
@@ -453,7 +452,7 @@ mod tests {
         let result = result.unwrap();
         assert_eq!(result.len(), 40);
         assert_eq!(result[20], 1.0);
-        assert!(result[5] < 0.15 && result[5] > 0.05, "{}", result[5]);
+        assert!((result[5] - 0.5).abs() < 0.01, "{}", result[5]);
     }
 
     #[test]

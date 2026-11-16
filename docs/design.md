@@ -504,11 +504,15 @@ top bar picks one.
   empty: the app allows one file at a time when it shows it (`audio_source`).
   Videos play their sound only. A format the system player cannot play shows
   a note instead of the player.
-- The player draws the recording's loudness as a wave: one bar per bucket, the
-  loudest of all tracks and channels, scaled so the loudest bucket is full
-  height. The engine computes it in one streaming pass that keeps only a
-  fixed set of running maxima, so memory stays the same for a three hour
-  file (`audio_peaks`, `peaks.rs`), and the app caches the result per
+- The player draws the recording's loudness as a wave: one bar per bucket,
+  the RMS level over all tracks and channels in decibels. The loudest bucket
+  is full height and one 40 dB quieter or more sits on the floor. With the
+  sample peak, one cough set the scale and shrank everything else, and quiet
+  speech looked like silence. The engine computes it in one streaming pass
+  that keeps only a fixed set of running sums of squares, so memory stays the
+  same for a three hour file (`audio_peaks`, `peaks.rs`). The browser
+  version does the same in
+  `bucketPeaks`, with the same range. The app caches the result per
   recording and bucket count in `peaks/` of its data folder (the newest 200
   files). When the sound cannot be read the call returns null and the player
   shows no wave but still plays.

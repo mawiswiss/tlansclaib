@@ -125,22 +125,22 @@ async function decode(file: File): Promise<{ samples: Float32Array; seconds: num
   }
 }
 
-/** Loudest absolute sample per bucket over all channels, scaled so the loudest is 1. */
+const RANGE_DB = 40;
+
+/** RMS level per bucket over all channels in decibels, scaled so the loudest bucket is 1 and one RANGE_DB below it is 0, as in the engine's peaks.rs. */
 export function bucketPeaks(channels: Float32Array[], buckets: number): number[] {
   const count = Math.min(2000, Math.max(1, Math.floor(buckets)));
   const length = channels[0]?.length ?? 0;
-  const peaks = new Array<number>(count).fill(0);
-  if (!length) return peaks;
-  for (const channel of channels) {
-    for (let b = 0; b < count; b++) {
-      const end = Math.max(Math.floor(((b + 1) * length) / count), Math.floor((b * length) / count) + 1);
-      let loudest = peaks[b];
-      for (let i = Math.floor((b * length) / count); i < end && i < length; i++) loudest = Math.max(loudest, Math.abs(channel[i]));
-      peaks[b] = loudest;
-    }
-  }
-  const top = Math.max(...peaks);
-  return top > 0 ? peaks.map((peak) => peak / top) : peaks;
+  if (!length) return new Array<number>(count).fill(0);
+  const decibels = Array.from({ length: count }, (_, b) => {
+    const start = Math.min(Math.floor((b * length) / count), length - 1);
+    const end = Math.min(length, Math.max(Math.floor(((b + 1) * length) / count), start + 1));
+    let squares = 0;
+    for (const channel of channels) for (let i = start; i < end; i++) squares += channel[i] * channel[i];
+    return 10 * Math.log10(squares / ((end - start) * channels.length));
+  });
+  const loudest = Math.max(...decibels);
+  return decibels.map((level) => (Number.isFinite(loudest) ? Math.min(1, Math.max(0, (level - loudest + RANGE_DB) / RANGE_DB)) : 0));
 }
 
 async function peaksOf(file: File, buckets: number): Promise<number[] | null> {
