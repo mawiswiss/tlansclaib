@@ -834,7 +834,12 @@ button.speed {
 
 .speakers-note .ghost,
 .speakers-group .ghost {
+  padding-inline: 0;
   color: var(--pine);
+}
+
+.speakers-note {
+  column-gap: var(--space-3);
 }
 
 .speaker-item {
