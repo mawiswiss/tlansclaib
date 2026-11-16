@@ -2,6 +2,12 @@
   box-sizing: border-box;
 }
 
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
+
 :root {
   font-family: var(--font-family-sans);
   font-size: var(--font-size-small);
