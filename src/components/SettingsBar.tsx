@@ -49,7 +49,7 @@ export function SettingsBar(props: Props) {
         <Select id="language-setting" value={locked ?? language} onChange={onLanguage} disabled={busy || locked !== null} label="Recording language" options={languages} />
       </label>
       {FEATURES.lite ? (
-        <div className="setting fixed">
+        <label className="setting" htmlFor="model-setting">
           <span className="label">
             Model
             <Tooltip content="Lite has one model. It knows about 100 languages.">
@@ -58,8 +58,8 @@ export function SettingsBar(props: Props) {
               </span>
             </Tooltip>
           </span>
-          <span className="setting-value">{(model ?? installed[0])?.name ?? "No model installed"}</span>
-        </div>
+          <Select id="model-setting" value="lite" onChange={() => {}} disabled label="Model" options={[{ value: "lite", label: (model ?? installed[0])?.name ?? "No model installed" }]} />
+        </label>
       ) : (
         <label className="setting" htmlFor="model-setting" title="Automatic picks the model from your setup for this language, or a better installed one while it fits the free memory.">
           <span className="label">
@@ -86,10 +86,16 @@ export function SettingsBar(props: Props) {
           />
         </label>
       )}
-      {FEATURES.speakers && (
       <label className="setting" htmlFor="speakers-setting" title="Names who speaks in a recording with one audio track. A recording with several tracks gets one speaker per track anyway.">
         <span className="label">
           Speakers
+          {FEATURES.lite && fix && (
+            <Tooltip content={fix.tip}>
+              <span className="setting-info" tabIndex={0} aria-label="About speaker detection in Lite">
+                <Info size={16} />
+              </span>
+            </Tooltip>
+          )}
           {backend === "sherpa" && props.speakers !== "off" && (
             <Select
               className="precision"
@@ -126,7 +132,6 @@ export function SettingsBar(props: Props) {
           ]}
         />
       </label>
-      )}
     </section>
   );
 }

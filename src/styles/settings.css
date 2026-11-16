@@ -126,15 +126,6 @@
   font-size: var(--font-size-app-caption);
 }
 
-.setting .setting-value {
-  display: flex;
-  align-items: center;
-  height: var(--size-control-height);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .select-menu {
   position: fixed;
   z-index: 40;
