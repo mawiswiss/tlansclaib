@@ -16,7 +16,7 @@ const dropOrtWasm = {
   },
 };
 
-const SITE = "https://tlansclaib.marcwieland.name/";
+const SITE = "https://wavetyper.marcwieland.name/";
 const TITLE = "wavetyper Lite: transcribe audio in your browser, nothing uploaded";
 const DESCRIPTION =
   "Transcribe audio and video to text or subtitles in your browser, in about 100 languages. Free, no sign-up, and the recording never leaves your computer.";

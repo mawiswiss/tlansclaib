@@ -63,7 +63,6 @@ topic, no date prefixes, no generated trees.
   logos and user-facing copy. Read `pro/brand/guide.md` before changing
   `src/styles/`, `src/components/icons.tsx`, app icons or text users see.
 - The name is always `wavetyper`, lowercase, even at the start of a sentence.
-  The website keeps the old name in its address until it moves.
 - Before changing `src/styles/`, `src/components/` or text users see, get the
   latest brand: `git -C pro pull --ff-only`, then
   `node scripts/brand-sync.mjs --check`. If it reports drift, run

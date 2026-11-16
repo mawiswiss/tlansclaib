@@ -21,7 +21,10 @@ pnpm wasm         # src/lib/web/engine.wasm alone, needs the wasm32-unknown-unkn
 ```
 
 `dist-web/` is a static site, deployed by hand to Cloudflare Pages at
-https://tlansclaib.marcwieland.name. `public-web/_headers` makes the page
+https://wavetyper.marcwieland.name. A redirect rule on the zone sends the
+former address, https://tlansclaib.marcwieland.name, there with its path.
+Each address is its own origin, so a model downloaded on the old one is not
+seen on the new one. `public-web/_headers` makes the page
 cross-origin isolated there, as the dev server does, so it runs as tested.
 Cloudflare Pages refuses files over 25 MiB. Its Web Analytics is on, which
 counts visits without cookies. About in Lite promises no cookies, so keep it
