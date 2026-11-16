@@ -116,7 +116,11 @@ export const AudioPlayer = forwardRef<PlayerHandle, Props>(function AudioPlayer(
     if (!playing) return;
     let id = 0;
     const tick = () => {
-      if (audio.current) frame.current?.(audio.current.currentTime);
+      const a = audio.current;
+      if (a) {
+        setTime(a.currentTime);
+        frame.current?.(a.currentTime);
+      }
       id = requestAnimationFrame(tick);
     };
     id = requestAnimationFrame(tick);
