@@ -5717,7 +5717,7 @@ dependencies = [
 
 [[package]]
 name = "wavetyper"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "bzip2",
@@ -5753,7 +5753,7 @@ dependencies = [
 
 [[package]]
 name = "wavetyper-engine"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -5774,7 +5774,7 @@ dependencies = [
 
 [[package]]
 name = "wavetyper-engine-wasm"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "wavetyper-engine",
 ]

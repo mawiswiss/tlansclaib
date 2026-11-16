@@ -4,6 +4,36 @@ All notable changes to wavetyper. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-11-16
+
+### Added
+
+- Show the recording as a wave to seek in, drawn from its average loudness, with a cursor under the pointer and the played part filling smoothly (player, f46aee8, 3c90f23, 1da5966, b58c773, da4f43e, 567382d, ef9a50a, 13c7b77)
+- Merge two speakers by giving one the other's name: all its lines go to the other one, which keeps its name and colour (speakers, 6831a39)
+- Run on iPhone and Android, with the engine inside the app, recordings from the system file picker and speaker detection, while export and updates stay on the desktop (mobile, 95ed71e, b70ca93, 05d3128, b69fdf1, 719ed3f, 1e1362e)
+- Offer the Linux AppImage in the browser version's download dialog (browser, f77e935)
+
+### Changed
+
+- Rename the app to wavetyper. The first start moves the data and settings of tlansclaib, the Windows installer removes the old installation, and a Mac app updated in place renames itself to wavetyper.app when it quits. The engine runs as `wavetyper-engine` and reads `WAVETYPER_` variables (app, 76ac1c2, 13b5ec1)
+- Redesign every screen in the wavetyper brand: the window is laid out in bands, dark mode sits on ink, chips share one plain style, dialogs lift off the page, toasts and error screens show their level by border and dot, and a cancelled transcription no longer looks like an error (ui, 12fd20e, 315e498, ad614a8, 4deeefe, c834df0, f5f0e70, 634062b, 871c2ce, 3d34d41, 9769ce6, 8cc089d, 741f232, 42ae6f8, 2efa2e7, 99809eb, 9534916, d78363a, 002cfa0, 1772134, 4c756f3)
+- The model list groups models into All languages and One language and names a language instead of its code (models, f5f0e70)
+- "Saved" shows beside undo instead of a note above the transcript, so the transcript no longer jumps after a correction (ui, 10e5fa8)
+- Placeholder lines show where the text will appear until the first text is recognized (ui, abd69a5)
+- The file dialog opens only from the drop zone's button, not from a stray click on the zone (ui, d32c712)
+- The browser version shows the model and speakers as locked settings, with a tip that speaker detection runs in the desktop app (browser, 7c81704)
+
+### Removed
+
+- The history in the browser version, which lost its recordings on every reload anyway. Transcripts stay for the open page (browser, ad462ad)
+
+### Fixed
+
+- New transcripts in the history open and delete reliably (history, 98229b2)
+- Removing the other speakers keeps the last speaker's name in the bar (speakers, 0fa7593)
+- "Add a speaker" on a transcript without speakers creates Speaker 1 for every line, and a line's dot adds the next (speakers, 49a9235)
+- The browser version's desktop app offer stays off the window edges (browser, ad4242b)
+
 ## [0.4.0] - 2026-11-01
 
 ### Added
@@ -154,6 +184,7 @@ All notable changes to wavetyper. The format follows
 - Play, search and correct transcripts in a redesigned window (ui, be70525)
 - App icon (app, 0c9a0c4)
 
+[0.5.0]: https://github.com/mawiswiss/wavetyper/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mawiswiss/wavetyper/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/mawiswiss/wavetyper/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/mawiswiss/wavetyper/compare/v0.3.1...v0.3.2
