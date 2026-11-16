@@ -44,6 +44,7 @@
 .settings .setting .label .setting-action,
 .setting .label .select-trigger.precision {
   height: var(--size-chip-height-inline);
+  min-height: 0;
   padding: 0 var(--space-2);
   border: 1px solid var(--edge);
   border-radius: var(--radius-full);
