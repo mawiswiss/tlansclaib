@@ -42,6 +42,8 @@ function when(ms: number): string {
 
 const NEW_SPEAKER = "new";
 const UNASSIGNED = "unassigned";
+const SPEAKERS_HELP =
+  "Names may come out wrong. Click the dot beside a line to change who said it. Remove a speaker with its ×, or by clearing its name, and its lines become Unassigned. Give a speaker another speaker's name to merge them. Speakers come from the audio tracks of the recording, or from speaker detection.";
 
 const MAC = /Mac|iPhone|iPad/.test(navigator.userAgent);
 const KEYS = MAC
@@ -214,6 +216,7 @@ export function ResultView(props: Props) {
   const spoken = differs(run.language, run.heard);
   const unassigned = useMemo(() => hasUnassigned({ lines: run.lines, speakers: run.speakers }), [run.lines, run.speakers]);
   const voiced = useMemo(() => hasSpeakers({ lines: run.lines, speakers: run.speakers }), [run.lines, run.speakers]);
+  const edited = steps.undo > 0 || steps.redo > 0;
   const lines = useMemo(() => run.lines.flatMap((l, index) => (l.text ? [{ ...l, index }] : [])), [run.lines]);
   const audioMissing = run.check?.audio === "missing";
   const audioChanged = run.check?.audio === "different";
@@ -860,7 +863,7 @@ export function ResultView(props: Props) {
                   Wrong number?
                 </button>
               )}
-              <Tooltip content="Names may come out wrong. Click the dot beside a line to change who said it. Remove a speaker with its ×, or by clearing its name, and its lines become Unassigned. Give a speaker another speaker's name to merge them. Speakers come from the audio tracks of the recording, or from speaker detection.">
+              <Tooltip className="speakers-help in-bar" content={SPEAKERS_HELP}>
                 <span className="meta-info" tabIndex={0} aria-label="About speakers">
                   <Info size={16} />
                 </span>
@@ -915,21 +918,34 @@ export function ResultView(props: Props) {
               </>
             )}
           </label>
-          {(steps.undo > 0 || steps.redo > 0) && (
-            <span className="history-tools">
-              <Tooltip content={`Undo the last correction (${KEYS.undo})`} oneLine>
-                <button type="button" className="icon-button" onClick={undo} disabled={steps.undo === 0} aria-label="Undo" aria-keyshortcuts={MAC ? "Meta+Z" : "Control+Z"}>
-                  <Undo size={20} />
-                </button>
-              </Tooltip>
-              <Tooltip content={`Redo (${KEYS.redo})`} oneLine>
-                <button type="button" className="icon-button" onClick={redo} disabled={steps.redo === 0} aria-label="Redo" aria-keyshortcuts={MAC ? "Shift+Meta+Z" : "Control+Y"}>
-                  <Redo size={20} />
-                </button>
-              </Tooltip>
-              <span className={`saved-hint${justSaved > 0 && steps.undo > 0 ? " shown" : ""}`} aria-hidden="true">
-                Saved
-              </span>
+          {(edited || voiced) && (
+            <span className={`history-tools${edited ? "" : " help-only"}`}>
+              {edited && (
+                <>
+                  <Tooltip content={`Undo the last correction (${KEYS.undo})`} oneLine>
+                    <button type="button" className="icon-button" onClick={undo} disabled={steps.undo === 0} aria-label="Undo" aria-keyshortcuts={MAC ? "Meta+Z" : "Control+Z"}>
+                      <Undo size={20} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={`Redo (${KEYS.redo})`} oneLine>
+                    <button type="button" className="icon-button" onClick={redo} disabled={steps.redo === 0} aria-label="Redo" aria-keyshortcuts={MAC ? "Shift+Meta+Z" : "Control+Y"}>
+                      <Redo size={20} />
+                    </button>
+                  </Tooltip>
+                </>
+              )}
+              {voiced && (
+                <Tooltip className="speakers-help in-tools" content={SPEAKERS_HELP}>
+                  <span className="meta-info" tabIndex={0} aria-label="About speakers">
+                    <Info size={20} />
+                  </span>
+                </Tooltip>
+              )}
+              {edited && (
+                <span className={`saved-hint${justSaved > 0 && steps.undo > 0 ? " shown" : ""}`} aria-hidden="true">
+                  Saved
+                </span>
+              )}
             </span>
           )}
           <label

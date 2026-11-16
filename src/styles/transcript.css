@@ -1016,6 +1016,46 @@ button.speaker-remove {
   opacity: 1;
 }
 
+.history-tools .meta-info {
+  display: inline-grid;
+  place-items: center;
+  width: var(--size-control-height);
+  height: var(--size-control-height);
+}
+
+@media (min-width: 641px) {
+  .speakers-help.in-tools,
+  .history-tools.help-only {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .speakers-help.in-bar {
+    display: none;
+  }
+
+  .history-tools {
+    gap: 0;
+    margin-left: calc((var(--size-control-height) - 20px) / -2);
+  }
+
+  .history-tools + .switch-label {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 640px) and (pointer: coarse) {
+  .history-tools {
+    margin-left: calc((var(--size-button-min-height) - 20px) / -2);
+  }
+
+  .history-tools .meta-info {
+    width: var(--size-button-min-height);
+    height: var(--size-button-min-height);
+  }
+}
+
 .switch-label {
   display: inline-flex;
   align-items: center;
@@ -1030,6 +1070,12 @@ button.speaker-remove {
 .switch-label:has(input:disabled) {
   color: var(--ink-muted);
   cursor: default;
+}
+
+@media (pointer: coarse) {
+  .switch-label {
+    min-height: var(--size-button-min-height);
+  }
 }
 
 /* Result card */
