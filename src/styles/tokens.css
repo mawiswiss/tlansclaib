@@ -82,8 +82,8 @@
   --size-dot: 6px;
   --size-meter: 4px;
   --size-wave-max-height: 40px;
-  --size-wave-bar: 2px;
-  --size-wave-gap: 6px;
+  --size-wave-bar: 4px;
+  --size-wave-gap: 3px;
   --duration-transition-short: 120ms;
   --duration-transition-long: 200ms;
   --duration-wave-rise: 420ms;
