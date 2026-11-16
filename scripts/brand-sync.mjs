@@ -1,18 +1,34 @@
-// Copies the brand from the private pro/brand into the app: tokens, fonts, logos and icons.
+// Copies the brand from the private pro repository into the app: tokens, fonts, logos and icons.
 // Run it from the repository root after the brand changes: node scripts/brand-sync.mjs
-// With --check it writes nothing and exits 1 when tokens, fonts or logos differ from pro/brand.
+// It reads origin/stable, not the checkout. --ref <ref> reads another ref, such as main.
+// With --check it writes nothing and exits 1 when tokens, fonts or logos differ from that ref.
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-const BRAND = "pro/brand";
-const BRAND_PY = "pro/.claude/skills/brand/scripts/brand.py";
+const at = process.argv.indexOf("--ref");
+const REF = at > 0 ? process.argv[at + 1] : "origin/stable";
 
-if (!existsSync(join(BRAND, "guide.md"))) {
-  console.error("pro/brand is not checked out, so the brand files in the app stay as they are.");
+if (!existsSync("pro/.git")) {
+  console.error("pro is not checked out, so the brand files in the app stay as they are.");
   process.exit(1);
 }
+try {
+  execFileSync("git", ["-C", "pro", "rev-parse", "--verify", "--quiet", `${REF}^{commit}`], { stdio: "ignore" });
+} catch {
+  console.error(`pro has no ${REF}. Run git -C pro fetch origin.`);
+  process.exit(1);
+}
+
+const tmp = mkdtempSync(join(tmpdir(), "brand-sync-"));
+process.on("exit", () => rmSync(tmp, { recursive: true, force: true }));
+const src = join(tmp, "src");
+mkdirSync(src);
+const tar = execFileSync("git", ["-C", "pro", "archive", REF, "brand", ".claude/skills/brand/scripts"], { maxBuffer: 1 << 30 });
+execFileSync("tar", ["-x", "-C", src], { input: tar });
+const BRAND = join(src, "brand");
+const BRAND_PY = join(src, ".claude/skills/brand/scripts/brand.py");
 
 const css = execFileSync("python3", ["-I", BRAND_PY, "css", BRAND, "--primitives"], { encoding: "utf8" });
 const files = [["src/styles/tokens.css", Buffer.from(`/* Generated from pro/brand by scripts/brand-sync.mjs. Never edit. */\n${css}`)]];
@@ -26,10 +42,10 @@ for (const file of ["logo.svg", "logo-on-dark.svg", "mark.svg", "mark-small.svg"
 if (process.argv.includes("--check")) {
   const stale = files.filter(([path, data]) => !existsSync(path) || !readFileSync(path).equals(data)).map(([path]) => path);
   if (stale.length) {
-    console.error(`Out of date with pro/brand, run node scripts/brand-sync.mjs:\n  ${stale.join("\n  ")}`);
+    console.error(`Out of date with ${REF}, run node scripts/brand-sync.mjs:\n  ${stale.join("\n  ")}`);
     process.exit(1);
   }
-  console.log("Tokens, fonts and logos match pro/brand. Icons are not compared.");
+  console.log(`Tokens, fonts and logos match ${REF}. Icons are not compared.`);
   process.exit(0);
 }
 
@@ -38,7 +54,6 @@ for (const [path, data] of files) {
   writeFileSync(path, data);
 }
 
-const tmp = mkdtempSync(join(tmpdir(), "brand-icons-"));
 const render = (logo, name, sizes) => {
   const args = ["-s", "tauri", "icon", join(BRAND, "logo", logo), "-o", join(tmp, name)];
   if (sizes) args.push("--png", sizes.join(","));
@@ -68,8 +83,7 @@ copyFileSync(join(BRAND, "logo", "mark-small.svg"), "public-web/favicon.svg");
 writeFileSync("public-web/favicon.ico", ico([[16, small(16)], [32, small(32)], [48, mark(48)]]));
 writeFileSync("public-web/apple-touch-icon.png", square(180));
 
-rmSync(tmp, { recursive: true, force: true });
-console.log("Brand synced: tokens, fonts, logos and icons.");
+console.log(`Brand synced from ${REF}: tokens, fonts, logos and icons.`);
 
 function ico(images) {
   const header = Buffer.alloc(6);

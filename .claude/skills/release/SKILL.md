@@ -30,16 +30,19 @@ Check whether the build includes Pro:
 gh secret list | grep -q '^PRO_DEPLOY_KEY' && echo pro || echo free
 ```
 
-`free` builds the free app: skip every Pro step below. With `pro`, check `pro/`
-the same way as main:
+`free` builds the free app: skip every Pro step below. With `pro`, the
+release ships Pro's `stable` branch, not its `main`:
 
 ```bash
 git -C pro fetch origin
-git -C pro status -sb
+git -C pro log -1 --format='%h %s' origin/stable
+git -C pro log --oneline origin/stable..origin/main
 ```
 
-It must be on `main`, clean and not behind `origin/main`. Without `pro/` on
-disk, stop, because the build checks out Pro at the release tag.
+Name the Pro commit that ships. The second list is what `main` holds and
+`stable` does not. If it lists anything, ask whether to promote it first,
+as `pro/README.md` describes. Without `pro/` on disk, stop, because the build
+checks out Pro at the release tag.
 
 ## 2. Pick the version
 
@@ -151,11 +154,11 @@ git cat-file -t v0.4.0
 
 `git cat-file` must print `tag`: an annotated, signed tag.
 
-With Pro, tag it at the same version, so the build checks out the Pro code
-that matches this commit:
+With Pro, tag `origin/stable` at the same version, so the build checks
+out the Pro code that ships with this commit:
 
 ```bash
-TZ=UTC git -C pro tag -s v0.4.0 -m v0.4.0
+TZ=UTC git -C pro tag -s v0.4.0 -m v0.4.0 origin/stable
 git -C pro cat-file -t v0.4.0
 ```
 

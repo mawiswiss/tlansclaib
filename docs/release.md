@@ -100,7 +100,8 @@ unlocks it (`docs/editions.md`).
 
 - With the key, the release job checks out `mawiswiss/wavetyper-pro` into
   `pro/` at the same tag and builds with `--features pro`. The `release` skill
-  then tags both repositories.
+  tags both repositories, Pro at its `stable` branch, so only what was
+  promoted there ships.
 - The log is public. Cargo prints short messages, which name file and line
   without the code. The Rust cache is not saved on tags, and every action in
   the job is pinned to a commit. Vite prints a code frame on a syntax error,
@@ -187,7 +188,8 @@ image land under `target/release/bundle/`, signed ad hoc, without an update.
 ## Brand files
 
 The tokens, fonts, logos and icons come from the private brand folder,
-`pro/brand`. `scripts/brand-sync.mjs` copies them in and commits nothing:
+`pro/brand`, as it stands on the pro `stable` branch.
+`scripts/brand-sync.mjs` copies them in and commits nothing:
 `src/styles/tokens.css`, `src/assets/fonts/`, `src/assets/brand/`, the desktop
 icons in `src-tauri/icons/` and the browser version's favicons and
 apple-touch-icon in `public-web/`. Never edit those files by hand. Run it after
@@ -196,6 +198,9 @@ the brand changes, on a Mac, because it builds `icon.icns` with `iconutil`:
 ```bash
 node scripts/brand-sync.mjs
 ```
+
+To try a brand change before it reaches `stable`, add `--ref main` or
+another ref, and commit nothing it writes.
 
 The desktop icons come from `app-icon.svg`, except the 16 and 32 px images
 inside `icon.ico` and `icon.icns` and `32x32.png`, which come from
