@@ -154,7 +154,7 @@ mod tests {
     fn rebases_only_paths_inside_the_old_folder() {
         let old = Path::new("/data/former");
         let new = Path::new("/data/current");
-        assert_eq!(rebase("/data/former/transcripts/7.json", old, new), Some(PathBuf::from("/data/current/transcripts/7.json").to_string_lossy().into_owned()));
+        assert_eq!(rebase("/data/former/transcripts/7.json", old, new).map(PathBuf::from), Some(new.join("transcripts").join("7.json")));
         assert_eq!(rebase("/recordings/meeting.m4a", old, new), None);
         assert_eq!(rebase("/data/former-notes/meeting.m4a", old, new), None);
     }
