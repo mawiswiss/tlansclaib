@@ -5,15 +5,15 @@
 Download the installer for your system:
 
 - Mac, macOS 13 or newer, Apple silicon and Intel:
-  [wavetyper-mac.dmg](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-mac.dmg).
+  [wavetyper-mac.dmg](https://github.com/mawiswiss/wavetyper/releases/latest/download/wavetyper-mac.dmg).
   Open it and drag wavetyper into Applications. Apple has checked the app,
   so it opens like any other.
 - Windows 10 or 11:
-  [wavetyper-windows-setup.exe](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-windows-setup.exe).
+  [wavetyper-windows-setup.exe](https://github.com/mawiswiss/wavetyper/releases/latest/download/wavetyper-windows-setup.exe).
   Run it. SmartScreen shows "Windows protected your PC" once. Click "More
   info", then "Run anyway".
 - Linux, 64-bit, Ubuntu 22.04, Debian 12, Fedora 36 or newer:
-  [wavetyper-linux.AppImage](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-linux.AppImage).
+  [wavetyper-linux.AppImage](https://github.com/mawiswiss/wavetyper/releases/latest/download/wavetyper-linux.AppImage).
   Make it executable with `chmod +x wavetyper-linux.AppImage`, or under
   Properties in the file manager, and start it. Some distributions need the
   `libfuse2` package first.

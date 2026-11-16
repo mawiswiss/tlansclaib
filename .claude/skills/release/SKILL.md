@@ -85,7 +85,7 @@ own terms, ending with its scope and short hash.
   feature it belongs to.
 - Lead each section with what matters most to users, not in commit order.
 - Add the compare link at the bottom, newest first:
-  `[0.4.0]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.0...v0.4.0`.
+  `[0.4.0]: https://github.com/mawiswiss/wavetyper/compare/v0.3.0...v0.4.0`.
 
 ## 4. Write the release notes
 
@@ -102,7 +102,7 @@ them to a temporary file outside the repository. They are never committed.
   copied unchanged, then the compare line:
 
 ```markdown
-**Full Changelog**: https://github.com/mawiswiss/tlansclaib/compare/v0.3.0...v0.4.0
+**Full Changelog**: https://github.com/mawiswiss/wavetyper/compare/v0.3.0...v0.4.0
 ```
 
 Show the version, the CHANGELOG.md entry and the notes, and wait for the user
@@ -212,7 +212,7 @@ release is never pulled back. A bad one is replaced by a higher version.
 
 ```bash
 gh release edit v0.4.0 --draft=false --latest
-curl -sL https://github.com/mawiswiss/tlansclaib/releases/latest/download/latest.json | jq -r .version
+curl -sL https://github.com/mawiswiss/wavetyper/releases/latest/download/latest.json | jq -r .version
 ```
 
 The second command must print the new version.

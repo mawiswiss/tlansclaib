@@ -35,7 +35,7 @@ describe("percent", () => {
 
 describe("releasePage", () => {
   it("links the release of the new version, or the latest one", () => {
-    expect(releasePage("0.2.0")).toBe("https://github.com/mawiswiss/tlansclaib/releases/tag/v0.2.0");
-    expect(releasePage(null)).toBe("https://github.com/mawiswiss/tlansclaib/releases/latest");
+    expect(releasePage("0.2.0")).toBe("https://github.com/mawiswiss/wavetyper/releases/tag/v0.2.0");
+    expect(releasePage(null)).toBe("https://github.com/mawiswiss/wavetyper/releases/latest");
   });
 });

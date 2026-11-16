@@ -17,7 +17,7 @@ export async function loadWav(url) {
     throw new Error(`no data chunk in ${url}`);
 }
 
-// Line bounds come from `tlansclaib-engine split`, so every runtime hears the same lines as the app.
+// Line bounds come from `wavetyper-engine split`, so every runtime hears the same lines as the app.
 export async function loadLines(url) {
     const text = await (await fetch(url)).text();
     return text.trim().split('\n').map((l) => JSON.parse(l)).filter((l) => 'start' in l);

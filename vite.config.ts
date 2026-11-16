@@ -42,7 +42,7 @@ const webHead = {
       isAccessibleForFree: true,
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       author: { "@type": "Person", name: "Marc Wieland", url: "https://marcwieland.name" },
-      sameAs: "https://github.com/mawiswiss/tlansclaib",
+      sameAs: "https://github.com/mawiswiss/wavetyper",
     };
     return {
       html: html.replace(/<title>.*<\/title>/, `<title>${TITLE}</title>`),

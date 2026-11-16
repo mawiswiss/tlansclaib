@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to tlansclaib. The format follows
+All notable changes to wavetyper. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -154,10 +154,10 @@ All notable changes to tlansclaib. The format follows
 - Play, search and correct transcripts in a redesigned window (ui, be70525)
 - App icon (app, 0c9a0c4)
 
-[0.4.0]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.3...v0.4.0
-[0.3.3]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.2...v0.3.3
-[0.3.2]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.1...v0.3.2
-[0.3.1]: https://github.com/mawiswiss/tlansclaib/compare/v0.3.0...v0.3.1
-[0.3.0]: https://github.com/mawiswiss/tlansclaib/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/mawiswiss/tlansclaib/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/mawiswiss/tlansclaib/releases/tag/v0.1.0
+[0.4.0]: https://github.com/mawiswiss/wavetyper/compare/v0.3.3...v0.4.0
+[0.3.3]: https://github.com/mawiswiss/wavetyper/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/mawiswiss/wavetyper/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/mawiswiss/wavetyper/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/mawiswiss/wavetyper/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/mawiswiss/wavetyper/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/mawiswiss/wavetyper/releases/tag/v0.1.0

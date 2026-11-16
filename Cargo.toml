@@ -7,7 +7,7 @@ version = "0.4.0"
 edition = "2024"
 license = "MIT"
 authors = ["Marc Wieland <mail@marcwieland.name>"]
-repository = "https://github.com/mawiswiss/tlansclaib"
+repository = "https://github.com/mawiswiss/wavetyper"
 
 [profile.dev.package."*"]
 opt-level = 2

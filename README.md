@@ -13,11 +13,11 @@ than the recording plays.
 
 ## Download
 
-- [wavetyper for Mac](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-mac.dmg),
+- [wavetyper for Mac](https://github.com/mawiswiss/wavetyper/releases/latest/download/wavetyper-mac.dmg),
   macOS 13 or newer, Apple silicon and Intel
-- [wavetyper for Windows](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-windows-setup.exe),
+- [wavetyper for Windows](https://github.com/mawiswiss/wavetyper/releases/latest/download/wavetyper-windows-setup.exe),
   Windows 10 or 11
-- [wavetyper for Linux](https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-linux.AppImage),
+- [wavetyper for Linux](https://github.com/mawiswiss/wavetyper/releases/latest/download/wavetyper-linux.AppImage),
   64-bit Intel or AMD, Ubuntu 22.04, Debian 12, Fedora 36 or newer
 
 On a Mac, open the disk image and drag wavetyper into Applications. On
@@ -30,7 +30,7 @@ language you mostly transcribe and one of three setups, Precise, Essential or
 Minimal, and marks the one that suits the computer. The models download in the
 background. The [user guide](docs/user-guide.md) walks
 through the rest. Every version is on the
-[releases page](https://github.com/mawiswiss/tlansclaib/releases), and the app
+[releases page](https://github.com/mawiswiss/wavetyper/releases), and the app
 updates itself from there. It checks at every start and offers a new version
 with one click.
 

@@ -22,15 +22,20 @@ The files keep the same names in every version, `wavetyper-mac.dmg`,
 `wavetyper-windows-setup.exe` and `wavetyper-linux.AppImage`, so these
 addresses always lead to the newest published release:
 
-- https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-mac.dmg
-- https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-windows-setup.exe
-- https://github.com/mawiswiss/tlansclaib/releases/latest/download/wavetyper-linux.AppImage
+- https://github.com/mawiswiss/wavetyper/releases/latest/download/wavetyper-mac.dmg
+- https://github.com/mawiswiss/wavetyper/releases/latest/download/wavetyper-windows-setup.exe
+- https://github.com/mawiswiss/wavetyper/releases/latest/download/wavetyper-linux.AppImage
 
 Releases from before the rename to wavetyper used the former name,
 `tlansclaib-mac.dmg` and so on. Once a renamed release is the latest, links to
 those names lead nowhere. The live browser version still links to them until
 it is deployed again, so deploy it right after publishing the first wavetyper
 release.
+
+The repository was called `mawiswiss/tlansclaib`. Every copy installed before
+the rename checks for updates and downloads models at that address, and GitHub
+forwards it to `mawiswiss/wavetyper`. Never create a repository with the old
+name, because the forwarding stops and those copies lose their updates.
 
 The browser version's desktop buttons download from them too. They break
 when another release is marked as the latest, which is why the model releases
@@ -93,7 +98,7 @@ Without the secret `PRO_DEPLOY_KEY`, the release builds the free app. With it,
 the installers include the private Pro module, locked until a licence key
 unlocks it (`docs/editions.md`).
 
-- With the key, the release job checks out `mawiswiss/tlansclaib-pro` into
+- With the key, the release job checks out `mawiswiss/wavetyper-pro` into
   `pro/` at the same tag and builds with `--features pro`. The `release` skill
   then tags both repositories.
 - The log is public. Cargo prints short messages, which name file and line
@@ -159,15 +164,15 @@ from the conversion and the release notes that carry the attribution, and it
 is never the latest release:
 
 ```bash
-gh release create models-v1 --repo mawiswiss/tlansclaib --latest=false --title "Speech models" --notes-file docs/model-release.md ggml-thai-fast-q8_0.bin ggml-thai-best-q8_0.bin ggml-swiss-german-q8_0.bin
+gh release create models-v1 --repo mawiswiss/wavetyper --latest=false --title "Speech models" --notes-file docs/model-release.md ggml-thai-fast-q8_0.bin ggml-thai-best-q8_0.bin ggml-swiss-german-q8_0.bin
 ```
 
 Each file must stay under 2 GiB, the limit for a release file. A new model
 joins the release, and the notes follow it:
 
 ```bash
-gh release upload models-v1 --repo mawiswiss/tlansclaib ggml-<name>-q8_0.bin
-gh release edit models-v1 --repo mawiswiss/tlansclaib --notes-file docs/model-release.md
+gh release upload models-v1 --repo mawiswiss/wavetyper ggml-<name>-q8_0.bin
+gh release edit models-v1 --repo mawiswiss/wavetyper --notes-file docs/model-release.md
 ```
 
 A changed model gets a new tag, such as `models-v2`, and new addresses in the
