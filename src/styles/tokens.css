@@ -14,7 +14,7 @@
   --palette-red-500: #d65854;
   --palette-red-600: #c4453f;
   --palette-red-700: #a63a35;
-  --palette-rose-500: #b2839e;
+  --palette-rose-500: #b58694;
   --palette-blue-500: #5c80bc;
   --palette-copper-500: #8c6d58;
   --palette-violet-500: #74678d;
@@ -111,7 +111,7 @@
   --shadow-float: 0 8px 24px light-dark(rgba(22, 33, 30, 0.12), rgba(22, 33, 30, 0.7));
   --speaker-1: #f3d36b;
   --speaker-2: #1e5149;
-  --speaker-3: #b2839e;
+  --speaker-3: #b58694;
   --speaker-4: #5c80bc;
   --speaker-5: #8c6d58;
   --speaker-6: #74678d;
