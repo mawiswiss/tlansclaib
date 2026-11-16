@@ -89,15 +89,13 @@ place first, because tauri-build refuses to compile the app without either.
 
 ## The Pro module
 
-The official installers include the private Pro module, locked until a
-licence key unlocks it (`docs/editions.md`).
+Without the secret `PRO_DEPLOY_KEY`, the release builds the free app. With it,
+the installers include the private Pro module, locked until a licence key
+unlocks it (`docs/editions.md`).
 
-- The release job checks out `mawiswiss/tlansclaib-pro` into `pro/` at the
-  same tag, with the read-only deploy key in the secret `PRO_DEPLOY_KEY`, and
-  builds with `--features pro`. The `release` skill tags both repositories.
-- In a repository owned by `mawiswiss`, a missing key fails the job, so no
-  release ships without Pro under the same download names. A fork without the
-  key builds the free app.
+- With the key, the release job checks out `mawiswiss/tlansclaib-pro` into
+  `pro/` at the same tag and builds with `--features pro`. The `release` skill
+  then tags both repositories.
 - The log is public. Cargo prints short messages, which name file and line
   without the code. The Rust cache is not saved on tags, and every action in
   the job is pinned to a commit. Vite prints a code frame on a syntax error,

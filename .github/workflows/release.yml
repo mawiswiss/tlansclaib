@@ -33,14 +33,10 @@ jobs:
         shell: bash
         env:
           KEY: ${{ secrets.PRO_DEPLOY_KEY }}
-        # A fork builds the free app. The official repository never ships a release without Pro under the same download names.
         run: |
           if [ -n "$KEY" ]; then
             echo "key=yes" >> "$GITHUB_OUTPUT"
             echo "PRO_ARGS=--features pro" >> "$GITHUB_ENV"
-          elif [ "$GITHUB_REPOSITORY_OWNER" = mawiswiss ]; then
-            echo "PRO_DEPLOY_KEY is not set, so this release would ship without Pro."
-            exit 1
           else
             echo "No Pro deploy key, building the free app."
           fi
