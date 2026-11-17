@@ -20,8 +20,10 @@ pnpm build:web    # dist-web/, what Cloudflare Pages serves
 pnpm wasm         # src/lib/web/engine.wasm alone, needs the wasm32-unknown-unknown target
 ```
 
-`dist-web/` is a static site, deployed by hand to Cloudflare Pages at
-https://wavetyper.marcwieland.name. A redirect rule on the zone sends the
+`dist-web/` is a static site on Cloudflare Pages at
+https://wavetyper.marcwieland.name. The `lite` workflow deploys it from the
+release tag whenever a release is published, see "Browser version" in
+`docs/release.md`. A redirect rule on the zone sends the
 former address, https://tlansclaib.marcwieland.name, there with its path.
 Each address is its own origin, so a model downloaded on the old one is not
 seen on the new one. `public-web/_headers` makes the page

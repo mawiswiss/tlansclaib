@@ -222,7 +222,15 @@ The second command must print the new version.
 
 ## 13. Deploy the browser version
 
-Its desktop buttons download from `releases/latest/download/`. The first
-wavetyper release renames those files, so deploy the browser version right
-after publishing it: `pnpm build:web`, then upload `dist-web/` to Cloudflare
-Pages, see `docs/browser.md`. Later releases keep the names and need no deploy.
+Publishing starts the `lite` workflow, which deploys the browser version from
+the release tag, see "Browser version" in `docs/release.md`. Check that it
+passed:
+
+```bash
+gh run list --limit 1 --workflow lite
+gh run watch <run-id> --exit-status
+```
+
+When it fails for missing Cloudflare secrets, say so, because only the
+repository owner can set them. Once they are set, `gh workflow run lite`
+deploys the latest release again.

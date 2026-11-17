@@ -17,6 +17,8 @@ Installers are built by GitHub Actions, never by hand. The `release` skill in
    publish it as the latest release:
    `gh release edit vX.Y.Z --draft=false --latest`. From then on the app
    offers it as an update.
+6. Publishing starts `.github/workflows/lite.yml`, which deploys the browser
+   version from the same tag, see Browser version.
 
 The files keep the same names in every version, `wavetyper-mac.dmg`,
 `wavetyper-windows-setup.exe` and `wavetyper-linux.AppImage`, so these
@@ -29,8 +31,7 @@ addresses always lead to the newest published release:
 Releases from before the rename to wavetyper used the former name,
 `tlansclaib-mac.dmg` and so on. Once a renamed release is the latest, links to
 those names lead nowhere. The live browser version still links to them until
-it is deployed again, so deploy it right after publishing the first wavetyper
-release.
+the first wavetyper release is published, which deploys it again.
 
 The repository was called `mawiswiss/tlansclaib`. Every copy installed before
 the rename checks for updates and downloads models at that address, and GitHub
@@ -91,6 +92,29 @@ place first, because tauri-build refuses to compile the app without either.
   from the system, or the better speaker detection reports itself broken.
 - tauri-action names the files after `assetNamePattern`. Next to the three
   installers, the release holds the update files, see Updates.
+
+## Browser version
+
+wavetyper Lite runs the latest published release, so it shows the same
+version as the desktop app and its download buttons lead to the installers of
+that version. `lite.yml` runs when a release is published and deploys the
+latest published release, not the commit that started it. A prerelease, or an
+older version published later, changes nothing. It runs the frontend tests,
+builds `dist-web/` from the release tag, deploys it with Wrangler to the
+Cloudflare Pages project `wavetyper-lite` and checks that
+https://wavetyper.marcwieland.name answers cross-origin isolated.
+
+- It needs two secrets in the `lite` environment: `CLOUDFLARE_API_TOKEN`, an
+  API token with the account permission Cloudflare Pages: Edit, and
+  `CLOUDFLARE_ACCOUNT_ID`. Without them the job fails instead of skipping, so
+  Lite never falls behind unnoticed.
+- GitHub starts it only for a release published by a person, as the `release`
+  skill does with `gh`. A release published by another workflow with
+  `GITHUB_TOKEN` starts nothing.
+- A change on `main` reaches Lite with the next release, never on its own.
+- To deploy again, for example after a failed run, start `lite` by hand under
+  Actions, or with `gh workflow run lite`. It deploys the latest published
+  release again.
 
 ## The Pro module
 
