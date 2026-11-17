@@ -97,7 +97,7 @@ export const Search = (p: Props) => (
 
 export const Wave = (p: Props) => (
   <Icon {...p}>
-    <path d="M3.9 9.1v5.8M7.75 5.4v13.2M11.6 7.9v8.2M15.9 7.6h4.2M15.9 12h4.2M15.9 16.4h2.2" />
+    <path d="M4.3 9.1v5.8M8.15 5.4v13.2M12 7.9v8.2M15.85 6.4v11.2M19.7 10v4" />
   </Icon>
 );
 
