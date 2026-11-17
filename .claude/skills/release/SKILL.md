@@ -24,25 +24,32 @@ git status -sb
 Work on `main` with a clean tree. Main must not be behind `origin/main`. Being
 ahead is fine: those commits go out with the release.
 
+When `pro/` exists, bring Pro's `stable` up to date in both editions, because
+`scripts/brand-sync.mjs` takes the brand from it:
+
+```bash
+git -C pro fetch origin
+git -C pro status -sb
+git -C pro log --oneline origin/stable..origin/main
+```
+
+The list is what `main` holds and `stable` does not. If it lists anything,
+show it and ask whether to promote it. Promote as `pro/README.md` describes,
+fetch again and run `node scripts/brand-sync.mjs --check`. When it reports
+drift, or the promoted commits touch `brand/logo/`, run the sync and commit
+the synced files on their own. If `pro` has changes of its own, is not on
+`main`, or the push fails, stop and report.
+
 Check whether the build includes Pro:
 
 ```bash
 gh secret list | grep -q '^PRO_DEPLOY_KEY' && echo pro || echo free
 ```
 
-`free` builds the free app: skip every Pro step below. With `pro`, the
-release ships Pro's `stable` branch, not its `main`:
-
-```bash
-git -C pro fetch origin
-git -C pro log -1 --format='%h %s' origin/stable
-git -C pro log --oneline origin/stable..origin/main
-```
-
-Name the Pro commit that ships. The second list is what `main` holds and
-`stable` does not. If it lists anything, ask whether to promote it first,
-as `pro/README.md` describes. Without `pro/` on disk, stop, because the build
-checks out Pro at the release tag.
+`free` builds the free app: skip the Pro steps below. `pro` ships Pro's
+`stable` branch, not its `main`, so name the commit that ships:
+`git -C pro log -1 --format='%h %s' origin/stable`. Without `pro/` on disk,
+stop, because the build checks out Pro at the release tag.
 
 ## 2. Pick the version
 
@@ -120,7 +127,7 @@ mock hold version strings that are fixtures:
 - `"version"` in `package.json`
 - `"version"` in `src-tauri/tauri.conf.json`
 
-Cargo rewrites the two workspace entries in `Cargo.lock` during step 6.
+Cargo rewrites the three workspace entries in `Cargo.lock` during step 6.
 
 ## 6. Run the checks
 
@@ -129,8 +136,8 @@ pnpm typecheck && pnpm test && cargo test --workspace
 git diff --stat
 ```
 
-All must pass. The diff covers `CHANGELOG.md` plus 4 files with 5 version
-lines: `Cargo.lock` (2), `Cargo.toml`, `package.json` and
+All must pass. The diff covers `CHANGELOG.md` plus 4 files with 6 version
+lines: `Cargo.lock` (3), `Cargo.toml`, `package.json` and
 `src-tauri/tauri.conf.json`.
 
 ## 7. Commit
