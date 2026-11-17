@@ -64,7 +64,7 @@ const webHead = {
         meta({ property: "og:image", content: `${SITE}og-image.png` }),
         meta({ property: "og:image:width", content: "1200" }),
         meta({ property: "og:image:height", content: "630" }),
-        meta({ property: "og:image:alt", content: "Audio to text. In your browser. A transcript with speakers, timecodes and a waveform in wavetyper Lite." }),
+        meta({ property: "og:image:alt", content: "Audio to text. In your browser. A transcript with timecodes and a waveform in wavetyper Lite." }),
         meta({ name: "twitter:card", content: "summary_large_image" }),
         meta({ name: "twitter:image", content: `${SITE}og-image.png` }),
         { tag: "script", attrs: { type: "application/ld+json" }, children: JSON.stringify(app), injectTo: "head" as const },

@@ -2,9 +2,11 @@
 <html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
-<link rel="stylesheet" href="/src/styles/index.css">
+<link rel="stylesheet" href="/src/styles/tokens.css">
+<link rel="stylesheet" href="/src/styles/fonts.css">
+<link rel="stylesheet" href="/src/styles/base.css">
 <style>
-  html, body { width: 1200px; height: 630px; overflow: hidden; background: var(--palette-neutral-50); }
+  html, body { width: 1200px; height: 630px; overflow: hidden; background: var(--palette-neutral-100); }
   .og { display: grid; grid-template-columns: 440px 1fr; gap: var(--space-5); height: 100%; padding: var(--space-5); }
   .og-copy { display: flex; flex-direction: column; }
   .og-brand { display: flex; align-items: center; gap: var(--space-3); }
@@ -13,11 +15,26 @@
   .og h1 { margin: auto 0 var(--space-3); font: var(--font-weight-medium) var(--font-size-heading-1) / var(--font-line-height-heading-1) var(--font-family-display); letter-spacing: calc(var(--font-tracking-heading-1) * 1em); color: var(--ink); }
   .og h1 em { color: var(--pine); }
   .og .cursor { display: inline-block; width: 0.08em; height: 0.85em; margin-left: 0.18em; border-radius: var(--radius-cursor); background: var(--pine); vertical-align: -0.11em; }
-  .og .lead { font-size: var(--font-size-lead); line-height: var(--font-line-height-lead); color: var(--ink-muted); }
+  .og .lead { font-size: var(--font-size-lead); line-height: var(--font-line-height-lead); color: var(--ink-muted); text-wrap: balance; }
   .og .label { margin-top: auto; }
-  .og-shot { align-self: center; width: 600px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); padding: var(--space-3); }
-  .og-shot .card { margin: 0; }
-  .og-shot .card + .card { margin-top: var(--space-3); }
+
+  /* The landing page preview, as pro/brand/examples/website.html builds it. */
+  .preview { align-self: center; background: var(--surface-raised); border: 1px solid var(--edge); border-radius: var(--radius-lg); overflow: hidden; }
+  .preview > * + * { border-top: 1px solid var(--edge); }
+  .preview .bar, .preview .player, .preview .foot { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); }
+  .preview .bar .pill, .preview .player .data:last-child, .preview .foot .tag { margin-left: auto; }
+  .preview .data { font-family: var(--font-family-mono); font-size: var(--font-size-timecode); line-height: var(--font-line-height-timecode); color: var(--ink-muted); }
+  .preview .pill { display: inline-flex; align-items: center; padding: 0 var(--space-2); border-radius: var(--radius-full); background: var(--pine-soft); color: var(--ink); font-size: var(--font-size-label); line-height: var(--font-line-height-small); }
+  .preview .play { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-full); background: var(--pine); color: var(--on-pine); }
+  .preview .wave { display: inline-flex; align-items: center; gap: var(--size-wave-gap); height: 28px; }
+  .preview .wave i { flex: none; width: var(--size-wave-bar); border-radius: var(--radius-full); background: var(--line); }
+  .preview .wave i.played { background: var(--pine); }
+  .preview .lines { padding: var(--space-2); }
+  .preview .line { display: grid; grid-template-columns: 88px 1fr; gap: var(--space-3); padding: var(--space-2); border-radius: var(--radius-sm); }
+  .preview .line p { margin: 0; font-size: var(--font-size-small); line-height: var(--font-line-height-small); }
+  .preview .line.is-active { background: var(--pine-soft); }
+  .preview .line.is-active .data { color: var(--ink); }
+  .preview .tag { padding: var(--space-2); border: var(--size-button-outline) solid var(--pine); border-radius: var(--radius-sm); font: var(--font-weight-semibold) var(--font-size-label) / var(--font-line-height-label) var(--font-family-sans); text-box: trim-both cap alphabetic; background: var(--pine); color: var(--on-pine); }
 </style>
 </head>
 <body>
@@ -28,36 +45,30 @@
     <p class="lead">Free, no account, and your recording is never uploaded.</p>
     <p class="label">About 100 languages · Text and subtitles</p>
   </div>
-  <div class="og-shot">
-    <section class="result">
-      <div class="card result-card">
-        <div class="result-top"><div class="titles"><h2 class="title-line">interview</h2></div></div>
-        <p class="meta-line data"><span class="meta-text">12 Mar, 10:04 · 00:58:10 · M4A audio · English</span></p>
-        <div class="result-foot"><div class="export-row"><span class="label">Export</span><span class="format-tags"><button type="button" class="format-tag selected">.txt</button><button type="button" class="format-tag">.srt</button><button type="button" class="format-tag">.vtt</button></span></div></div>
-      </div>
-      <div class="card transcript-card">
-        <div class="transcript-tools"><div class="player">
-          <button type="button" class="play" aria-label="Pause"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" style="stroke-width: var(--size-icon-stroke)"><path d="M9 6v12M15 6v12"/></svg></button>
-          <div class="wave-slider has-wave"><span class="wave-bars" id="bars"></span></div>
-          <span class="player-time data tabular">00:14:32 / 00:58:10</span>
-        </div></div>
-        <div class="transcript lines">
-          <p class="line has-meta"><span class="line-meta"><span class="time">00:14:28</span><span class="who s0"><span class="line-dot"></span><span class="who-name">Ana</span></span></span><span class="line-text" dir="auto">How did the first week go?</span></p>
-          <p class="line has-meta current"><span class="line-meta"><span class="time">00:14:32</span><span class="who s1"><span class="line-dot"></span><span class="who-name">Luis</span></span></span><span class="line-text" dir="auto">Intense, but very <span class="word now">clear</span>. We knew what to do from the second day on.</span></p>
-          <p class="line has-meta"><span class="line-meta"><span class="time">00:14:41</span><span class="who s0"><span class="line-dot"></span><span class="who-name">Ana</span></span></span><span class="line-text" dir="auto">And what changed after that?</span></p>
-        </div>
-      </div>
-    </section>
+  <div class="preview">
+    <div class="bar"><span class="data">interview.m4a</span><span class="pill">Nothing uploaded</span></div>
+    <div class="player">
+      <span class="play"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg></span>
+      <span class="wave" data-bars="8 14 10 20 12 24 16 10 22 14 18 8 16 24 12 10 18 14 8 12 16" data-played="12"></span>
+      <span class="data">04:31 / 08:10</span>
+    </div>
+    <div class="lines">
+      <div class="line"><span class="data">00:04:26</span><p>How did the first week go?</p></div>
+      <div class="line is-active"><span class="data">00:04:31</span><p>Intense, but very clear. We knew what to do and who to ask.</p></div>
+      <div class="line"><span class="data">00:04:40</span><p>And what changed after that?</p></div>
+    </div>
+    <div class="foot"><span class="data">8 min · 1,102 words</span><span class="tag">Export .txt</span></div>
   </div>
 </div>
 <script>
-  const bars = document.getElementById("bars");
-  for (let i = 0; i < 72; i++) {
-    const h = 30 + 65 * Math.abs(Math.sin(i * 0.37) * Math.cos(i * 0.11));
-    const bar = document.createElement("i");
-    bar.style.height = `${Math.round(h)}%`;
-    if (i < 18) bar.className = "played";
-    bars.append(bar);
+  for (const wave of document.querySelectorAll(".wave[data-bars]")) {
+    const played = Number(wave.dataset.played);
+    wave.dataset.bars.split(" ").forEach((height, i) => {
+      const bar = document.createElement("i");
+      bar.style.height = `${height}px`;
+      if (i < played) bar.className = "played";
+      wave.append(bar);
+    });
   }
 </script>
 </body>
