@@ -4,6 +4,14 @@ All notable changes to wavetyper. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-11-17
+
+### Fixed
+
+- Dialogs in dark mode take the window's ink color, and the dimmed window behind sets them apart (ui, 2cdd5d4)
+- The drop zone shows an audio wave instead of the mark, which already sits in the top bar (ui, 67624bd)
+- The browser version's share image shows the landing page preview: timecodes and a recording under 10 minutes, without speakers (browser, 18e98eb)
+
 ## [0.5.0] - 2026-11-16
 
 ### Added
@@ -184,6 +192,7 @@ All notable changes to wavetyper. The format follows
 - Play, search and correct transcripts in a redesigned window (ui, be70525)
 - App icon (app, 0c9a0c4)
 
+[0.5.1]: https://github.com/mawiswiss/wavetyper/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/mawiswiss/wavetyper/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mawiswiss/wavetyper/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/mawiswiss/wavetyper/compare/v0.3.2...v0.3.3
