@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: lite
-      url: https://wavetyper.marcwieland.name
+      url: https://lite.wavetyper.com
     # Actions are pinned to commits, because they can read the Cloudflare token.
     steps:
       - name: Find the latest published release
@@ -57,24 +57,24 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build:web
-      - name: Check that every file fits Cloudflare Pages
+      - name: Check that every file fits Cloudflare
         run: |
           if [ -n "$(find dist-web -type f -size +25M)" ]; then
             find dist-web -type f -size +25M
-            echo "::error::Cloudflare Pages refuses files over 25 MiB."
+            echo "::error::Cloudflare refuses static files over 25 MiB."
             exit 1
           fi
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           TAG: ${{ steps.release.outputs.tag }}
         run: |
-          pnpm dlx wrangler@4.151.0 pages deploy dist-web --project-name=wavetyper-lite --branch=main \
-            --commit-hash="$(git rev-parse HEAD)" --commit-message="wavetyper $TAG"
+          pnpm dlx wrangler@4.151.0 deploy --name wavetyper-lite --assets dist-web --compatibility-date 2026-11-21 \
+            --domains lite.wavetyper.com --no-autoconfig --tag "$TAG" --message "wavetyper $TAG"
       - name: Check that the site answers cross-origin isolated
         run: |
-          headers=$(curl -fsSI https://wavetyper.marcwieland.name/)
+          headers=$(curl -fsSI https://lite.wavetyper.com/)
           echo "$headers"
           echo "$headers" | grep -qi '^cross-origin-opener-policy: same-origin'
           echo "$headers" | grep -qi '^cross-origin-embedder-policy: require-corp'

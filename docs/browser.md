@@ -16,21 +16,21 @@ system, and on an iPad, it offers all three installers.
 
 ```sh
 pnpm dev:web      # http://localhost:1432, with the COOP and COEP headers
-pnpm build:web    # dist-web/, what Cloudflare Pages serves
+pnpm build:web    # dist-web/, what Cloudflare serves
 pnpm wasm         # src/lib/web/engine.wasm alone, needs the wasm32-unknown-unknown target
 ```
 
-`dist-web/` is a static site on Cloudflare Pages at
-https://wavetyper.marcwieland.name. The `lite` workflow deploys it from the
+`dist-web/` is a static site on Cloudflare at https://lite.wavetyper.com, the
+files of the Worker `wavetyper-lite`. The `lite` workflow deploys it from the
 release tag whenever a release is published, see "Browser version" in
-`docs/release.md`. A redirect rule on the zone sends the
-former address, https://tlansclaib.marcwieland.name, there with its path.
-Each address is its own origin, so a model downloaded on the old one is not
-seen on the new one. `public-web/_headers` makes the page
-cross-origin isolated there, as the dev server does, so it runs as tested.
-Cloudflare Pages refuses files over 25 MiB. Its Web Analytics is on, which
-counts visits without cookies. About in Lite promises no cookies, so keep it
-that way.
+`docs/release.md`. The former addresses, https://wavetyper.marcwieland.name
+and https://tlansclaib.marcwieland.name, belong to another Cloudflare account,
+which no longer hosts Lite. Each address is its own origin, so a model
+downloaded on an old one is not seen on the new one. `public-web/_headers`
+makes the page cross-origin isolated there, as the dev server does, so it runs
+as tested. Cloudflare refuses static files over 25 MiB. Its Web Analytics,
+turned on for the host in the dashboard, counts visits without cookies. About
+in Lite promises no cookies, so keep it that way.
 
 The title, description, canonical URL, social tags and JSON-LD come from the
 `webHead` plugin in `vite.config.ts`, so the desktop build carries none of
@@ -61,8 +61,8 @@ them. `public-web/` holds `robots.txt` and the icons.
   revision and the size and SHA-256 of each model file and of ONNX Runtime's
   wasm. A file is kept only when both match. Bumping
   `@huggingface/transformers` or `onnxruntime-web` means new pins.
-- **ONNX Runtime's wasm comes from jsDelivr.** At 26.9 MB it is over Cloudflare
-  Pages' 25 MiB file limit. It is checked like a model file.
+- **ONNX Runtime's wasm comes from jsDelivr.** At 26.9 MB it is over
+  Cloudflare's 25 MiB file limit. It is checked like a model file.
 - **Cache Storage refused the 370 MB encoder** in Chrome 152, the Claude
   desktop app's browser pane, with "Unexpected internal error". The files live
   in OPFS.

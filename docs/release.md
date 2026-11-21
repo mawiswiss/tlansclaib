@@ -100,14 +100,14 @@ version as the desktop app and its download buttons lead to the installers of
 that version. `lite.yml` runs when a release is published and deploys the
 latest published release, not the commit that started it. A prerelease, or an
 older version published later, changes nothing. It runs the frontend tests,
-builds `dist-web/` from the release tag, deploys it with Wrangler to the
-Cloudflare Pages project `wavetyper-lite` and checks that
-https://wavetyper.marcwieland.name answers cross-origin isolated.
+builds `dist-web/` from the release tag, deploys it with Wrangler as the
+static files of the Cloudflare Worker `wavetyper-lite` and checks that
+https://lite.wavetyper.com answers cross-origin isolated.
 
 - It needs two secrets in the `lite` environment: `CLOUDFLARE_API_TOKEN`, an
-  API token with the account permission Cloudflare Pages: Edit, and
-  `CLOUDFLARE_ACCOUNT_ID`. Without them the job fails instead of skipping, so
-  Lite never falls behind unnoticed.
+  API token from the template Edit Cloudflare Workers for the account and the
+  zone `wavetyper.com`, and `CLOUDFLARE_ACCOUNT_ID`. Without them the job fails
+  instead of skipping, so Lite never falls behind unnoticed.
 - GitHub starts it only for a release published by a person, as the `release`
   skill does with `gh`. A release published by another workflow with
   `GITHUB_TOKEN` starts nothing.

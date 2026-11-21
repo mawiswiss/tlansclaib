@@ -8,7 +8,7 @@ const host = process.env.TAURI_DEV_HOST;
 // The browser version runs cross-origin isolated, as public-web/_headers sets it in production.
 const isolated = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" };
 
-// onnxruntime-web references its 27 MB wasm, over Cloudflare Pages' 25 MiB limit. The page loads the pinned copy from jsDelivr instead.
+// onnxruntime-web references its 27 MB wasm, over Cloudflare's 25 MiB limit. The page loads the pinned copy from jsDelivr instead.
 const dropOrtWasm = {
   name: "drop-ort-wasm",
   generateBundle(_: unknown, bundle: Record<string, unknown>) {
@@ -16,7 +16,7 @@ const dropOrtWasm = {
   },
 };
 
-const SITE = "https://wavetyper.marcwieland.name/";
+const SITE = "https://lite.wavetyper.com/";
 const TITLE = "wavetyper Lite: transcribe audio in your browser, nothing uploaded";
 const DESCRIPTION =
   "Transcribe audio and video to text or subtitles in your browser, in about 100 languages. Free, no sign-up, and the recording never leaves your computer.";
