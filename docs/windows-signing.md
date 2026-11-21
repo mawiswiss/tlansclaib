@@ -92,10 +92,13 @@ because billing runs per account and not per validation.
 2. An Artifact Signing account on the Basic tier, in a region that offers the
    service. The quickstart lists the regions and their endpoints.
 3. An identity validation of type Organization and Public, in the Azure
-   portal. It needs the legal name, a business identifier, the website, a
-   primary and a secondary email address on the organisation's domain, and
-   the address. A representative then verifies with a government ID.
-   Microsoft gives 1 to 20 business days for it.
+   portal. It needs the legal name, a business identifier, the website, the
+   address and two email addresses on a domain the organisation owns. The
+   primary belongs to one person, not a shared mailbox or distribution list,
+   and must accept mail with links from outside senders. The secondary
+   differs from it, may be a distribution list, and uses the same domain. A
+   representative then verifies with a government ID, under the exact name
+   on it. Microsoft gives 1 to 20 business days for it.
 4. A certificate profile of type Public Trust that uses this identity.
 5. An app registration in Entra ID for the release workflow, with the role
    "Artifact Signing Certificate Profile Signer" scoped to the certificate
